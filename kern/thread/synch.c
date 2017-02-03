@@ -143,6 +143,8 @@ lock_create(const char *name)
 {
 	struct lock *lock;
 
+	// kprintf("i exists");
+
 	lock = kmalloc(sizeof(*lock));
 	if (lock == NULL) {
 		return NULL;
@@ -153,6 +155,14 @@ lock_create(const char *name)
 		kfree(lock);
 		return NULL;
 	}
+	lock->lock_wchan = wchan_create(lock->lk_name);
+	if (lock->lock_wchan == NULL) {
+		kfree(lock->lk_name);
+		kfree(lock);
+		return NULL;
+	}
+		lock->taken = false;
+	spinlock_init(&lock->slock);
 
 	// add stuff here as needed
 
@@ -162,38 +172,80 @@ lock_create(const char *name)
 void
 lock_destroy(struct lock *lock)
 {
+	//make sure that the lock is valid and isnt being held
 	KASSERT(lock != NULL);
+	KASSERT(lock->taken == false);
 
 	// add stuff here as needed
+	// kprintf("i died");
 
+	// clean up all my varibles
 	kfree(lock->lk_name);
+	spinlock_cleanup(&lock->slock);
+	wchan_destroy(lock->lock_wchan);
 	kfree(lock);
 }
 
 void
 lock_acquire(struct lock *lock)
 {
-	// Write this
 
-	(void)lock;  // suppress warning until code gets written
+	//make sure that the current thread exists
+	KASSERT(curthread != NULL);
+	//make sure that the lock exists
+	KASSERT(lock != NULL);
+	//lock down the varibles
+	spinlock_acquire(&lock->slock);
+	//while someone has the lock sleep all incomming threads
+	while (lock->taken == true) {
+		wchan_sleep(lock->lock_wchan, &lock->slock);
+	}
+	//set ownership of the thread
+	lock->currentThread = curthread;
+	lock->taken = true;
+	// allow the varibles to be modified again
+	spinlock_release(&lock->slock);
+
+		
+	
 }
 
 void
 lock_release(struct lock *lock)
 {
-	// Write this
+	//make sure that the current thread exists
+	KASSERT(curthread != NULL);
+	//make sure that the lock exists
+	KASSERT(lock != NULL);
+	//make sure the calling thread owns the lock
+	KASSERT(lock_do_i_hold(lock));
 
-	(void)lock;  // suppress warning until code gets written
+	//lock down the lock so that no other thread can mess with the varibles
+	spinlock_acquire(&lock->slock);
+	//set taken back to false
+	lock->taken = false;
+	//reset ownership of the thread
+	lock->currentThread = NULL;
+	//wake a waiting thread so they can begin work
+	wchan_wakeone(lock->lock_wchan, &lock->slock);
+	//let the vairibles be modified agian
+	spinlock_release(&lock->slock);
+
 }
 
 bool
 lock_do_i_hold(struct lock *lock)
 {
-	// Write this
+	//make sure current thread exists
+	KASSERT(curthread != NULL);
+	//make sure the lock exists
+	KASSERT(lock != NULL);
+	//make sure the owner of the lock is calling for its release
+	if(curthread == lock->currentThread){
+		return true;
+	}
 
-	(void)lock;  // suppress warning until code gets written
-
-	return true; // dummy until code gets written
+	return false; // dummy until code gets written
 }
 
 ////////////////////////////////////////////////////////////

@@ -74,6 +74,15 @@ void V(struct semaphore *);
  */
 struct lock {
         char *lk_name;
+        //is the lock being held
+        bool taken;
+        //thread who is holding the lock
+        struct thread *currentThread;
+        //wait channel for the waiting threads
+        struct wchan *lock_wchan;
+        //spin lock to be used when the authenticity of the other varibles mut be ensured
+        struct spinlock slock;
+
         // add what you need here
         // (don't forget to mark things volatile as needed)
 };
