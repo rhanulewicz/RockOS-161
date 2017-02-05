@@ -160,6 +160,15 @@ void cv_broadcast(struct cv *cv, struct lock *lock);
 
 struct rwlock {
         char *rwlock_name;
+        unsigned int readers;
+        bool writeRequested;
+        struct wchan *read_wchan;
+        struct wchan *write_wchan;
+        struct thread* writer;
+        struct thread* threadList[40];
+        struct spinlock rwslock;
+        unsigned int listIndex;
+
         // add what you need here
         // (don't forget to mark things volatile as needed)
 };
@@ -183,5 +192,7 @@ void rwlock_acquire_read(struct rwlock *);
 void rwlock_release_read(struct rwlock *);
 void rwlock_acquire_write(struct rwlock *);
 void rwlock_release_write(struct rwlock *);
-
+void increaseArraySize(struct rwlock* rwlock, int newSize);
+void shiftArray(struct rwlock* rwlock);
+bool amIReading(struct rwlock* rwlock);
 #endif /* _SYNCH_H_ */

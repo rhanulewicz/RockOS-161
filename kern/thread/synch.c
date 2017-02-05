@@ -258,6 +258,7 @@ cv_create(const char *name)
 {
 	struct cv *cv;
 
+
 	cv = kmalloc(sizeof(*cv));
 	if (cv == NULL) {
 		return NULL;
@@ -327,4 +328,136 @@ cv_broadcast(struct cv *cv, struct lock *lock)
 	spinlock_release(&cv->cvlock);
 	(void)cv;    // suppress warning until code gets written
 	(void)lock;  // suppress warning until code gets written
+}
+
+
+struct rwlock * rwlock_create(const char *name){
+	struct rwlock *rwlock;
+
+	rwlock = kmalloc(sizeof(*rwlock));
+	if (rwlock == NULL) {
+		return NULL;
+	}
+
+	rwlock->rwlock_name = kstrdup(name);
+	if (rwlock->rwlock_name == NULL) {
+		kfree(rwlock);
+		return NULL;
+	}
+	rwlock->write_wchan = wchan_create(rwlock->rwlock_name);
+	if (rwlock->write_wchan == NULL) {
+		kfree(rwlock->rwlock_name);
+		kfree(rwlock);
+		return NULL;
+	}
+	rwlock->read_wchan = wchan_create(rwlock->rwlock_name);
+	if (rwlock->read_wchan == NULL) {
+		kfree(rwlock->rwlock_name);
+		kfree(rwlock);
+		return NULL;
+	}
+
+	rwlock->listIndex = 0;
+	rwlock->writer = NULL; 
+	rwlock->writeRequested = false;
+	spinlock_init(&rwlock->rwslock);
+	return rwlock;
+
+}
+void rwlock_destroy(struct rwlock *rwlock){
+	//make sure that the lock is valid and isnt being held
+	KASSERT(rwlock != NULL);
+
+	// add stuff here as needed
+	// kprintf("i died");
+
+	// clean up all my varibles
+	kfree(rwlock->rwlock_name);
+	kfree(rwlock);
+}
+
+void rwlock_acquire_read(struct rwlock *rwlock){
+	spinlock_acquire(&rwlock->rwslock);
+	while(rwlock->writeRequested){
+		wchan_sleep(rwlock->read_wchan, &rwlock->rwslock);
+	}
+	rwlock->readers++;
+	rwlock->threadList[rwlock->listIndex] = curthread;
+	rwlock->listIndex++;
+	spinlock_release(&rwlock->rwslock);
+	(void)rwlock;
+	return;
+}
+void rwlock_release_read(struct rwlock *rwlock){
+		KASSERT(amIReading(rwlock));
+		spinlock_acquire(&rwlock->rwslock);
+		shiftArray(rwlock);
+		rwlock->readers--;
+		wchan_wakeone(rwlock->write_wchan,&rwlock->rwslock);
+		spinlock_release(&rwlock->rwslock);
+		(void)rwlock;
+	return;
+}
+void rwlock_acquire_write(struct rwlock *rwlock){
+	spinlock_acquire(&rwlock->rwslock);
+	rwlock->writeRequested = true;
+	while(rwlock->readers > 0 || rwlock->writer != NULL){
+		wchan_sleep(rwlock->write_wchan, &rwlock->rwslock);
+	}
+	rwlock->writer = curthread;
+	spinlock_release(&rwlock->rwslock);
+	(void)rwlock;
+	return;
+}
+void rwlock_release_write(struct rwlock *rwlock){
+		//Assert that we are writing
+		KASSERT(rwlock->writer == curthread);
+		//Critical section
+		spinlock_acquire(&rwlock->rwslock);
+		//Relinquish writer status
+		rwlock->writer = NULL;
+		//Wake thread all reading channel. If nothing on reading channel, wake thread on writing channel
+		if(wchan_isempty(rwlock->read_wchan)){
+			wchan_wakeone(rwlock->write_wchan,&rwlock->rwslock);
+		}
+		else{
+			wchan_wakeall(rwlock->read_wchan,&rwlock->rwslock);
+		}
+
+		spinlock_release(&rwlock->rwslock);
+		//End critical section
+		(void)rwlock;
+	return;
+}
+
+void increaseArraySize(struct rwlock* rwlock, int newSize){
+	struct thread* arr[newSize];
+	for(unsigned int i = 0; i < sizeof(rwlock->threadList)/sizeof(rwlock->threadList[0]); ++i){
+		arr[i] = rwlock->threadList[i];
+		rwlock->threadList[i] = NULL;
+	}
+	// kfree(rwlock->threadList);
+	*rwlock->threadList = *arr;
+
+}
+
+void shiftArray(struct rwlock* rwlock){
+	bool threadFound = false;
+	for(unsigned int i = 0; i < rwlock->listIndex; ++i){
+		if(curthread == rwlock->threadList[i] || threadFound){
+			threadFound = true;
+			rwlock->threadList[i] = rwlock->threadList[i+1];
+		}
+	}
+	rwlock->threadList[rwlock->listIndex - 1] = NULL;
+	rwlock->listIndex--;
+}
+
+bool amIReading(struct rwlock* rwlock){
+	for(unsigned int i = 0; i < rwlock->listIndex; ++i){
+		if(curthread == rwlock->threadList[i]){
+			return true;
+		}
+	}
+	return false;
 }

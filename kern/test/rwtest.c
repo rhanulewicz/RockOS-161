@@ -20,7 +20,11 @@ int rwtest(int nargs, char **args) {
 	(void)nargs;
 	(void)args;
 
-	kprintf_n("rwt1 unimplemented\n");
+	struct rwlock *rwlock = rwlock_create("hello");
+	struct thread* test =rwlock->threadList[0];
+	increaseArraySize(rwlock, 45);
+	KASSERT(rwlock->threadList[0] == test);
+
 	success(TEST161_FAIL, SECRET, "rwt1");
 
 	return 0;
@@ -29,8 +33,12 @@ int rwtest(int nargs, char **args) {
 int rwtest2(int nargs, char **args) {
 	(void)nargs;
 	(void)args;
+	struct rwlock *rwlock = rwlock_create("hello");
+	kprintf_n("Should Panic\n");
+	rwlock_acquire_read(rwlock);
+	rwlock_release_read(rwlock);
 
-	kprintf_n("rwt2 unimplemented\n");
+
 	success(TEST161_FAIL, SECRET, "rwt2");
 
 	return 0;
