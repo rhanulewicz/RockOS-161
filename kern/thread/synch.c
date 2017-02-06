@@ -297,13 +297,10 @@ cv_destroy(struct cv *cv)
 void
 cv_wait(struct cv *cv, struct lock *lock)
 {
-    lock_release(lock);
     spinlock_acquire(&cv->cvlock);
+    lock_release(lock);
     wchan_sleep(cv->cv_wchan, &cv->cvlock);
     spinlock_release(&cv->cvlock);
-    while(lock->taken == true){
-    	
-    }
     lock_acquire(lock);
 
 }
@@ -413,9 +410,6 @@ void rwlock_acquire_write(struct rwlock *rwlock){
 	while(rwlock->readers > 0){
 		kprintf("write request sleepy \n");
 		wchan_sleep(rwlock->write_wchan, &rwlock->rwslock);
-	}
-	while(rwlock->writer != NULL){
-
 	}
 	kprintf("write request servered \n");
 	rwlock->writer = curthread;
