@@ -195,4 +195,5 @@ void rwlock_release_write(struct rwlock *);
 void increaseArraySize(struct rwlock* rwlock, int newSize);
 void shiftArray(struct rwlock* rwlock);
 bool amIReading(struct rwlock* rwlock);
+int getTestVar(void);
 #endif /* _SYNCH_H_ */

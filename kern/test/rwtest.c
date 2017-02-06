@@ -15,6 +15,7 @@
 /*
  * Use these stubs to test your reader-writer locks.
  */
+
  static struct rwlock *rwlock;
 static void lockread(void *junk, unsigned long num){
 	(void)junk;
@@ -73,13 +74,19 @@ int rwtest3(int nargs, char **args) {
 	rwlock = rwlock_create("hello");
 
 	thread_fork("synchtest", NULL, lockread, 0, i);	
-	thread_fork("synchtest", NULL, lockread, 0, i);
+	thread_fork("synchtest", NULL, lockread, 0, i);	
+	thread_fork("synchtest", NULL, lockread, 0, i);	
 	thread_fork("synchtest", NULL, lockwrite, 0, i);
-	thread_fork("synchtest", NULL, lockread, 0, i);
+	thread_fork("synchtest", NULL, lockread, 0, i);	
+	thread_fork("synchtest", NULL, lockread, 0, i);	
 	thread_fork("synchtest", NULL, lockread, 0, i);	
 	thread_fork("synchtest", NULL, lockwrite, 0, i);
 
-	success(TEST161_FAIL, SECRET, "rwt3");
+	for(int i = 0; i < 1500000; ++i){
+
+	}
+
+	success(getTestVar() == 30 ? TEST161_SUCCESS:TEST161_FAIL, SECRET, "rwt3");
 
 	return 0;
 }

@@ -43,7 +43,7 @@
 ////////////////////////////////////////////////////////////
 //
 // Semaphore.
-
+static int testvar = 20;
 struct semaphore *
 sem_create(const char *name, unsigned initial_count)
 {
@@ -382,14 +382,16 @@ void rwlock_acquire_read(struct rwlock *rwlock){
 	while(rwlock->writer != NULL){
 
 	}
-	kprintf("read request served \n");
+
 	rwlock->readers++;
 	rwlock->threadList[rwlock->listIndex] = curthread;
 	rwlock->listIndex++;
 	if(rwlock->listIndex +2 >= sizeof(rwlock->threadList)/sizeof(rwlock->threadList[0])){
 		increaseArraySize(rwlock, rwlock->listIndex + 25);
 	}
+	kprintf("test var read: %d\n", testvar);
 	spinlock_release(&rwlock->rwslock);
+
 	(void)rwlock;
 	return;
 }
@@ -411,7 +413,9 @@ void rwlock_acquire_write(struct rwlock *rwlock){
 		kprintf("write request sleepy \n");
 		wchan_sleep(rwlock->write_wchan, &rwlock->rwslock);
 	}
-	kprintf("write request servered \n");
+	testvar = testvar + 5;
+	kprintf("test var written to: %d \n", testvar);
+	
 	rwlock->writer = curthread;
 	spinlock_release(&rwlock->rwslock);
 	(void)rwlock;
@@ -471,4 +475,8 @@ bool amIReading(struct rwlock* rwlock){
 		}
 	}
 	return false;
+}
+
+int getTestVar(){
+	return testvar;
 }
