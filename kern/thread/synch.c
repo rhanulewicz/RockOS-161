@@ -379,31 +379,45 @@ void rwlock_destroy(struct rwlock *rwlock){
 void rwlock_acquire_read(struct rwlock *rwlock){
 	spinlock_acquire(&rwlock->rwslock);
 	while(rwlock->writeRequested){
+		kprintf("read request sleepy \n");
 		wchan_sleep(rwlock->read_wchan, &rwlock->rwslock);
 	}
+	while(rwlock->writer != NULL){
+
+	}
+	kprintf("read request served \n");
 	rwlock->readers++;
 	rwlock->threadList[rwlock->listIndex] = curthread;
 	rwlock->listIndex++;
+	if(rwlock->listIndex +2 >= sizeof(rwlock->threadList)/sizeof(rwlock->threadList[0])){
+		increaseArraySize(rwlock, rwlock->listIndex + 25);
+	}
 	spinlock_release(&rwlock->rwslock);
 	(void)rwlock;
 	return;
 }
 void rwlock_release_read(struct rwlock *rwlock){
-		KASSERT(amIReading(rwlock));
-		spinlock_acquire(&rwlock->rwslock);
-		shiftArray(rwlock);
-		rwlock->readers--;
-		wchan_wakeone(rwlock->write_wchan,&rwlock->rwslock);
-		spinlock_release(&rwlock->rwslock);
-		(void)rwlock;
+	KASSERT(amIReading(rwlock));
+	spinlock_acquire(&rwlock->rwslock);
+	kprintf("reader releasing  \n");
+	shiftArray(rwlock);
+	rwlock->readers--;
+	wchan_wakeone(rwlock->write_wchan,&rwlock->rwslock);
+	spinlock_release(&rwlock->rwslock);
+	(void)rwlock;
 	return;
 }
 void rwlock_acquire_write(struct rwlock *rwlock){
 	spinlock_acquire(&rwlock->rwslock);
 	rwlock->writeRequested = true;
-	while(rwlock->readers > 0 || rwlock->writer != NULL){
+	while(rwlock->readers > 0){
+		kprintf("write request sleepy \n");
 		wchan_sleep(rwlock->write_wchan, &rwlock->rwslock);
 	}
+	while(rwlock->writer != NULL){
+
+	}
+	kprintf("write request servered \n");
 	rwlock->writer = curthread;
 	spinlock_release(&rwlock->rwslock);
 	(void)rwlock;
@@ -414,16 +428,18 @@ void rwlock_release_write(struct rwlock *rwlock){
 		KASSERT(rwlock->writer == curthread);
 		//Critical section
 		spinlock_acquire(&rwlock->rwslock);
-		//Relinquish writer status
-		rwlock->writer = NULL;
+		kprintf("writer releasing \n");
 		//Wake thread all reading channel. If nothing on reading channel, wake thread on writing channel
-		if(wchan_isempty(rwlock->read_wchan)){
+		if(wchan_isempty(rwlock->read_wchan, &rwlock->rwslock)){
+			kprintf("wake a write \n");
 			wchan_wakeone(rwlock->write_wchan,&rwlock->rwslock);
 		}
 		else{
+			kprintf("wake all reads \n");
 			wchan_wakeall(rwlock->read_wchan,&rwlock->rwslock);
 		}
-
+		//Relinquish writer status
+		rwlock->writer = NULL;
 		spinlock_release(&rwlock->rwslock);
 		//End critical section
 		(void)rwlock;
@@ -431,6 +447,7 @@ void rwlock_release_write(struct rwlock *rwlock){
 }
 
 void increaseArraySize(struct rwlock* rwlock, int newSize){
+			kprintf("increasing array size \n");
 	struct thread* arr[newSize];
 	for(unsigned int i = 0; i < sizeof(rwlock->threadList)/sizeof(rwlock->threadList[0]); ++i){
 		arr[i] = rwlock->threadList[i];

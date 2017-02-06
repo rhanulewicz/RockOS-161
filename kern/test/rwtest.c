@@ -15,6 +15,28 @@
 /*
  * Use these stubs to test your reader-writer locks.
  */
+ static struct rwlock *rwlock;
+static void lockread(void *junk, unsigned long num){
+	(void)junk;
+	(void)num;
+	rwlock_acquire_read(rwlock);
+	for(int i = 0; i < 25000; i++){
+
+	}
+	rwlock_release_read(rwlock);
+
+}
+
+static void lockwrite(void *junk, unsigned long num){
+	(void)junk;
+	(void)num;
+	rwlock_acquire_write(rwlock);
+	for(int i = 0; i < 2500; ++i){
+		
+	}
+	rwlock_release_write(rwlock);
+
+}
 
 int rwtest(int nargs, char **args) {
 	(void)nargs;
@@ -47,8 +69,16 @@ int rwtest2(int nargs, char **args) {
 int rwtest3(int nargs, char **args) {
 	(void)nargs;
 	(void)args;
+	unsigned long i = 0;
+	rwlock = rwlock_create("hello");
 
-	kprintf_n("rwt3 unimplemented\n");
+	thread_fork("synchtest", NULL, lockread, 0, i);	
+	thread_fork("synchtest", NULL, lockread, 0, i);
+	thread_fork("synchtest", NULL, lockwrite, 0, i);
+	thread_fork("synchtest", NULL, lockread, 0, i);
+	thread_fork("synchtest", NULL, lockread, 0, i);	
+	thread_fork("synchtest", NULL, lockwrite, 0, i);
+
 	success(TEST161_FAIL, SECRET, "rwt3");
 
 	return 0;
@@ -73,3 +103,6 @@ int rwtest5(int nargs, char **args) {
 
 	return 0;
 }
+
+
+
