@@ -276,9 +276,6 @@ cv_create(const char *name)
 		return NULL;
 	}
 	spinlock_init(&cv->cvlock);
-
-	// add stuff here as needed
-
 	return cv;
 }
 
@@ -286,7 +283,6 @@ void
 cv_destroy(struct cv *cv)
 {
 	KASSERT(cv != NULL);
-
 	// add stuff here as needed
 	spinlock_cleanup(&cv->cvlock);
 	wchan_destroy(cv->cv_wchan);
@@ -312,8 +308,6 @@ cv_signal(struct cv *cv, struct lock *lock)
 	spinlock_acquire(&cv->cvlock);
 	wchan_wakeone(cv->cv_wchan, &cv->cvlock);
 	spinlock_release(&cv->cvlock);
-	(void)cv;    // suppress warning until code gets written
-	(void)lock;  // suppress warning until code gets written
 }
 
 void
@@ -323,8 +317,6 @@ cv_broadcast(struct cv *cv, struct lock *lock)
 	spinlock_acquire(&cv->cvlock);
 	wchan_wakeall(cv->cv_wchan, &cv->cvlock);
 	spinlock_release(&cv->cvlock);
-	(void)cv;    // suppress warning until code gets written
-	(void)lock;  // suppress warning until code gets written
 }
 
 
@@ -382,7 +374,6 @@ void rwlock_acquire_read(struct rwlock *rwlock){
 	while(rwlock->writer != NULL){
 
 	}
-
 	rwlock->readers++;
 	rwlock->threadList[rwlock->listIndex] = curthread;
 	rwlock->listIndex++;
@@ -391,8 +382,6 @@ void rwlock_acquire_read(struct rwlock *rwlock){
 	}
 	kprintf("test var read: %d\n", testvar);
 	spinlock_release(&rwlock->rwslock);
-
-	(void)rwlock;
 	return;
 }
 void rwlock_release_read(struct rwlock *rwlock){
@@ -403,44 +392,41 @@ void rwlock_release_read(struct rwlock *rwlock){
 	rwlock->readers--;
 	wchan_wakeone(rwlock->write_wchan,&rwlock->rwslock);
 	spinlock_release(&rwlock->rwslock);
-	(void)rwlock;
 	return;
 }
 void rwlock_acquire_write(struct rwlock *rwlock){
+
 	spinlock_acquire(&rwlock->rwslock);
 	rwlock->writeRequested = true;
-	while(rwlock->readers > 0){
+	while(rwlock->readers > 0 || rwlock->writer != NULL){
 		kprintf("write request sleepy \n");
 		wchan_sleep(rwlock->write_wchan, &rwlock->rwslock);
 	}
 	testvar = testvar + 5;
 	kprintf("test var written to: %d \n", testvar);
-	
 	rwlock->writer = curthread;
 	spinlock_release(&rwlock->rwslock);
-	(void)rwlock;
 	return;
 }
 void rwlock_release_write(struct rwlock *rwlock){
-		//Assert that we are writing
-		KASSERT(rwlock->writer == curthread);
-		//Critical section
-		spinlock_acquire(&rwlock->rwslock);
-		kprintf("writer releasing \n");
-		//Wake thread all reading channel. If nothing on reading channel, wake thread on writing channel
-		if(wchan_isempty(rwlock->read_wchan, &rwlock->rwslock)){
-			kprintf("wake a write \n");
-			wchan_wakeone(rwlock->write_wchan,&rwlock->rwslock);
-		}
-		else{
-			kprintf("wake all reads \n");
-			wchan_wakeall(rwlock->read_wchan,&rwlock->rwslock);
-		}
-		//Relinquish writer status
-		rwlock->writer = NULL;
-		spinlock_release(&rwlock->rwslock);
-		//End critical section
-		(void)rwlock;
+	//Assert that we are writing
+	KASSERT(rwlock->writer == curthread);
+	//Critical section
+	spinlock_acquire(&rwlock->rwslock);
+	kprintf("writer releasing \n");
+	//Wake thread all reading channel. If nothing on reading channel, wake thread on writing channel
+	if(wchan_isempty(rwlock->read_wchan, &rwlock->rwslock)){
+		kprintf("wake a write \n");
+		wchan_wakeone(rwlock->write_wchan,&rwlock->rwslock);
+	}
+	else{
+		kprintf("wake all reads \n");
+		wchan_wakeall(rwlock->read_wchan,&rwlock->rwslock);
+	}
+	//Relinquish writer status
+	rwlock->writer = NULL;
+	spinlock_release(&rwlock->rwslock);
+	//End critical section
 	return;
 }
 
