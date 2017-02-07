@@ -24,7 +24,7 @@ static void lockread(void *junk, unsigned long num){
 	(void)num;
 	rwlock_acquire_read(rwlock);
 	test = test + 0;
-	KASSERT(test == 5 * wrtieshappend);
+	KASSERT(test == 5 * writeshappend);
 	rwlock_release_read(rwlock);
 
 }
@@ -34,7 +34,7 @@ static void lockwrite(void *junk, unsigned long num){
 	(void)num;
 	rwlock_acquire_write(rwlock);
 	test = test + 5;
-	wrtieshappend++;
+	writeshappend++;
 	rwlock_release_write(rwlock);
 }
 //Tests 1 and 2 work, but only if they are the very first test run in a given kernel session.
