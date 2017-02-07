@@ -205,8 +205,6 @@ lock_acquire(struct lock *lock)
 	lock->taken = true;
 	// allow the varibles to be modified again
 	spinlock_release(&lock->slock);
-
-		
 	
 }
 
@@ -363,6 +361,10 @@ void rwlock_destroy(struct rwlock *rwlock){
 
 	// clean up all my varibles
 	kfree(rwlock->rwlock_name);
+	// kfree(rwlock->listIndex);
+	// kfree(rwlock->writer);
+	// kfree(rwlock->writeRequested);
+	// kfree(rwlock->lock);
 	kfree(rwlock);
 }
 
