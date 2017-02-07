@@ -345,7 +345,7 @@ struct rwlock * rwlock_create(const char *name){
 		kfree(rwlock);
 		return NULL;
 	}
-
+	rwlock->readers = 0;
 	rwlock->listIndex = 0;
 	rwlock->writer = NULL; 
 	rwlock->writeRequested = false;
