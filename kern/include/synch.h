@@ -167,6 +167,7 @@ struct rwlock {
         struct thread* writer;
         struct thread* threadList[40];
         struct spinlock rwslock;
+        struct lock* lock;
         unsigned int listIndex;
 
         // add what you need here
