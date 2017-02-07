@@ -161,12 +161,11 @@ void cv_broadcast(struct cv *cv, struct lock *lock);
 struct rwlock {
         char *rwlock_name;
         unsigned int readers;
-        bool writeRequested;
-        struct wchan *read_wchan;
-        struct wchan *write_wchan;
+        unsigned int writeRequested;
+        struct cv *cv_read;
+        struct cv *cv_write;
         struct thread* writer;
         struct thread* threadList[40];
-        struct spinlock rwslock;
         struct lock* lock;
         unsigned int listIndex;
 

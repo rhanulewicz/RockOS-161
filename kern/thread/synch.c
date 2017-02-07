@@ -331,24 +331,13 @@ struct rwlock * rwlock_create(const char *name){
 		kfree(rwlock);
 		return NULL;
 	}
-	rwlock->write_wchan = wchan_create(rwlock->rwlock_name);
-	if (rwlock->write_wchan == NULL) {
-		kfree(rwlock->rwlock_name);
-		kfree(rwlock);
-		return NULL;
-	}
-	rwlock->read_wchan = wchan_create(rwlock->rwlock_name);
-	if (rwlock->read_wchan == NULL) {
-		kfree(rwlock->rwlock_name);
-		kfree(rwlock);
-		return NULL;
-	}
 	rwlock->readers = 0;
 	rwlock->listIndex = 0;
 	rwlock->writer = NULL; 
-	rwlock->writeRequested = false;
+	rwlock->writeRequested = 0;
 	rwlock->lock = lock_create("shitter");
-	spinlock_init(&rwlock->rwslock);
+	rwlock->cv_read = cv_create("poo");
+	rwlock->cv_write = cv_create("iwannadie");
 	return rwlock;
 
 }
@@ -369,12 +358,11 @@ void rwlock_destroy(struct rwlock *rwlock){
 }
 
 void rwlock_acquire_read(struct rwlock *rwlock){
-	spinlock_acquire(&rwlock->rwslock);
-	while(rwlock->writeRequested || rwlock->writer != NULL){
-		wchan_sleep(rwlock->read_wchan, &rwlock->rwslock);
-	}
-	spinlock_release(&rwlock->rwslock);
 	lock_acquire(rwlock->lock);
+	while(rwlock->writeRequested > 0|| rwlock->writer != NULL){
+		cv_wait(rwlock->cv_read, rwlock->lock);
+	}
+
 	rwlock->readers++;
 	rwlock->threadList[rwlock->listIndex] = curthread;
 	rwlock->listIndex++;
@@ -390,21 +378,17 @@ void rwlock_release_read(struct rwlock *rwlock){
 	lock_acquire(rwlock->lock);
 	shiftArray(rwlock);
 	rwlock->readers--;
-	spinlock_acquire(&rwlock->rwslock);
-	wchan_wakeone(rwlock->write_wchan,&rwlock->rwslock);
-	spinlock_release(&rwlock->rwslock);
+	cv_signal(rwlock->cv_write, rwlock->lock);
 	lock_release(rwlock->lock);
 	return;
 }
 void rwlock_acquire_write(struct rwlock *rwlock){
 	lock_acquire(rwlock->lock);
-	spinlock_acquire(&rwlock->rwslock);
 	while(rwlock->readers > 0 || rwlock->writer != NULL){
-		wchan_sleep(rwlock->write_wchan, &rwlock->rwslock);
+		cv_wait(rwlock->cv_write, rwlock->lock);
 	}
-	spinlock_release(&rwlock->rwslock);
 
-	rwlock->writeRequested = true;
+	rwlock->writeRequested++;
 	rwlock->writer = curthread;
 	lock_release(rwlock->lock);
 
@@ -414,19 +398,18 @@ void rwlock_release_write(struct rwlock *rwlock){
 	KASSERT(rwlock->writer == curthread);
 
 	lock_acquire(rwlock->lock);
-	rwlock->writeRequested = true;
+	rwlock->writeRequested--;
 	rwlock->writer = curthread;
-	spinlock_acquire(&rwlock->rwslock);
+	rwlock->writer = NULL;
+	// need to figure out a way to prevent satrvation right now bombards of wiriters will starve readers.
+	if(rwlock->writeRequested > 0){
 
-	if(wchan_isempty(rwlock->read_wchan, &rwlock->rwslock)){
-
-		wchan_wakeone(rwlock->write_wchan,&rwlock->rwslock);
+		cv_signal(rwlock->cv_write, rwlock->lock);
 	}
 	else{
-		wchan_wakeall(rwlock->read_wchan,&rwlock->rwslock);
+		cv_broadcast(rwlock->cv_read, rwlock->lock);
 	}
-	rwlock->writer = NULL;
-	spinlock_release(&rwlock->rwslock);
+
 	lock_release(rwlock->lock);
 	return;
 }

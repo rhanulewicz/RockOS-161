@@ -54,9 +54,10 @@ int rwtest(int nargs, char **args) {
 	thread_fork("synchtest", NULL, lockread, 0, i);	
 	thread_fork("synchtest", NULL, lockread, 0, i);
 
-	for(int i = 0; i < 1500000; ++i){
-		
+	for(int i=0; i < 14000000; ++i){
+
 	}
+
 	rwlock_destroy(rwlock);
 	kprintf("%d\n", test);
 	success(test == 0 ? TEST161_SUCCESS:TEST161_FAIL, SECRET, "rwt1");
@@ -76,9 +77,6 @@ int rwtest2(int nargs, char **args) {
 	thread_fork("synchtest", NULL, lockwrite, 0, i);	
 	thread_fork("synchtest", NULL, lockwrite, 0, i);	
 	
-	for(int i = 0; i < 1500000; ++i){
-		
-	}
 	rwlock_destroy(rwlock);
 	kprintf("%d\n", test);
 	success(test == 20 ? TEST161_SUCCESS:TEST161_FAIL, SECRET, "rwt2");
@@ -129,7 +127,7 @@ int rwtest4(int nargs, char **args) {
 	thread_fork("synchtest", NULL, lockwrite, 0, i);	
 	thread_fork("synchtest", NULL, lockread, 0, i);
 
-	for(int i = 0; i < 1500000; ++i){
+	for(int i = 0; i < 15000000; ++i){
 
 	}
 	rwlock_destroy(rwlock);
