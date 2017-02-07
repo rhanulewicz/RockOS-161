@@ -127,7 +127,7 @@ int rwtest4(int nargs, char **args) {
 	thread_fork("synchtest", NULL, lockwrite, 0, i);	
 	thread_fork("synchtest", NULL, lockread, 0, i);
 
-	for(int i = 0; i < 15000000; ++i){
+	for(int i = 0; i < 1500000; ++i){
 
 	}
 	rwlock_destroy(rwlock);
