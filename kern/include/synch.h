@@ -159,8 +159,10 @@ void cv_broadcast(struct cv *cv, struct lock *lock);
  */
 
 struct rwlock {
+
         char *rwlock_name;
         unsigned int readers;
+        unsigned int rwait;
         unsigned int writeRequested;
         struct cv *cv_read;
         struct cv *cv_write;
@@ -168,6 +170,7 @@ struct rwlock {
         struct thread* threadList[40];
         struct lock* lock;
         unsigned int listIndex;
+        bool toggle;
 
         // add what you need here
         // (don't forget to mark things volatile as needed)

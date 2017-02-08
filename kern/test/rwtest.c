@@ -27,6 +27,18 @@ static void lockread(void *junk, unsigned long num){
 	KASSERT(test == 5 * writeshappend);
 	rwlock_release_read(rwlock);
 }
+static void longRead(void *junk,unsigned long num){
+	(void)junk;
+	(void)num;
+	rwlock_acquire_read(rwlock);
+	test = test + 0;
+	KASSERT(test == 5 * writeshappend);
+
+	for(int i = 0; i < 15000000; ++i){
+
+	}
+	rwlock_release_read(rwlock);
+}
 
 static void lockwrite(void *junk, unsigned long num){
 	(void)junk;
@@ -45,22 +57,24 @@ int rwtest(int nargs, char **args) {
 	unsigned long i = 0;
 	rwlock = rwlock_create("welcome");
 
-	thread_fork("synchtest", NULL, lockread, 0, i);
+	thread_fork("synchtest", NULL, longRead, 0, i);
 	thread_fork("synchtest", NULL, lockread, 0, i);	
 	thread_fork("synchtest", NULL, lockread, 0, i);
+	thread_fork("synchtest", NULL, lockwrite, 0, i);	
+	thread_fork("synchtest", NULL, lockwrite, 0, i);
 	thread_fork("synchtest", NULL, lockread, 0, i);
 	thread_fork("synchtest", NULL, lockread, 0, i);
 	thread_fork("synchtest", NULL, lockread, 0, i);
 	thread_fork("synchtest", NULL, lockread, 0, i);	
 	thread_fork("synchtest", NULL, lockread, 0, i);
 
-	for(int i=0; i < 14000000; ++i){
+	for(int i=0; i < 140000000; ++i){
 
 	}
 
 	rwlock_destroy(rwlock);
 	kprintf("%d\n", test);
-	success(test == 0 ? TEST161_SUCCESS:TEST161_FAIL, SECRET, "rwt1");
+	success(test == 10 ? TEST161_SUCCESS:TEST161_FAIL, SECRET, "rwt1");
 	test = 0;
 	writeshappend = 0;
 	return 0;
@@ -143,20 +157,16 @@ int rwtest5(int nargs, char **args) {
 	(void)args;
 	unsigned long i = 0;
 	rwlock = rwlock_create("aloha");
-	thread_fork("synchtest", NULL, lockread, 0, i);	
-	thread_fork("synchtest", NULL, lockwrite, 0, i);	
-	thread_fork("synchtest", NULL, lockread, 0, i);
-	thread_fork("synchtest", NULL, lockwrite, 0, i);	
-	thread_fork("synchtest", NULL, lockread, 0, i);	
-	thread_fork("synchtest", NULL, lockwrite, 0, i);	
-	thread_fork("synchtest", NULL, lockread, 0, i);
-	thread_fork("synchtest", NULL, lockwrite, 0, i);
-	for(int i = 0; i < 1500000; ++i){
+			thread_fork("synchtest", NULL, lockread, 0, i);			thread_fork("synchtest", NULL, lockread, 0, i);			thread_fork("synchtest", NULL, lockread, 0, i);			thread_fork("synchtest", NULL, lockwrite, 0, i);	
+	while(test == 0){
+		thread_fork("synchtest", NULL, lockread, 0, i);	
+	}
+	for(int i = 0; i < 15000000; ++i){
 
 	}
 	rwlock_destroy(rwlock);
 	kprintf("%d\n", test);
-	success(test == 20 ? TEST161_SUCCESS:TEST161_FAIL, SECRET, "rwt5");
+	success(test == 5 * writeshappend ? TEST161_SUCCESS:TEST161_FAIL, SECRET, "rwt5");
 	test = 0;
 	writeshappend = 0;
 	return 0;

@@ -335,6 +335,8 @@ struct rwlock * rwlock_create(const char *name){
 	rwlock->listIndex = 0;
 	rwlock->writer = NULL; 
 	rwlock->writeRequested = 0;
+	rwlock->rwait = 0;
+	rwlock->toggle = false;
 	rwlock->lock = lock_create("shitter");
 	rwlock->cv_read = cv_create("poo");
 	rwlock->cv_write = cv_create("iwannadie");
@@ -360,7 +362,9 @@ void rwlock_destroy(struct rwlock *rwlock){
 void rwlock_acquire_read(struct rwlock *rwlock){
 	lock_acquire(rwlock->lock);
 	while(rwlock->writeRequested > 0|| rwlock->writer != NULL){
+		rwlock->rwait++;
 		cv_wait(rwlock->cv_read, rwlock->lock);
+		rwlock->rwait--;
 	}
 
 	rwlock->readers++;
@@ -401,12 +405,13 @@ void rwlock_release_write(struct rwlock *rwlock){
 	rwlock->writeRequested--;
 	rwlock->writer = curthread;
 	rwlock->writer = NULL;
-	// need to figure out a way to prevent satrvation right now bombards of wiriters will starve readers.
-	if(rwlock->writeRequested > 0){
 
+	if(rwlock->toggle || rwlock->rwait == 0){
+		rwlock->toggle = false;
 		cv_signal(rwlock->cv_write, rwlock->lock);
 	}
 	else{
+		rwlock->toggle = true;
 		cv_broadcast(rwlock->cv_read, rwlock->lock);
 	}
 
