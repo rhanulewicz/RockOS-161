@@ -91,6 +91,7 @@ static struct semaphore *matcher_sem;
  * Enforce male_start() and male_end() called from male thread.
  * Similar for female and matchmaker threads
  */
+
 static
 void
 check_role(uint32_t index, int role) {

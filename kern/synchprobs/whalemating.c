@@ -64,7 +64,17 @@ male(uint32_t index)
 	/*
 	 * Implement this function by calling male_start and male_end when
 	 * appropriate.
+	 * 
+	 * Waits until there is a waiting female and a matchmaker.
 	 */
+
+	//Wait for female and matchmaker to be availible
+	//Start critical section
+	//Decrement available males
+	//Male start
+	//When does he stop??????? Here??
+	//End Critical Section
+
 	return;
 }
 
@@ -75,7 +85,17 @@ female(uint32_t index)
 	/*
 	 * Implement this function by calling female_start and female_end when
 	 * appropriate.
+	 *
+	 * Waits until there is a waiting male and a matchmaker.
 	 */
+
+	//Wait for male and matchmaker to be availible
+	//Start Critical Section
+	//Decrement availible females
+	//Female start
+	//When does she stop??????? Here??
+	//End Critical Section
+
 	return;
 }
 
@@ -87,5 +107,13 @@ matchmaker(uint32_t index)
 	 * Implement this function by calling matchmaker_start and matchmaker_end
 	 * when appropriate.
 	 */
+
+	//Wait for male and female to be availible
+	//Start Critical Section
+	//Decrement availible matchmakers
+	//Matchmaker start
+	//When does it stop??????? Here???
+	//End critical section
+
 	return;
 }
