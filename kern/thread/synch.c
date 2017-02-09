@@ -351,7 +351,7 @@ void rwlock_destroy(struct rwlock *rwlock){
 	// kprintf("i died");
 
 	// clean up all my varibles
-	kfree(rwlock->rwlock_name);
+	// kfree(rwlock->rwlock_name);
 	// kfree(rwlock->listIndex);
 	// kfree(rwlock->writer);
 	// kfree(rwlock->writeRequested);
@@ -420,7 +420,7 @@ void rwlock_release_write(struct rwlock *rwlock){
 }
 
 void increaseArraySize(struct rwlock* rwlock, int newSize){
-			kprintf("increasing array size \n");
+	kprintf("increasing array size \n");
 	struct thread* arr[newSize];
 	for(unsigned int i = 0; i < sizeof(rwlock->threadList)/sizeof(rwlock->threadList[0]); ++i){
 		arr[i] = rwlock->threadList[i];

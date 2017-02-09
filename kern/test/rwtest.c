@@ -90,6 +90,10 @@ int rwtest2(int nargs, char **args) {
 	thread_fork("synchtest", NULL, lockwrite, 0, i);	
 	thread_fork("synchtest", NULL, lockwrite, 0, i);	
 	thread_fork("synchtest", NULL, lockwrite, 0, i);	
+
+	for(int i = 0; i < 1500000; ++i){
+
+	}
 	
 	rwlock_destroy(rwlock);
 	kprintf("%d\n", test);
@@ -108,15 +112,55 @@ int rwtest3(int nargs, char **args) {
 	thread_fork("synchtest", NULL, lockread, 0, i);	
 	thread_fork("synchtest", NULL, lockread, 0, i);	
 	thread_fork("synchtest", NULL, lockread, 0, i);	
-	thread_fork("synchtest", NULL, lockwrite, 0, i);
+	thread_fork("synchtest", NULL, lockread, 0, i);	
+	thread_fork("synchtest", NULL, lockread, 0, i);	
+	thread_fork("synchtest", NULL, lockread, 0, i);	
+	thread_fork("synchtest", NULL, lockread, 0, i);	
+	thread_fork("synchtest", NULL, lockread, 0, i);	
+	thread_fork("synchtest", NULL, lockread, 0, i);	
+	thread_fork("synchtest", NULL, lockread, 0, i);	
+	thread_fork("synchtest", NULL, lockread, 0, i);	
+	thread_fork("synchtest", NULL, lockread, 0, i);	
+	thread_fork("synchtest", NULL, lockread, 0, i);	
+	thread_fork("synchtest", NULL, lockread, 0, i);	
+	thread_fork("synchtest", NULL, lockread, 0, i);	
+	thread_fork("synchtest", NULL, lockread, 0, i);	
+	thread_fork("synchtest", NULL, lockread, 0, i);	
+	thread_fork("synchtest", NULL, lockread, 0, i);	
 	thread_fork("synchtest", NULL, lockread, 0, i);	
 	thread_fork("synchtest", NULL, lockread, 0, i);	
 	thread_fork("synchtest", NULL, lockread, 0, i);	
 	thread_fork("synchtest", NULL, lockwrite, 0, i);
+	thread_fork("synchtest", NULL, lockread, 0, i);	
+	thread_fork("synchtest", NULL, lockread, 0, i);	
+	thread_fork("synchtest", NULL, lockread, 0, i);	
+	thread_fork("synchtest", NULL, lockread, 0, i);	
+	thread_fork("synchtest", NULL, lockread, 0, i);	
+	thread_fork("synchtest", NULL, lockread, 0, i);	
+	thread_fork("synchtest", NULL, lockread, 0, i);	
+	thread_fork("synchtest", NULL, lockread, 0, i);	
+	thread_fork("synchtest", NULL, lockread, 0, i);	
+	thread_fork("synchtest", NULL, lockread, 0, i);	
+	thread_fork("synchtest", NULL, lockread, 0, i);	
+	thread_fork("synchtest", NULL, lockread, 0, i);	
+	thread_fork("synchtest", NULL, lockread, 0, i);	
+	thread_fork("synchtest", NULL, lockread, 0, i);	
+	thread_fork("synchtest", NULL, lockread, 0, i);	
+	thread_fork("synchtest", NULL, lockread, 0, i);	
+	thread_fork("synchtest", NULL, lockread, 0, i);	
+	thread_fork("synchtest", NULL, lockread, 0, i);	
+	thread_fork("synchtest", NULL, lockread, 0, i);	
+	thread_fork("synchtest", NULL, lockread, 0, i);	
+	thread_fork("synchtest", NULL, lockread, 0, i);	
+	thread_fork("synchtest", NULL, lockread, 0, i);	
+	thread_fork("synchtest", NULL, lockread, 0, i);	
+	thread_fork("synchtest", NULL, lockread, 0, i);	
+	// thread_fork("synchtest", NULL, lockwrite, 0, i);
 
 	for(int i = 0; i < 1500000; ++i){
 
 	}
+
 	rwlock_destroy(rwlock);
 
 	kprintf("%d\n", test);
