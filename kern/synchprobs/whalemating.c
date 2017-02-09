@@ -47,20 +47,15 @@
 struct lock* Lock;
 struct cv* cv_male;
 struct cv* cv_female;
-struct cv* cv_perv;
-int male_ready;
-int female_ready;
-int perv_ready;
-bool singleton;
+struct cv* cv_tom;
+int tom_ready;
+
 void whalemating_init() {
-	Lock = lock_create("shitter");
-	cv_male = cv_create("pooper");
-	cv_female = cv_create("spooper");
-	cv_perv = cv_create("snooper");
-	singleton = true;
-	male_ready = 0;
-	female_ready = 0;
-	perv_ready = 0;
+	Lock = lock_create("meme1");
+	cv_male = cv_create("meme2");
+	cv_female = cv_create("meme3");
+	cv_tom = cv_create("meme4");
+	tom_ready = 0;
 	return;
 }
 
@@ -73,7 +68,7 @@ whalemating_cleanup() {
 	lock_destroy(Lock);
 	cv_destroy(cv_male);
 	cv_destroy(cv_female);
-	cv_destroy(cv_perv);
+	cv_destroy(cv_tom);
 	return;
 }
 
@@ -92,24 +87,13 @@ male(uint32_t index)
 	
 	lock_acquire(Lock);
 	male_start(index);
-	
-	while(female_ready == 0 && !singleton){
-		cv_wait(cv_male, Lock);	
 
-	}
-	
-
-	singleton = false;
-	cv_signal(cv_female, Lock);
-	male_ready++;
-
-	while(perv_ready == 0){
+	while(tom_ready == 0){
 		cv_wait(cv_male, Lock);
 
 	}
 
-	cv_signal(cv_perv, Lock);
-	male_ready--;
+	cv_signal(cv_tom, Lock);
 	male_end(index);
 	lock_release(Lock);
 	
@@ -130,22 +114,13 @@ female(uint32_t index)
 	lock_acquire(Lock);
 	female_start(index);
 	
-	while(male_ready == 0 && !singleton){
+
+	while(tom_ready == 0){
 		cv_wait(cv_female, Lock);
 
 	}
 
-	singleton = false;
-	cv_signal(cv_male, Lock);
-	female_ready++;
-
-	while(perv_ready == 0){
-		cv_wait(cv_female, Lock);
-
-	}
-
-	cv_signal(cv_perv, Lock);
-	female_ready--;
+	cv_signal(cv_tom, Lock);
 	female_end(index);
 	lock_release(Lock);
 	
@@ -165,16 +140,11 @@ matchmaker(uint32_t index)
 	matchmaker_start(index);
 	
 	lock_acquire(Lock);
-	perv_ready++;
-
-	// while((male_ready == 0 || female_ready == 0) && false){
-	// 	cv_wait(cv_perv, Lock);
-		
-	// }
+	tom_ready++;
 
 	cv_signal(cv_female, Lock);
 	cv_signal(cv_male, Lock);
-	cv_wait(cv_perv, Lock);
+	cv_wait(cv_tom, Lock);
 	matchmaker_end(index);
 	lock_release(Lock);
 
