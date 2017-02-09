@@ -44,7 +44,23 @@
  * Called by the driver during initialization.
  */
 
+struct lock* Lock;
+struct cv* cv_male;
+struct cv* cv_female;
+struct cv* cv_perv;
+int male_ready;
+int female_ready;
+int perv_ready;
+bool singleton;
 void whalemating_init() {
+	Lock = lock_create("shitter");
+	cv_male = cv_create("pooper");
+	cv_female = cv_create("spooper");
+	cv_perv = cv_create("snooper");
+	singleton = true;
+	male_ready = 0;
+	female_ready = 0;
+	perv_ready = 0;
 	return;
 }
 
@@ -54,8 +70,13 @@ void whalemating_init() {
 
 void
 whalemating_cleanup() {
+	lock_destroy(Lock);
+	cv_destroy(cv_male);
+	cv_destroy(cv_female);
+	cv_destroy(cv_perv);
 	return;
 }
+
 
 void
 male(uint32_t index)
@@ -67,14 +88,31 @@ male(uint32_t index)
 	 * 
 	 * Waits until there is a waiting female and a matchmaker.
 	 */
+	
+	
+	lock_acquire(Lock);
+	male_start(index);
+	
+	while(female_ready == 0 && !singleton){
+		cv_wait(cv_male, Lock);	
 
-	//Wait for female and matchmaker to be availible
-	//Start critical section
-	//Decrement available males
-	//Male start
-	//When does he stop??????? Here??
-	//End Critical Section
+	}
+	
 
+	singleton = false;
+	cv_signal(cv_female, Lock);
+	male_ready++;
+
+	while(perv_ready == 0){
+		cv_wait(cv_male, Lock);
+
+	}
+
+	cv_signal(cv_perv, Lock);
+	male_ready--;
+	male_end(index);
+	lock_release(Lock);
+	
 	return;
 }
 
@@ -89,14 +127,30 @@ female(uint32_t index)
 	 * Waits until there is a waiting male and a matchmaker.
 	 */
 
-	//Wait for male and matchmaker to be availible
-	//Start Critical Section
-	//Decrement availible females
-	//Female start
-	//When does she stop??????? Here??
-	//End Critical Section
+	lock_acquire(Lock);
+	female_start(index);
+	
+	while(male_ready == 0 && !singleton){
+		cv_wait(cv_female, Lock);
 
+	}
+
+	singleton = false;
+	cv_signal(cv_male, Lock);
+	female_ready++;
+
+	while(perv_ready == 0){
+		cv_wait(cv_female, Lock);
+
+	}
+
+	cv_signal(cv_perv, Lock);
+	female_ready--;
+	female_end(index);
+	lock_release(Lock);
+	
 	return;
+
 }
 
 void
@@ -107,13 +161,22 @@ matchmaker(uint32_t index)
 	 * Implement this function by calling matchmaker_start and matchmaker_end
 	 * when appropriate.
 	 */
+	
+	matchmaker_start(index);
+	
+	lock_acquire(Lock);
+	perv_ready++;
 
-	//Wait for male and female to be availible
-	//Start Critical Section
-	//Decrement availible matchmakers
-	//Matchmaker start
-	//When does it stop??????? Here???
-	//End critical section
+	// while((male_ready == 0 || female_ready == 0) && false){
+	// 	cv_wait(cv_perv, Lock);
+		
+	// }
+
+	cv_signal(cv_female, Lock);
+	cv_signal(cv_male, Lock);
+	cv_wait(cv_perv, Lock);
+	matchmaker_end(index);
+	lock_release(Lock);
 
 	return;
 }

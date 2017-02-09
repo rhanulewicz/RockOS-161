@@ -95,6 +95,7 @@ static struct semaphore *matcher_sem;
 static
 void
 check_role(uint32_t index, int role) {
+	//kprintf("%d %d", whale_roles[index], role);
 	failif((whale_roles[index] != role), "failed: incorrect role");
 }
 
