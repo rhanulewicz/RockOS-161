@@ -187,6 +187,7 @@ void
 lock_acquire(struct lock *lock)
 {
 
+
 	//Make sure the current thread exists
 	KASSERT(curthread != NULL);
 	//Make sure that the lock exists
@@ -207,6 +208,8 @@ lock_acquire(struct lock *lock)
 void
 lock_release(struct lock *lock)
 {
+	
+
 	//Make sure the current thread exists
 	KASSERT(curthread != NULL);
 	//Make sure the lock exists
@@ -230,6 +233,8 @@ lock_release(struct lock *lock)
 bool
 lock_do_i_hold(struct lock *lock)
 {
+	
+
 	//Make sure current thread exists
 	KASSERT(curthread != NULL);
 	//Make sure the lock exists
