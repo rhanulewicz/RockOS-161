@@ -164,6 +164,8 @@ lock_create(const char *name)
 		lock->taken = false;
 	spinlock_init(&lock->slock);
 
+	HANGMAN_LOCKABLEINIT(&lock->lk_hangman, lock->lk_name);
+
 	// add stuff here as needed
 
 	return lock;
@@ -188,6 +190,7 @@ lock_acquire(struct lock *lock)
 {
 
 
+
 	//Make sure the current thread exists
 	KASSERT(curthread != NULL);
 	//Make sure that the lock exists
@@ -203,12 +206,22 @@ lock_acquire(struct lock *lock)
 	lock->taken = true;
 	//Allow the variables to be modified again
 	spinlock_release(&lock->slock);
+
+	/* Call this (atomically) before waiting for a lock */
+	//HANGMAN_WAIT(&curthread->t_hangman, &lock->lk_hangman);
+
+	// Write this
+
+	(void)lock;  // suppress warning until code gets written
+
+	/* Call this (atomically) once the lock is acquired */
+	//HANGMAN_ACQUIRE(&curthread->t_hangman, &lock->lk_hangman);
+
 }
 
 void
 lock_release(struct lock *lock)
 {
-	
 
 	//Make sure the current thread exists
 	KASSERT(curthread != NULL);
@@ -227,6 +240,12 @@ lock_release(struct lock *lock)
 	wchan_wakeone(lock->lock_wchan, &lock->slock);
 	//Let the variables be modified agian
 	spinlock_release(&lock->slock);
+
+	/* Call this (atomically) when the lock is released */
+	//HANGMAN_RELEASE(&curthread->t_hangman, &lock->lk_hangman);
+
+	// Write this
+
 
 }
 

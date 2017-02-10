@@ -83,6 +83,8 @@ struct lock {
         //Spin lock to be used when the authenticity of the other variables must be ensured
         struct spinlock slock;
 
+
+        HANGMAN_LOCKABLE(lk_hangman);   /* Deadlock detector hook. */
         // add what you need here
         // (don't forget to mark things volatile as needed)
 };
