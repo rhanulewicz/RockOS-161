@@ -43,7 +43,7 @@
 ////////////////////////////////////////////////////////////
 //
 // Semaphore.
-
+static int testvar = 20;
 struct semaphore *
 sem_create(const char *name, unsigned initial_count)
 {
@@ -217,6 +217,7 @@ lock_acquire(struct lock *lock)
 	/* Call this (atomically) once the lock is acquired */
 	//HANGMAN_ACQUIRE(&curthread->t_hangman, &lock->lk_hangman);
 
+
 }
 
 void
@@ -276,6 +277,7 @@ cv_create(const char *name)
 {
 	struct cv *cv;
 
+
 	cv = kmalloc(sizeof(*cv));
 	if (cv == NULL) {
 		return NULL;
@@ -293,9 +295,6 @@ cv_create(const char *name)
 		return NULL;
 	}
 	spinlock_init(&cv->cvlock);
-
-	// add stuff here as needed
-
 	return cv;
 }
 
@@ -303,7 +302,6 @@ void
 cv_destroy(struct cv *cv)
 {
 	KASSERT(cv != NULL);
-
 	// add stuff here as needed
 	spinlock_cleanup(&cv->cvlock);
 	wchan_destroy(cv->cv_wchan);
@@ -314,13 +312,10 @@ cv_destroy(struct cv *cv)
 void
 cv_wait(struct cv *cv, struct lock *lock)
 {
-    lock_release(lock);
     spinlock_acquire(&cv->cvlock);
+    lock_release(lock);
     wchan_sleep(cv->cv_wchan, &cv->cvlock);
     spinlock_release(&cv->cvlock);
-    while(lock->taken == true){
-    	
-    }
     lock_acquire(lock);
 
 }
@@ -332,8 +327,6 @@ cv_signal(struct cv *cv, struct lock *lock)
 	spinlock_acquire(&cv->cvlock);
 	wchan_wakeone(cv->cv_wchan, &cv->cvlock);
 	spinlock_release(&cv->cvlock);
-	(void)cv;    // suppress warning until code gets written
-	(void)lock;  // suppress warning until code gets written
 }
 
 void
@@ -343,6 +336,143 @@ cv_broadcast(struct cv *cv, struct lock *lock)
 	spinlock_acquire(&cv->cvlock);
 	wchan_wakeall(cv->cv_wchan, &cv->cvlock);
 	spinlock_release(&cv->cvlock);
-	(void)cv;    // suppress warning until code gets written
-	(void)lock;  // suppress warning until code gets written
+}
+
+
+struct rwlock * rwlock_create(const char *name){
+	struct rwlock *rwlock;
+
+	rwlock = kmalloc(sizeof(*rwlock));
+	if (rwlock == NULL) {
+		return NULL;
+	}
+
+	rwlock->rwlock_name = kstrdup(name);
+	if (rwlock->rwlock_name == NULL) {
+		kfree(rwlock);
+		return NULL;
+	}
+	rwlock->readers = 0;
+	rwlock->listIndex = 0;
+	rwlock->writer = NULL; 
+	rwlock->writeRequested = 0;
+	rwlock->rwait = 0;
+	rwlock->toggle = false;
+	rwlock->lock = lock_create("shitter");
+	rwlock->cv_read = cv_create("poo");
+	rwlock->cv_write = cv_create("iwannadie");
+	return rwlock;
+
+}
+void rwlock_destroy(struct rwlock *rwlock){
+	//make sure that the lock is valid and isnt being held
+	KASSERT(rwlock != NULL);
+
+	// add stuff here as needed
+	// kprintf("i died");
+
+	// clean up all my varibles
+	kfree(rwlock->rwlock_name);
+	// kfree(rwlock->listIndex);
+	// kfree(rwlock->writer);
+	// kfree(rwlock->writeRequested);
+	// kfree(rwlock->lock);
+	kfree(rwlock);
+}
+
+void rwlock_acquire_read(struct rwlock *rwlock){
+	lock_acquire(rwlock->lock);
+	while(rwlock->writeRequested > 0|| rwlock->writer != NULL){
+		rwlock->rwait++;
+		cv_wait(rwlock->cv_read, rwlock->lock);
+		rwlock->rwait--;
+	}
+
+	rwlock->readers++;
+	rwlock->threadList[rwlock->listIndex] = curthread;
+	rwlock->listIndex++;
+	if(rwlock->listIndex +2 >= sizeof(rwlock->threadList)/sizeof(rwlock->threadList[0])){
+		increaseArraySize(rwlock, rwlock->listIndex + 25);
+	}
+	lock_release(rwlock->lock);
+
+	return;
+}
+void rwlock_release_read(struct rwlock *rwlock){
+	KASSERT(amIReading(rwlock));
+	lock_acquire(rwlock->lock);
+	shiftArray(rwlock);
+	rwlock->readers--;
+	cv_signal(rwlock->cv_write, rwlock->lock);
+	lock_release(rwlock->lock);
+	return;
+}
+void rwlock_acquire_write(struct rwlock *rwlock){
+	lock_acquire(rwlock->lock);
+	while(rwlock->readers > 0 || rwlock->writer != NULL){
+		cv_wait(rwlock->cv_write, rwlock->lock);
+	}
+
+	rwlock->writeRequested++;
+	rwlock->writer = curthread;
+	lock_release(rwlock->lock);
+
+	return;
+}
+void rwlock_release_write(struct rwlock *rwlock){
+	KASSERT(rwlock->writer == curthread);
+
+	lock_acquire(rwlock->lock);
+	rwlock->writeRequested--;
+	rwlock->writer = curthread;
+	rwlock->writer = NULL;
+
+	if(rwlock->toggle || rwlock->rwait == 0){
+		rwlock->toggle = false;
+		cv_signal(rwlock->cv_write, rwlock->lock);
+	}
+	else{
+		rwlock->toggle = true;
+		cv_broadcast(rwlock->cv_read, rwlock->lock);
+	}
+
+	lock_release(rwlock->lock);
+	return;
+}
+
+void increaseArraySize(struct rwlock* rwlock, int newSize){
+			kprintf("increasing array size \n");
+	struct thread* arr[newSize];
+	for(unsigned int i = 0; i < sizeof(rwlock->threadList)/sizeof(rwlock->threadList[0]); ++i){
+		arr[i] = rwlock->threadList[i];
+		rwlock->threadList[i] = NULL;
+	}
+	// kfree(rwlock->threadList);
+	*rwlock->threadList = *arr;
+
+}
+
+void shiftArray(struct rwlock* rwlock){
+	bool threadFound = false;
+	for(unsigned int i = 0; i < rwlock->listIndex; ++i){
+		if(curthread == rwlock->threadList[i] || threadFound){
+			threadFound = true;
+			rwlock->threadList[i] = rwlock->threadList[i+1];
+		}
+	}
+	rwlock->threadList[rwlock->listIndex - 1] = NULL;
+	rwlock->listIndex--;
+}
+
+bool amIReading(struct rwlock* rwlock){
+	for(unsigned int i = 0; i < rwlock->listIndex; ++i){
+		if(curthread == rwlock->threadList[i]){
+			return true;
+		}
+	}
+	return false;
+}
+
+int getTestVar(){
+	return testvar;
 }
