@@ -76,8 +76,8 @@
 	bool q2;
 	bool q3;
 	bool q4;
+	int wait; 
 	int carsInAQuad;
-	bool imFirst;
 	struct lock *lock;
 	struct cv *cv;
 
@@ -88,7 +88,7 @@ stoplight_init() {
 	q2 = false;
 	q3 = false;
 	q4 = false;
-	imFirst = true;
+	wait = 0;
 	lock = lock_create("shit");
 	cv = cv_create("poop");
 	return;
@@ -109,16 +109,20 @@ turnright(uint32_t direction, uint32_t index)
 {
 	lock_acquire(lock);
 	int quad = direction;
-	while(getQ(quad)|| carsInAQuad >= 3){
+	bool single = true;
+	while(getQ(quad)|| carsInAQuad >= 3 || single){
 		// kprintf("sleepy");
+		wait++;
+		single = false;
 		cv_broadcast(cv, lock);
 		cv_wait(cv,lock);
+		wait--;
 	}
 	carsInAQuad++;
 	setQ(quad,true);
 	inQuadrant(quad,index);
-	if(carsInAQuad != 1 || imFirst){
-		imFirst = false;
+	if(carsInAQuad != 1){
+				cv_broadcast(cv, lock);
 		cv_wait(cv,lock);
 	}
 	setQ(quad,false);
@@ -139,11 +143,14 @@ gostraight(uint32_t direction, uint32_t index)
 {
 	lock_acquire(lock);
 	int quad = direction;
-	while(getQ(quad)|| carsInAQuad >= 3 || imFirst){
-		imFirst = false;
+	bool single = true;
+	while(getQ(quad)|| carsInAQuad >= 3  || single){
+		wait++;
+		single = false;
 				// kprintf("sleepy");
 		cv_broadcast(cv, lock);
 		cv_wait(cv,lock);
+		wait--;
 	}
 	carsInAQuad++;
 	setQ(quad,true);
@@ -151,20 +158,26 @@ gostraight(uint32_t direction, uint32_t index)
 	cv_broadcast(cv, lock);	
 
 	bool singleton = true;
-	while((getQ(getNextQuadrant(quad, 1)) || singleton) && carsInAQuad != 1){
+	while((getQ(getNextQuadrant(quad, 1)) ||( singleton  && wait > 0))){
 		singleton = false;
+		wait++;
+				cv_broadcast(cv, lock);
 		cv_wait(cv, lock);
+		wait--;
 	}
 
 	setQ(quad,false);
 	quad = getNextQuadrant(quad,1);
+	while(getQ(quad)){
+		wait++;
+				cv_broadcast(cv, lock);
+		cv_wait(cv,lock);
+		wait--;
+	}
 	setQ(quad,true);
 	inQuadrant(quad,index);
 	setQ(quad,false);
-	if(carsInAQuad != 1 || imFirst){
-		imFirst = false;
-		cv_wait(cv,lock);
-	}
+	
 	carsInAQuad--;
 	leaveIntersection(index);
 	cv_broadcast(cv, lock);
@@ -181,21 +194,26 @@ turnleft(uint32_t direction, uint32_t index)
 {
 	lock_acquire(lock);
 	int quad = direction;
-	while(getQ(quad)|| carsInAQuad >= 3 || imFirst){
-		imFirst = false;
-				// kprintf("sleepy");
+			bool single = true;
+	while(getQ(quad)|| carsInAQuad >= 3 || single){
+		single = false;
+		wait++;
 		cv_broadcast(cv, lock);
 		cv_wait(cv,lock);
+		wait--;
 	}
 	carsInAQuad++;
 	setQ(quad,true);
 	inQuadrant(quad,index);
 	cv_broadcast(cv, lock);
 
-	bool singleton = true;
-	while((getQ(getNextQuadrant(quad, 2)) || singleton) && carsInAQuad != 1){
+	bool singleton = false;
+	while((getQ(getNextQuadrant(quad, 2)) || singleton)){
+		wait++;
 		singleton = false;
+				cv_broadcast(cv, lock);
 		cv_wait(cv, lock);
+		wait--;
 	}
 
 	setQ(quad,false);
@@ -204,21 +222,28 @@ turnleft(uint32_t direction, uint32_t index)
 	inQuadrant(quad,index);
 	cv_broadcast(cv, lock);
 	
-	singleton = true;
-	while((getQ(getNextQuadrant(quad, 2)) || singleton) && carsInAQuad != 1){
+	singleton = false;
+	while((getQ(getNextQuadrant(quad, 2)) || singleton)){
+		wait++;
 		singleton = false;
+				cv_broadcast(cv, lock);
 		cv_wait(cv, lock);
+		wait--;
 	}
 
 	setQ(quad,false);
 	quad = getNextQuadrant(quad,2);
-	setQ(quad,true);
-	inQuadrant(quad,index);
-	if(carsInAQuad != 1 || imFirst){
-		imFirst = false;
+	while(getQ(quad)){
+		wait++;
+				cv_broadcast(cv, lock);
 		cv_wait(cv,lock);
+
+		wait--;
 	}
 	
+	setQ(quad,true);
+	inQuadrant(quad,index);
+
 	setQ(quad,false);
 	carsInAQuad--;
 	leaveIntersection(index);
