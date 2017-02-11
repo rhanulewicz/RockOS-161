@@ -101,6 +101,8 @@ stoplight_init() {
  */
 
 void stoplight_cleanup() {
+	cv_destroy(cv);
+	lock_destroy(lock);
 	return;
 }
 
