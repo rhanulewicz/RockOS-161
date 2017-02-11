@@ -77,22 +77,26 @@
 	bool q3;
 	bool q4;
 	int carsInAQuad;
-	lock *lock;
-	cv *cv;
+	bool imFirst;
+	struct lock *lock;
+	struct cv *cv;
 
 void
 stoplight_init() {
-	int carsInAQuad = 0;
-	bool q1 = false;
-	bool q2 = false;
-	bool q3 = false;
-	bool q4 = false;
-	lock *lock = lock_create("shit");
-	cv *cv = cv_create("poop");
+	carsInAQuad = 0;
+	q1 = false;
+	q2 = false;
+	q3 = false;
+	q4 = false;
+	imFirst = true;
+	lock = lock_create("shit");
+	cv = cv_create("poop");
 	return;
 }
+// almost done need to stop the first asshole and let the last asshole shit. Corks not allowed.
 
 /*
+ * 
  * Called by the driver during teardown.
  */
 
@@ -103,19 +107,25 @@ void stoplight_cleanup() {
 void
 turnright(uint32_t direction, uint32_t index)
 {
-	lock_aquire(lock);
-	while(getQ(getNextQuadrant(direction,3)) || carsInAQuad == 3){
-		cv_wait(cv, lock);
+	lock_acquire(lock);
+	int quad = direction;
+	while(getQ(quad)|| carsInAQuad >= 3){
+		// kprintf("sleepy");
+		cv_broadcast(cv, lock);
+		cv_wait(cv,lock);
 	}
 	carsInAQuad++;
-	setQ(direction, true);
-	inQuadrant(direction);
-	cv_broadcast(cv,lock);
+	setQ(quad,true);
+	inQuadrant(quad,index);
+	if(carsInAQuad != 1 || imFirst){
+		imFirst = false;
+		cv_wait(cv,lock);
+	}
+	setQ(quad,false);
 	carsInAQuad--;
-	setQ(direction, false);
 	leaveIntersection(index);
-	cv_broadcast(cv,lock);
-	lock_release();
+	cv_broadcast(cv, lock);
+	lock_release(lock);
 	(void)direction;
 	(void)index;
 
@@ -127,6 +137,38 @@ turnright(uint32_t direction, uint32_t index)
 void
 gostraight(uint32_t direction, uint32_t index)
 {
+	lock_acquire(lock);
+	int quad = direction;
+	while(getQ(quad)|| carsInAQuad >= 3 || imFirst){
+		imFirst = false;
+				// kprintf("sleepy");
+		cv_broadcast(cv, lock);
+		cv_wait(cv,lock);
+	}
+	carsInAQuad++;
+	setQ(quad,true);
+	inQuadrant(quad,index);
+	cv_broadcast(cv, lock);	
+
+	bool singleton = true;
+	while((getQ(getNextQuadrant(quad, 1)) || singleton) && carsInAQuad != 1){
+		singleton = false;
+		cv_wait(cv, lock);
+	}
+
+	setQ(quad,false);
+	quad = getNextQuadrant(quad,1);
+	setQ(quad,true);
+	inQuadrant(quad,index);
+	setQ(quad,false);
+	if(carsInAQuad != 1 || imFirst){
+		imFirst = false;
+		cv_wait(cv,lock);
+	}
+	carsInAQuad--;
+	leaveIntersection(index);
+	cv_broadcast(cv, lock);
+	lock_release(lock);
 	(void)direction;
 	(void)index;
 	/*
@@ -137,6 +179,51 @@ gostraight(uint32_t direction, uint32_t index)
 void
 turnleft(uint32_t direction, uint32_t index)
 {
+	lock_acquire(lock);
+	int quad = direction;
+	while(getQ(quad)|| carsInAQuad >= 3 || imFirst){
+		imFirst = false;
+				// kprintf("sleepy");
+		cv_broadcast(cv, lock);
+		cv_wait(cv,lock);
+	}
+	carsInAQuad++;
+	setQ(quad,true);
+	inQuadrant(quad,index);
+	cv_broadcast(cv, lock);
+
+	bool singleton = true;
+	while((getQ(getNextQuadrant(quad, 2)) || singleton) && carsInAQuad != 1){
+		singleton = false;
+		cv_wait(cv, lock);
+	}
+
+	setQ(quad,false);
+	quad = getNextQuadrant(quad,2);
+	setQ(quad,true);
+	inQuadrant(quad,index);
+	cv_broadcast(cv, lock);
+	
+	singleton = true;
+	while((getQ(getNextQuadrant(quad, 2)) || singleton) && carsInAQuad != 1){
+		singleton = false;
+		cv_wait(cv, lock);
+	}
+
+	setQ(quad,false);
+	quad = getNextQuadrant(quad,2);
+	setQ(quad,true);
+	inQuadrant(quad,index);
+	if(carsInAQuad != 1 || imFirst){
+		imFirst = false;
+		cv_wait(cv,lock);
+	}
+	
+	setQ(quad,false);
+	carsInAQuad--;
+	leaveIntersection(index);
+	cv_broadcast(cv, lock);
+	lock_release(lock);
 	(void)direction;
 	(void)index;
 	/*
@@ -169,16 +256,16 @@ int getNextQuadrant(int currentQuadrant, int driectionOfTravel){
 
 void setQ(int q, bool value){
 	switch(q){
-		case 1:
+		case 0:
 			q1 = value;
 		break;
-		case 2:
+		case 1:
 			q2 = value;
 		break;
-		case 3:
+		case 2:
 			q3 = value;
 		break;
-		case 4:
+		case 3:
 			q4 = value;
 		break;
 	}
@@ -186,16 +273,16 @@ void setQ(int q, bool value){
 
 bool getQ(int q){
 	switch(q){
-		case 1:
+		case 0:
 			return q1;
 		break;
-		case 2:
+		case 1:
 			return q2;
 		break;
-		case 3:
+		case 2:
 			return q3;
 		break;
-		case 4:
+		case 3:
 			return q4;
 		break;
 	}
