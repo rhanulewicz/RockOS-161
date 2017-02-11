@@ -605,7 +605,6 @@ int stoplight(int nargs, char **args) {
 
 	kprintf_n("Starting sp2...\n");
 	kprintf_n("If this tests hangs, your solution is incorrect.\n");
-
 	for (i = 0; i < NUM_QUADRANTS; i++) {
 		quadrant_array[i] = 0;
 	}

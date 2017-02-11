@@ -166,6 +166,10 @@ void turnleft(uint32_t, uint32_t);
 void turnright(uint32_t, uint32_t);
 void stoplight_init(void);
 void stoplight_cleanup(void);
+int getNextQuadrant(int currentQuadrant, int driectionOfTravel);
+void setQ(int q,bool value);
+bool getQ(int q);
+
 
 #endif
 

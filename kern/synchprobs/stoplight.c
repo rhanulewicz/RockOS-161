@@ -72,9 +72,23 @@
 /*
  * Called by the driver during initialization.
  */
+	bool q1;
+	bool q2;
+	bool q3;
+	bool q4;
+	int carsInAQuad;
+	lock *lock;
+	cv *cv;
 
 void
 stoplight_init() {
+	int carsInAQuad = 0;
+	bool q1 = false;
+	bool q2 = false;
+	bool q3 = false;
+	bool q4 = false;
+	lock *lock = lock_create("shit");
+	cv *cv = cv_create("poop");
 	return;
 }
 
@@ -89,8 +103,22 @@ void stoplight_cleanup() {
 void
 turnright(uint32_t direction, uint32_t index)
 {
+	lock_aquire(lock);
+	while(getQ(getNextQuadrant(direction,3)) || carsInAQuad == 3){
+		cv_wait(cv, lock);
+	}
+	carsInAQuad++;
+	setQ(direction, true);
+	inQuadrant(direction);
+	cv_broadcast(cv,lock);
+	carsInAQuad--;
+	setQ(direction, false);
+	leaveIntersection(index);
+	cv_broadcast(cv,lock);
+	lock_release();
 	(void)direction;
 	(void)index;
+
 	/*
 	 * Implement this function.
 	 */
@@ -115,4 +143,62 @@ turnleft(uint32_t direction, uint32_t index)
 	 * Implement this function.
 	 */
 	return;
+}
+
+
+//direction of travel map 
+// 1 == straight   (x+3 % 4)
+// 2 == turn left  use straight formula
+// 3 == turn right reflexive
+int getNextQuadrant(int currentQuadrant, int driectionOfTravel){
+	int x = currentQuadrant;
+
+	switch(driectionOfTravel){
+		case 1:
+			return (x+3)%4;
+		break;
+		case 2:
+			return (x+3)%4;
+		break;
+		case 3:
+			return x;
+		break;
+	}
+	return 0;
+}
+
+void setQ(int q, bool value){
+	switch(q){
+		case 1:
+			q1 = value;
+		break;
+		case 2:
+			q2 = value;
+		break;
+		case 3:
+			q3 = value;
+		break;
+		case 4:
+			q4 = value;
+		break;
+	}
+}
+
+bool getQ(int q){
+	switch(q){
+		case 1:
+			return q1;
+		break;
+		case 2:
+			return q2;
+		break;
+		case 3:
+			return q3;
+		break;
+		case 4:
+			return q4;
+		break;
+	}
+
+	return false;
 }
