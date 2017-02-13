@@ -410,7 +410,9 @@ void rwlock_release_read(struct rwlock *rwlock){
 }
 void rwlock_acquire_write(struct rwlock *rwlock){
 	KASSERT(rwlock != NULL);
+	rwlock->wwait++;
 	lock_acquire(rwlock->lock);
+	rwlock->wwait--;
 	while(rwlock->readers > 0 || rwlock->writer != NULL){
 		rwlock->wwait++;
 		cv_wait(rwlock->cv_write, rwlock->lock);
@@ -444,7 +446,7 @@ void rwlock_release_write(struct rwlock *rwlock){
 }
 
 void increaseArraySize(struct rwlock* rwlock, int newSize){
-			kprintf("increasing array size \n");
+			//kprintf("increasing array size \n");
 	struct thread* arr[newSize];
 	for(unsigned int i = 0; i < sizeof(rwlock->threadList)/sizeof(rwlock->threadList[0]); ++i){
 		arr[i] = rwlock->threadList[i];

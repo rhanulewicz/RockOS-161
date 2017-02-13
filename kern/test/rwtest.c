@@ -188,53 +188,16 @@ int rwtest5(int nargs, char **args) {
 	(void)args;
 	unsigned long i = 0;
 	rwlock = rwlock_create("aloha");
-	thread_fork("synchtest", NULL, lockread, 0, i);
-	thread_fork("synchtest", NULL, lockread, 0, i);			
-	thread_fork("synchtest", NULL, lockread, 0, i);
-	thread_fork("synchtest", NULL, lockread, 0, i);
-	thread_fork("synchtest", NULL, lockread, 0, i);			
-	thread_fork("synchtest", NULL, lockread, 0, i);	
-	thread_fork("synchtest", NULL, lockread, 0, i);
-	thread_fork("synchtest", NULL, lockread, 0, i);			
-	thread_fork("synchtest", NULL, lockread, 0, i);	
-	thread_fork("synchtest", NULL, lockread, 0, i);
-	thread_fork("synchtest", NULL, lockread, 0, i);			
-	thread_fork("synchtest", NULL, lockread, 0, i);	
-	thread_fork("synchtest", NULL, lockread, 0, i);
-	thread_fork("synchtest", NULL, lockread, 0, i);			
-	thread_fork("synchtest", NULL, lockread, 0, i);	
-	thread_fork("synchtest", NULL, lockread, 0, i);
-	thread_fork("synchtest", NULL, lockread, 0, i);			
-	thread_fork("synchtest", NULL, lockread, 0, i);	
-	thread_fork("synchtest", NULL, lockread, 0, i);
-	thread_fork("synchtest", NULL, lockread, 0, i);			
-	thread_fork("synchtest", NULL, lockread, 0, i);				
-	thread_fork("synchtest", NULL, lockwrite, 0, i); /////
-	thread_fork("synchtest", NULL, lockread, 0, i);
-	thread_fork("synchtest", NULL, lockread, 0, i);			
-	thread_fork("synchtest", NULL, lockread, 0, i);
-	thread_fork("synchtest", NULL, lockread, 0, i);
-	thread_fork("synchtest", NULL, lockread, 0, i);			
-	thread_fork("synchtest", NULL, lockread, 0, i);	
-	thread_fork("synchtest", NULL, lockread, 0, i);
-	thread_fork("synchtest", NULL, lockread, 0, i);			
-	thread_fork("synchtest", NULL, lockread, 0, i);	
-	thread_fork("synchtest", NULL, lockread, 0, i);
-	thread_fork("synchtest", NULL, lockread, 0, i);			
-	thread_fork("synchtest", NULL, lockread, 0, i);	
-	thread_fork("synchtest", NULL, lockread, 0, i);
-	thread_fork("synchtest", NULL, lockread, 0, i);			
-	thread_fork("synchtest", NULL, lockread, 0, i);	
-	thread_fork("synchtest", NULL, lockread, 0, i);
-	thread_fork("synchtest", NULL, lockread, 0, i);			
-	thread_fork("synchtest", NULL, lockread, 0, i);	
-	thread_fork("synchtest", NULL, lockread, 0, i);
-	thread_fork("synchtest", NULL, lockread, 0, i);			
-	thread_fork("synchtest", NULL, lockread, 0, i);
-
-	while(test == 0){
+	bool singleton = true;
+	while(test != 5){
+		i++;
 		thread_fork("synchtest", NULL, lockread, 0, i);	
+		if(singleton && i > 15){
+			singleton = false;
+			thread_fork("synchtest", NULL, lockwrite, 0, i);	
+		}
 	}
+
 	for(int i = 0; i < 15000000; ++i){
 
 	}
