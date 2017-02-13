@@ -355,7 +355,7 @@ struct rwlock * rwlock_create(const char *name){
 	rwlock->readers = 0;
 	rwlock->listIndex = 0;
 	rwlock->writer = NULL; 
-	rwlock->writeRequested = 0;
+	rwlock->wwait = 0;
 	rwlock->rwait = 0;
 	rwlock->toggle = false;
 	rwlock->lock = lock_create("shitter");
@@ -383,7 +383,7 @@ void rwlock_destroy(struct rwlock *rwlock){
 void rwlock_acquire_read(struct rwlock *rwlock){
 	KASSERT(rwlock != NULL);
 	lock_acquire(rwlock->lock);
-	while(rwlock->writeRequested > 0|| rwlock->writer != NULL){
+	while(rwlock->wwait > 0|| rwlock->writer != NULL){
 		rwlock->rwait++;
 		cv_wait(rwlock->cv_read, rwlock->lock);
 		rwlock->rwait--;
@@ -413,10 +413,12 @@ void rwlock_acquire_write(struct rwlock *rwlock){
 	KASSERT(rwlock != NULL);
 	lock_acquire(rwlock->lock);
 	while(rwlock->readers > 0 || rwlock->writer != NULL){
+		rwlock->wwait++;
 		cv_wait(rwlock->cv_write, rwlock->lock);
+		rwlock->wwait--;
 	}
 
-	rwlock->writeRequested++;
+	
 	rwlock->writer = curthread;
 	lock_release(rwlock->lock);
 
@@ -428,7 +430,6 @@ void rwlock_release_write(struct rwlock *rwlock){
 
 	lock_acquire(rwlock->lock);
 	rwlock->writeRequested--;
-	//rwlock->writer = curthread;
 	rwlock->writer = NULL;
 
 	if(rwlock->toggle || rwlock->rwait == 0){

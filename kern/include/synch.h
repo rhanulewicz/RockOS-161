@@ -165,7 +165,7 @@ struct rwlock {
         char *rwlock_name;
         unsigned int readers;
         unsigned int rwait;
-        unsigned int writeRequested;
+        unsigned int wwait;
         struct cv *cv_read;
         struct cv *cv_write;
         struct thread* writer;
