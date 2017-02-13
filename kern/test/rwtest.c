@@ -48,9 +48,7 @@ static void lockwrite(void *junk, unsigned long num){
 	writeshappend++;
 	rwlock_release_write(rwlock);
 }
-//Tests 1 and 2 work, but only if they are the very first test run in a given kernel session.
-//None of the other tests work, and I don't think my math is wrong.
-//Tests preform worse and worse until eventually panicking if run repeatedly in the same session.
+
 int rwtest(int nargs, char **args) {
 	(void)nargs;
 	(void)args;
@@ -68,7 +66,7 @@ int rwtest(int nargs, char **args) {
 	thread_fork("synchtest", NULL, lockread, 0, i);	
 	thread_fork("synchtest", NULL, lockread, 0, i);
 
-	for(int i=0; i < 140000000; ++i){
+	for(int i = 0; i < 1500000; ++i){
 
 	}
 
@@ -89,7 +87,11 @@ int rwtest2(int nargs, char **args) {
 	thread_fork("synchtest", NULL, lockwrite, 0, i);	
 	thread_fork("synchtest", NULL, lockwrite, 0, i);	
 	thread_fork("synchtest", NULL, lockwrite, 0, i);	
-	thread_fork("synchtest", NULL, lockwrite, 0, i);	
+	thread_fork("synchtest", NULL, lockwrite, 0, i);
+
+	for(int i = 0; i < 1500000; ++i){
+
+	}
 	
 	rwlock_destroy(rwlock);
 	kprintf("%d\n", test);
@@ -157,7 +159,10 @@ int rwtest5(int nargs, char **args) {
 	(void)args;
 	unsigned long i = 0;
 	rwlock = rwlock_create("aloha");
-			thread_fork("synchtest", NULL, lockread, 0, i);			thread_fork("synchtest", NULL, lockread, 0, i);			thread_fork("synchtest", NULL, lockread, 0, i);			thread_fork("synchtest", NULL, lockwrite, 0, i);	
+	thread_fork("synchtest", NULL, lockread, 0, i);
+	thread_fork("synchtest", NULL, lockread, 0, i);			
+	thread_fork("synchtest", NULL, lockread, 0, i);			
+	thread_fork("synchtest", NULL, lockwrite, 0, i);	
 	while(test == 0){
 		thread_fork("synchtest", NULL, lockread, 0, i);	
 	}
