@@ -381,6 +381,7 @@ void rwlock_destroy(struct rwlock *rwlock){
 }
 
 void rwlock_acquire_read(struct rwlock *rwlock){
+	KASSERT(rwlock != NULL);
 	lock_acquire(rwlock->lock);
 	while(rwlock->writeRequested > 0|| rwlock->writer != NULL){
 		rwlock->rwait++;
@@ -400,6 +401,7 @@ void rwlock_acquire_read(struct rwlock *rwlock){
 }
 void rwlock_release_read(struct rwlock *rwlock){
 	KASSERT(amIReading(rwlock));
+	KASSERT(rwlock != NULL);
 	lock_acquire(rwlock->lock);
 	shiftArray(rwlock);
 	rwlock->readers--;
@@ -408,6 +410,7 @@ void rwlock_release_read(struct rwlock *rwlock){
 	return;
 }
 void rwlock_acquire_write(struct rwlock *rwlock){
+	KASSERT(rwlock != NULL);
 	lock_acquire(rwlock->lock);
 	while(rwlock->readers > 0 || rwlock->writer != NULL){
 		cv_wait(rwlock->cv_write, rwlock->lock);
@@ -420,6 +423,7 @@ void rwlock_acquire_write(struct rwlock *rwlock){
 	return;
 }
 void rwlock_release_write(struct rwlock *rwlock){
+	KASSERT(rwlock != NULL);
 	KASSERT(rwlock->writer == curthread);
 
 	lock_acquire(rwlock->lock);
