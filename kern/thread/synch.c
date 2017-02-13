@@ -375,7 +375,6 @@ void rwlock_destroy(struct rwlock *rwlock){
 	kfree(rwlock->rwlock_name);
 	// kfree(rwlock->listIndex);
 	// kfree(rwlock->writer);
-	// kfree(rwlock->writeRequested);
 	// kfree(rwlock->lock);
 	kfree(rwlock);
 }
@@ -429,7 +428,6 @@ void rwlock_release_write(struct rwlock *rwlock){
 	KASSERT(rwlock->writer == curthread);
 
 	lock_acquire(rwlock->lock);
-	rwlock->writeRequested--;
 	rwlock->writer = NULL;
 
 	if(rwlock->toggle || rwlock->rwait == 0){
