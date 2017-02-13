@@ -428,7 +428,7 @@ void rwlock_release_write(struct rwlock *rwlock){
 
 	lock_acquire(rwlock->lock);
 	rwlock->writeRequested--;
-	rwlock->writer = curthread;
+	//rwlock->writer = curthread;
 	rwlock->writer = NULL;
 
 	if(rwlock->toggle || rwlock->rwait == 0){
