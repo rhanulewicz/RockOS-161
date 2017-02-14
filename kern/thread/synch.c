@@ -389,20 +389,14 @@ void rwlock_acquire_read(struct rwlock *rwlock){
 	}
 
 	rwlock->readers++;
-	rwlock->threadList[rwlock->listIndex] = curthread;
-	rwlock->listIndex++;
-	if(rwlock->listIndex +2 >= sizeof(rwlock->threadList)/sizeof(rwlock->threadList[0])){
-		increaseArraySize(rwlock, rwlock->listIndex + 25);
-	}
 	lock_release(rwlock->lock);
 
 	return;
 }
 void rwlock_release_read(struct rwlock *rwlock){
-	KASSERT(amIReading(rwlock));
 	KASSERT(rwlock != NULL);
+	KASSERT(rwlock->readers > 0);
 	lock_acquire(rwlock->lock);
-	shiftArray(rwlock);
 	rwlock->readers--;
 	cv_signal(rwlock->cv_write, rwlock->lock);
 	lock_release(rwlock->lock);
@@ -418,8 +412,7 @@ void rwlock_acquire_write(struct rwlock *rwlock){
 		cv_wait(rwlock->cv_write, rwlock->lock);
 		rwlock->wwait--;
 	}
-
-	
+		
 	rwlock->writer = curthread;
 	lock_release(rwlock->lock);
 
@@ -428,6 +421,7 @@ void rwlock_acquire_write(struct rwlock *rwlock){
 void rwlock_release_write(struct rwlock *rwlock){
 	KASSERT(rwlock != NULL);
 	KASSERT(rwlock->writer == curthread);
+
 
 	lock_acquire(rwlock->lock);
 	rwlock->writer = NULL;

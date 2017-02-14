@@ -27,18 +27,18 @@ static void lockread(void *junk, unsigned long num){
 	KASSERT(test == 5 * writeshappend);
 	rwlock_release_read(rwlock);
 }
-static void longRead(void *junk,unsigned long num){
-	(void)junk;
-	(void)num;
-	rwlock_acquire_read(rwlock);
-	test = test + 0;
-	KASSERT(test == 5 * writeshappend);
+// static void longRead(void *junk,unsigned long num){
+// 	(void)junk;
+// 	(void)num;
+// 	rwlock_acquire_read(rwlock);
+// 	test = test + 0;
+// 	KASSERT(test == 5 * writeshappend);
 
-	for(int i = 0; i < 15000000; ++i){
+// 	for(int i = 0; i < 15000000; ++i){
 
-	}
-	rwlock_release_read(rwlock);
-}
+// 	}
+// 	rwlock_release_read(rwlock);
+// }
 
 static void lockwrite(void *junk, unsigned long num){
 	(void)junk;
@@ -55,7 +55,7 @@ int rwtest(int nargs, char **args) {
 	unsigned long i = 0;
 	rwlock = rwlock_create("welcome");
 
-	thread_fork("synchtest", NULL, longRead, 0, i);
+	//thread_fork("synchtest", NULL, longRead, 0, i);
 	thread_fork("synchtest", NULL, lockread, 0, i);	
 	thread_fork("synchtest", NULL, lockread, 0, i);
 	thread_fork("synchtest", NULL, lockwrite, 0, i);	
@@ -66,7 +66,7 @@ int rwtest(int nargs, char **args) {
 	thread_fork("synchtest", NULL, lockread, 0, i);	
 	thread_fork("synchtest", NULL, lockread, 0, i);
 
-	for(int i = 0; i < 150000000; ++i){
+	for(int i = 0; i < 50000000; ++i){
 
 	}
 
