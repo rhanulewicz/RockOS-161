@@ -166,6 +166,8 @@ struct rwlock {
         unsigned int readers;
         unsigned int rwait;
         unsigned int wwait;
+        bool blockReads;
+        bool blockWrites;
         struct cv *cv_read;
         struct cv *cv_write;
         struct thread* writer;
@@ -197,8 +199,4 @@ void rwlock_acquire_read(struct rwlock *);
 void rwlock_release_read(struct rwlock *);
 void rwlock_acquire_write(struct rwlock *);
 void rwlock_release_write(struct rwlock *);
-void increaseArraySize(struct rwlock* rwlock, int newSize);
-void shiftArray(struct rwlock* rwlock);
-bool amIReading(struct rwlock* rwlock);
-int getTestVar(void);
 #endif /* _SYNCH_H_ */

@@ -43,7 +43,6 @@
 ////////////////////////////////////////////////////////////
 //
 // Semaphore.
-static int testvar = 20;
 struct semaphore *
 sem_create(const char *name, unsigned initial_count)
 {
@@ -357,6 +356,8 @@ struct rwlock * rwlock_create(const char *name){
 	rwlock->writer = NULL; 
 	rwlock->wwait = 0;
 	rwlock->rwait = 0;
+	rwlock->blockWrites = false;
+	rwlock->blockReads = false;
 	rwlock->toggle = false;
 	rwlock->lock = lock_create("shitter");
 	rwlock->cv_read = cv_create("poo");
@@ -367,6 +368,8 @@ struct rwlock * rwlock_create(const char *name){
 void rwlock_destroy(struct rwlock *rwlock){
 	//make sure that the lock is valid and isnt being held
 	KASSERT(rwlock != NULL);
+	KASSERT(rwlock->readers == 0);
+	KASSERT(rwlock->writer == NULL);
 
 	// add stuff here as needed
 	// kprintf("i died");
@@ -382,12 +385,12 @@ void rwlock_destroy(struct rwlock *rwlock){
 void rwlock_acquire_read(struct rwlock *rwlock){
 	KASSERT(rwlock != NULL);
 	lock_acquire(rwlock->lock);
-	while(rwlock->wwait > 0|| rwlock->writer != NULL){
+	while(rwlock->blockReads|| rwlock->writer != NULL){
 		rwlock->rwait++;
 		cv_wait(rwlock->cv_read, rwlock->lock);
 		rwlock->rwait--;
 	}
-
+	rwlock->blockWrites = true;
 	rwlock->readers++;
 	lock_release(rwlock->lock);
 
@@ -398,17 +401,24 @@ void rwlock_release_read(struct rwlock *rwlock){
 	KASSERT(rwlock->readers > 0);
 	lock_acquire(rwlock->lock);
 	rwlock->readers--;
-	cv_signal(rwlock->cv_write, rwlock->lock);
+	if(rwlock->wwait > 0){
+		rwlock->blockReads = true;
+	}
+	if(rwlock->readers == 0){
+		rwlock->blockWrites = false;
+		cv_signal(rwlock->cv_write, rwlock->lock);
+	}
+
+		
 	lock_release(rwlock->lock);
 	return;
 }
 void rwlock_acquire_write(struct rwlock *rwlock){
 	KASSERT(rwlock != NULL);
-	rwlock->wwait++;
 	lock_acquire(rwlock->lock);
-	rwlock->wwait--;
-	while(rwlock->readers > 0 || rwlock->writer != NULL){
+	while(rwlock->blockWrites || rwlock->writer != NULL){
 		rwlock->wwait++;
+		rwlock->blockReads = true;
 		cv_wait(rwlock->cv_write, rwlock->lock);
 		rwlock->wwait--;
 	}
@@ -428,10 +438,14 @@ void rwlock_release_write(struct rwlock *rwlock){
 
 	if(rwlock->toggle || rwlock->rwait == 0){
 		rwlock->toggle = false;
+		rwlock->blockReads=true;
+		rwlock->blockWrites=false;
 		cv_signal(rwlock->cv_write, rwlock->lock);
 	}
 	else{
 		rwlock->toggle = true;
+		rwlock->blockReads = false;
+		rwlock->blockWrites = true;
 		cv_broadcast(rwlock->cv_read, rwlock->lock);
 	}
 
@@ -439,39 +453,3 @@ void rwlock_release_write(struct rwlock *rwlock){
 	return;
 }
 
-void increaseArraySize(struct rwlock* rwlock, int newSize){
-			//kprintf("increasing array size \n");
-	struct thread* arr[newSize];
-	for(unsigned int i = 0; i < sizeof(rwlock->threadList)/sizeof(rwlock->threadList[0]); ++i){
-		arr[i] = rwlock->threadList[i];
-		rwlock->threadList[i] = NULL;
-	}
-	// kfree(rwlock->threadList);
-	*rwlock->threadList = *arr;
-
-}
-
-void shiftArray(struct rwlock* rwlock){
-	bool threadFound = false;
-	for(unsigned int i = 0; i < rwlock->listIndex; ++i){
-		if(curthread == rwlock->threadList[i] || threadFound){
-			threadFound = true;
-			rwlock->threadList[i] = rwlock->threadList[i+1];
-		}
-	}
-	rwlock->threadList[rwlock->listIndex - 1] = NULL;
-	rwlock->listIndex--;
-}
-
-bool amIReading(struct rwlock* rwlock){
-	for(unsigned int i = 0; i < rwlock->listIndex; ++i){
-		if(curthread == rwlock->threadList[i]){
-			return true;
-		}
-	}
-	return false;
-}
-
-int getTestVar(){
-	return testvar;
-}
