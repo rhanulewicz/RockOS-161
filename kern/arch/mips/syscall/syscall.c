@@ -35,6 +35,7 @@
 #include <thread.h>
 #include <current.h>
 #include <syscall.h>
+#include <unistd.h>
 
 
 /*
@@ -75,6 +76,16 @@
  * stack, starting at sp+16 to skip over the slots for the
  * registerized values, with copyin().
  */
+
+
+int open(const char *filename, int flags, ...){
+	//TODO
+}
+
+ssize_t write(int filehandle, const void *buf, size_t size){
+	//TODO
+}
+
 void
 syscall(struct trapframe *tf)
 {
@@ -107,6 +118,14 @@ syscall(struct trapframe *tf)
 	    case SYS___time:
 		err = sys___time((userptr_t)tf->tf_a0,
 				 (userptr_t)tf->tf_a1);
+		break;
+
+		case SYS_open:
+
+		break;
+
+		case SYS_write:
+
 		break;
 
 	    /* Add stuff here */

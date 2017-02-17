@@ -52,7 +52,7 @@ main(int argc, char **argv)
 
 	(void) argc;
 	(void) argv;
-
+	
 	secprintf(SECRET, "Able was i ere i saw elbA", "/testbin/consoletest");
 	return 0;
 }
