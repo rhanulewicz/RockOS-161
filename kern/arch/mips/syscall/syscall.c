@@ -35,7 +35,6 @@
 #include <thread.h>
 #include <current.h>
 #include <syscall.h>
-#include <unistd.h>
 
 
 /*
@@ -78,12 +77,18 @@
  */
 
 
-int open(const char *filename, int flags, ...){
-	//TODO
-}
+// int open(const char *filename, int flags, ...){
+// 	//TODO
+// }
 
 ssize_t write(int filehandle, const void *buf, size_t size){
-	//TODO
+	(void)filehandle;
+	(void)buf;
+	(void)size;
+	// if(filehandle == 1){
+	// 	kprintf("%d", *buf);
+	// }
+	return (ssize_t)5;
 }
 
 void
@@ -121,11 +126,11 @@ syscall(struct trapframe *tf)
 		break;
 
 		case SYS_open:
-
+		err = -1;
 		break;
 
 		case SYS_write:
-
+		err = -1;
 		break;
 
 	    /* Add stuff here */
