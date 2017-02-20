@@ -61,6 +61,8 @@ int semtest(int, char **);
 int locktest(int, char **);
 int locktest2(int, char **);
 int locktest3(int, char **);
+int locktest4(int, char **);
+int locktest5(int, char **);
 int cvtest(int, char **);
 int cvtest2(int, char **);
 int cvtest3(int, char **);
@@ -156,7 +158,7 @@ void whalemating_cleanup(void);
 void male(uint32_t);
 void female(uint32_t);
 void matchmaker(uint32_t);
- 
+
 /*
  * stoplight.c.
  */
@@ -166,10 +168,6 @@ void turnleft(uint32_t, uint32_t);
 void turnright(uint32_t, uint32_t);
 void stoplight_init(void);
 void stoplight_cleanup(void);
-int getNextQuadrant(int currentQuadrant, int driectionOfTravel);
-void setQ(int q,bool value);
-bool getQ(int q);
-
 
 #endif
 

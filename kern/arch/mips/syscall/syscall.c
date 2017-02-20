@@ -98,7 +98,6 @@ ssize_t write(int filehandle, const void *buf, size_t size){
 	thing.uio_rw = UIO_WRITE;
 	thing.uio_space = proc_getas();
 
-
 	struct vnode *file;
 	char bar [] = "con:";
 	vfs_open(bar, 1, 0, &file);
