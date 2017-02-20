@@ -126,7 +126,13 @@ common_prog(int nargs, char **args)
 	if (proc == NULL) {
 		return ENOMEM;
 	}
-
+	struct fileContainer *stdout;
+	stdout = kmalloc(sizeof(*stdout));
+	stdout->offset = 0;
+	stdout->permflag = 1;
+	char bar [] = "con:";
+	vfs_open(bar, 1, 0, &stdout->llfile); 
+	proc->fileTable[1] = stdout;
 	tc = thread_count;
 
 	result = thread_fork(args[0] /* thread name */,

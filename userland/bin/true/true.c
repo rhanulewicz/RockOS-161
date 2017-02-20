@@ -40,6 +40,7 @@ main(void)
 {
 	/* Just exit with success. */
 	printf("Hello World\n");
+	printf("Fuck Wisconsin\n");
 	//sys_write(NULL, "Hello World", sizeof("Hello World"));
 	while(1){
 

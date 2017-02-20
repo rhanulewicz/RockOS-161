@@ -39,6 +39,7 @@
 #include <vnode.h>
 #include <vfs.h>
 #include <proc.h>
+#include <kern/fcntl.h>
 
 /*
  * System call dispatcher.
@@ -82,10 +83,15 @@
 
 // int open(const char *filename, int flags, ...){
 // 	//TODO
+//	//Search filetable for first empty slot
 // }
 
 ssize_t write(int filehandle, const void *buf, size_t size){
-	(void)filehandle;
+	struct fileContainer *file = curproc->fileTable[filehandle];
+	if (file == NULL || file->permflag == O_RDONLY){
+		return EBADF;
+	}
+	//Remember to give the user the size variable back (copyout, look at sys__time)
 	struct uio thing;
 	struct iovec iov;
 	iov.iov_ubase = (userptr_t)buf;
@@ -93,15 +99,12 @@ ssize_t write(int filehandle, const void *buf, size_t size){
 	thing.uio_iov = &iov;
 	thing.uio_iovcnt = 1;
 	thing.uio_resid = size; 
-	thing.uio_offset = 0;
+	thing.uio_offset = file->offset;
 	thing.uio_segflg = UIO_USERSPACE;
 	thing.uio_rw = UIO_WRITE;
 	thing.uio_space = proc_getas();
 
-	struct vnode *file;
-	char bar [] = "con:";
-	vfs_open(bar, 1, 0, &file);
-	VOP_WRITE(file,&thing);
+	VOP_WRITE(file->llfile,&thing);
 	// panic("die a miserable death\n");
 	return (ssize_t)0;
 }

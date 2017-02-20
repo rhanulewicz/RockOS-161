@@ -37,10 +37,12 @@
  */
 
 #include <spinlock.h>
+//#include <uio.h>
 
 struct addrspace;
 struct thread;
 struct vnode;
+struct fileContainer;
 
 /*
  * Process structure.
@@ -69,7 +71,7 @@ struct proc {
 
 	/* VFS */
 	struct vnode *p_cwd;		/* current working directory */
-
+	struct fileContainer* fileTable[64];
 	/* add more material here as needed */
 };
 
@@ -96,6 +98,12 @@ struct addrspace *proc_getas(void);
 
 /* Change the address space of the current process, and return the old one. */
 struct addrspace *proc_setas(struct addrspace *);
+
+struct fileContainer{
+	struct vnode *llfile;
+	off_t offset;
+	int permflag;
+};
 
 
 #endif /* _PROC_H_ */
