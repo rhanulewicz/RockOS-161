@@ -1,0 +1,16 @@
+we need a file table in proc.c
+what goes into the structs that go into the file table (file properties)
+index 1 of file table represents stdout. (0 in, 2 err)
+
+
+struct vnode in vnode.h (Abstract low-level file, basis for the structs that will go in our file table)
+
+Find the first process that gets run and initializes stout stin stderr
+
+"con:" refers to the console "file" <--- Dis shit gonna save our ass
+
+take a look at how init process is launched (shameless copypasta territory)
+
+look at loadelf load_segment
+
+address space is found in the proc struct, look at proc_getas(), also global variable curproc

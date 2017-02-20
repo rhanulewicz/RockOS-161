@@ -35,7 +35,10 @@
 #include <thread.h>
 #include <current.h>
 #include <syscall.h>
-
+#include <uio.h>
+#include <vnode.h>
+#include <vfs.h>
+#include <proc.h>
 
 /*
  * System call dispatcher.
@@ -83,20 +86,33 @@
 
 ssize_t write(int filehandle, const void *buf, size_t size){
 	(void)filehandle;
-	(void)buf;
-	(void)size;
-	// if(filehandle == 1){
-	// 	kprintf("%d", *buf);
-	// }
-	return (ssize_t)5;
+	struct uio thing;
+	struct iovec iov;
+	iov.iov_ubase = (userptr_t)buf;
+	iov.iov_len = size;		 // length of the memory space
+	thing.uio_iov = &iov;
+	thing.uio_iovcnt = 1;
+	thing.uio_resid = size; 
+	thing.uio_offset = 0;
+	thing.uio_segflg = UIO_USERSPACE;
+	thing.uio_rw = UIO_WRITE;
+	thing.uio_space = proc_getas();
+
+
+	struct vnode *file;
+	char bar [] = "con:";
+	vfs_open(bar, 1, 0, &file);
+	VOP_WRITE(file,&thing);
+	// panic("die a miserable death\n");
+	return (ssize_t)0;
 }
 
 void
 syscall(struct trapframe *tf)
 {
 	int callno;
-	int32_t retval;
-	int err;
+	int32_t retval; //Passed to user
+	int err; //Returned to kernel
 
 	KASSERT(curthread != NULL);
 	KASSERT(curthread->t_curspl == 0);
@@ -130,7 +146,7 @@ syscall(struct trapframe *tf)
 		break;
 
 		case SYS_write:
-		err = -1;
+		err = write(tf->tf_a0, (userptr_t)tf->tf_a1, tf->tf_a2);
 		break;
 
 	    /* Add stuff here */

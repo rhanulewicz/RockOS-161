@@ -29,6 +29,7 @@
 
 #include <unistd.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 /*
  * true - succeed.
@@ -38,5 +39,10 @@ int
 main(void)
 {
 	/* Just exit with success. */
-	exit(0);
+	printf("Hello World\n");
+	//sys_write(NULL, "Hello World", sizeof("Hello World"));
+	while(1){
+
+	}
+	//exit(0);
 }
