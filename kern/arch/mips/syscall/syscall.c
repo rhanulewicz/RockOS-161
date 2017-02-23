@@ -81,7 +81,7 @@
  */
 
 
-int open(char *filename, int flags, ...){
+ssize_t open(char *filename, int flags, int32_t *retval){
 	//TODO
 	//Search filetable for first empty slot
 	//FIX THIS ITS SHIT
@@ -99,11 +99,12 @@ int open(char *filename, int flags, ...){
 	for(int i = 0; i < 64; i++){
 		if(curproc->fileTable[i]== NULL){
 			curproc->fileTable[i] = file;
+			*retval = (int32_t)i;
 			break;
 		}
 	}
 
-	return 0;
+	return (ssize_t)0;
 }
 
 ssize_t write(int filehandle, const void *buf, size_t size, int32_t *retval){
@@ -127,10 +128,16 @@ ssize_t write(int filehandle, const void *buf, size_t size, int32_t *retval){
 	VOP_WRITE(file->llfile,&thing);
 
 	file->offset = file->offset + size;
-	// panic("die a miserable death\n");
-	(void)retval;
+	// panic("die a miserable death\n")
 	*retval = (int32_t)size;
 
+	return (ssize_t)0;
+}
+
+ssize_t close(int fd, int32_t *retval){
+	kfree(*curproc->fileTable[fd]);
+	curproc->fileTable[fd] = NULL;
+	*retval = (int32_t)0;
 	return (ssize_t)0;
 }
 
@@ -174,6 +181,10 @@ syscall(struct trapframe *tf)
 
 		case SYS_write:
 		err = write(tf->tf_a0, (userptr_t)tf->tf_a1, tf->tf_a2, &retval);
+		break;
+
+		case SYS_close:
+		err = close(tf->tf_a0, &retval);
 		break;
 
 	    /* Add stuff here */
