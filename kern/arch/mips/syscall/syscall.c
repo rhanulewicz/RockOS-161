@@ -81,12 +81,32 @@
  */
 
 
-// int open(const char *filename, int flags, ...){
-// 	//TODO
-//	//Search filetable for first empty slot
-// }
+int open(char *filename, int flags, ...){
+	//TODO
+	//Search filetable for first empty slot
+	//FIX THIS ITS SHIT
+	//You can change function prototypes, pass int value into all sys calls
+	struct fileContainer *file;
+	struct vnode *trash;
 
-ssize_t write(int filehandle, const void *buf, size_t size){
+	file = kmalloc(sizeof(*file));
+	char* filestar = filename;
+	vfs_open(filestar, flags, 0, &trash);
+	file->llfile = trash;
+	file->permflag = flags;
+	file->offset = 0;
+
+	for(int i = 0; i < 64; i++){
+		if(curproc->fileTable[i]== NULL){
+			curproc->fileTable[i] = file;
+			break;
+		}
+	}
+
+	return 0;
+}
+
+ssize_t write(int filehandle, const void *buf, size_t size, int32_t *retval){
 	struct fileContainer *file = curproc->fileTable[filehandle];
 	if (file == NULL || file->permflag == O_RDONLY){
 		return EBADF;
@@ -105,7 +125,12 @@ ssize_t write(int filehandle, const void *buf, size_t size){
 	thing.uio_space = proc_getas();
 
 	VOP_WRITE(file->llfile,&thing);
+
+	file->offset = file->offset + size;
 	// panic("die a miserable death\n");
+	(void)retval;
+	*retval = (int32_t)size;
+
 	return (ssize_t)0;
 }
 
@@ -144,11 +169,11 @@ syscall(struct trapframe *tf)
 		break;
 
 		case SYS_open:
-		err = -1;
+		err = open((char*)tf->tf_a0, (int)tf->tf_a1);
 		break;
 
 		case SYS_write:
-		err = write(tf->tf_a0, (userptr_t)tf->tf_a1, tf->tf_a2);
+		err = write(tf->tf_a0, (userptr_t)tf->tf_a1, tf->tf_a2, &retval);
 		break;
 
 	    /* Add stuff here */

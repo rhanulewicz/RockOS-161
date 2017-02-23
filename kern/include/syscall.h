@@ -56,7 +56,8 @@ __DEAD void enter_new_process(int argc, userptr_t argv, userptr_t env,
  * Prototypes for IN-KERNEL entry points for system call implementations.
  */
 
-ssize_t write(int filehandle, const void *buf, size_t size);
+ssize_t write(int filehandle, const void *buf, size_t size, int32_t *retval);
+int open(char *filename, int flags, ...);
 int sys_reboot(int code);
 int sys___time(userptr_t user_seconds, userptr_t user_nanoseconds);
 
