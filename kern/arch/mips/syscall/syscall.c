@@ -135,7 +135,7 @@ ssize_t write(int filehandle, const void *buf, size_t size, int32_t *retval){
 }
 
 ssize_t close(int fd, int32_t *retval){
-	kfree(*curproc->fileTable[fd]);
+	kfree(curproc->fileTable[fd]);
 	curproc->fileTable[fd] = NULL;
 	*retval = (int32_t)0;
 	return (ssize_t)0;
@@ -176,7 +176,7 @@ syscall(struct trapframe *tf)
 		break;
 
 		case SYS_open:
-		err = open((char*)tf->tf_a0, (int)tf->tf_a1);
+		err = open((char*)tf->tf_a0, (int)tf->tf_a1, &retval);
 		break;
 
 		case SYS_write:
