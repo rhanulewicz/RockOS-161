@@ -40,6 +40,9 @@
 #include <vfs.h>
 #include <proc.h>
 #include <kern/fcntl.h>
+#include <kern/seek.h>
+#include <copyinout.h>
+#include <kern/stat.h>
 
 /*
  * System call dispatcher.
@@ -80,6 +83,33 @@
  * registerized values, with copyin().
  */
 
+off_t lseek(int fd, off_t pos, int whence, int32_t *retval){
+	struct fileContainer *file = curproc->fileTable[fd];
+	struct stat *statBox = kmalloc(sizeof(*statBox));
+	VOP_STAT(file->llfile, statBox);
+	//kprintf("%d %d \n", (int)file->offset, (int)statBox->st_size);
+	if(whence == SEEK_SET){
+		file->offset = pos;
+	}
+	else if(whence == SEEK_CUR){
+		file->offset = (file->offset) + (pos);
+
+	}
+	else if(whence == SEEK_END){
+		file->offset = statBox->st_size + pos;
+		kprintf("%d %d \n", (int)file->offset, (int)pos);
+	}
+	else{
+		//whence is invalid
+		*retval = -1;
+		return EINVAL;
+	}
+	//This is getting left shifted and its fucked
+	
+	kprintf("%d %d \n", (int)file->offset, (int)pos);
+	*retval = file->offset; // Bit manipulation is bonkers. 0 turns to 512 by black magic.
+	return (off_t)0;
+}
 
 ssize_t open(char *filename, int flags, int32_t *retval){
 	//TODO
@@ -125,7 +155,7 @@ ssize_t write(int filehandle, const void *buf, size_t size, int32_t *retval){
 	thing.uio_rw = UIO_WRITE;
 	thing.uio_space = proc_getas();
 
-	VOP_WRITE(file->llfile,&thing);
+	VOP_WRITE(file->llfile, &thing);
 
 	file->offset = file->offset + size;
 	// panic("die a miserable death\n")
@@ -138,6 +168,33 @@ ssize_t close(int fd, int32_t *retval){
 	kfree(curproc->fileTable[fd]);
 	curproc->fileTable[fd] = NULL;
 	*retval = (int32_t)0;
+	return (ssize_t)0;
+}
+
+ssize_t read(int fd, void *buf, size_t buflen, int32_t *retval){
+	struct fileContainer *file = curproc->fileTable[fd];
+	if (file == NULL || file->permflag == O_WRONLY){
+		return EBADF;
+	}
+	//Remember to give the user the size variable back (copyout, look at sys__time)
+	struct uio thing;
+	struct iovec iov;
+	iov.iov_ubase = (userptr_t)buf;
+	iov.iov_len = buflen;		 // length of the memory space
+	thing.uio_iov = &iov;
+	thing.uio_iovcnt = 1;
+	thing.uio_resid = buflen; 
+	thing.uio_offset = file->offset;
+	thing.uio_segflg = UIO_USERSPACE;
+	thing.uio_rw = UIO_READ;
+	thing.uio_space = proc_getas();
+
+	VOP_READ(file->llfile, &thing);
+
+	file->offset = file->offset + buflen;
+	// panic("die a miserable death\n")
+	*retval = (int32_t)buflen;
+
 	return (ssize_t)0;
 }
 
@@ -164,7 +221,8 @@ syscall(struct trapframe *tf)
 	 */
 
 	retval = 0;
-
+	off_t pos64;
+	int whenceIn;
 	switch (callno) {
 	    case SYS_reboot:
 		err = sys_reboot(tf->tf_a0);
@@ -184,11 +242,27 @@ syscall(struct trapframe *tf)
 		break;
 
 		case SYS_close:
+
 		err = close(tf->tf_a0, &retval);
 		break;
 
-	    /* Add stuff here */
+		case SYS_lseek:
+		err = 0;
+		pos64 = tf->tf_a2;
+		pos64 = pos64 << 32;
+		pos64 = pos64 | tf->tf_a3;
+		copyin((userptr_t)tf->tf_sp+16, &whenceIn, 4);
 
+		//need to use copyin() copyout() to get stuff between user stack pointer and here
+		pos64 = lseek(tf->tf_a0, pos64, whenceIn, &retval);
+		err = (int)pos64;
+		
+		//kprintf("%d", (int)tf->tf_sp+16);
+		break;
+	    /* Add stuff here */
+		case 3:
+		err = 0;
+		break;
 	    default:
 		kprintf("Unknown syscall %d\n", callno);
 		err = ENOSYS;
