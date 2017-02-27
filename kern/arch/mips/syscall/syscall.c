@@ -85,33 +85,32 @@
 
 off_t lseek(int fd, off_t pos, int whence, int32_t *retval){
 	struct fileContainer *file = curproc->fileTable[fd];
-
 	struct stat *statBox = kmalloc(sizeof(*statBox));
-	if(file != NULL){
-		VOP_STAT(file->llfile, statBox); //This is where the NULL dereference is happening
-		if(whence == SEEK_SET){
-			file->offset = pos;
-		}
-		else if(whence == SEEK_CUR){
-			file->offset = (file->offset) + (pos);
-
-		}
-		else if(whence == SEEK_END){
-			//kprintf("Offset, pos: %d, %d \n", (int)file->offset, (int)pos);
-			file->offset = (statBox->st_size + pos);
-		}
-		else{
-			//whence is invalid
-			*retval = -1;
-			return EINVAL;
-		}
-		*retval = file->offset; 
-		return (off_t)0;
-	}
-	else{
+	
+	if(file == NULL){
 		*retval = -1;
 		return EBADF;
 	}
+	
+	VOP_STAT(file->llfile, statBox); //This is where the NULL dereference is happening
+	if(whence == SEEK_SET){
+		file->offset = pos;
+	}
+	else if(whence == SEEK_CUR){
+		file->offset = (file->offset) + (pos);
+
+	}
+	else if(whence == SEEK_END){
+		//kprintf("Offset, pos: %d, %d \n", (int)file->offset, (int)pos);
+		file->offset = (statBox->st_size + pos);
+	}
+	else{
+		//whence is invalid
+		*retval = -1;
+		return EINVAL;
+	}
+	*retval = file->offset; 
+	return (off_t)0;
 
 	
 }
