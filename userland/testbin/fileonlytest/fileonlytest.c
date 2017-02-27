@@ -100,7 +100,6 @@ main(int argc, char **argv)
       return 0;
     }
   }
-
   target = 0;
   pos = lseek(fh, target, SEEK_SET);
   if (pos != target) {
@@ -154,6 +153,7 @@ main(int argc, char **argv)
 	// 23 Mar 2012 : GWA : Close the file.
 
 	tprintf("Closing %s\n", filename);
+
 	close(fh);
 
 	// 23 Mar 2012 : GWA : Make sure the file is actually closed.

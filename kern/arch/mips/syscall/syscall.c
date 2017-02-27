@@ -85,30 +85,35 @@
 
 off_t lseek(int fd, off_t pos, int whence, int32_t *retval){
 	struct fileContainer *file = curproc->fileTable[fd];
-	struct stat *statBox = kmalloc(sizeof(*statBox));
-	VOP_STAT(file->llfile, statBox);
-	//kprintf("%d %d \n", (int)file->offset, (int)statBox->st_size);
-	if(whence == SEEK_SET){
-		file->offset = pos;
-	}
-	else if(whence == SEEK_CUR){
-		file->offset = (file->offset) + (pos);
 
-	}
-	else if(whence == SEEK_END){
-		file->offset = statBox->st_size + pos;
-		kprintf("%d %d \n", (int)file->offset, (int)pos);
+	struct stat *statBox = kmalloc(sizeof(*statBox));
+	if(file != NULL){
+		VOP_STAT(file->llfile, statBox); //This is where the NULL dereference is happening
+		if(whence == SEEK_SET){
+			file->offset = pos;
+		}
+		else if(whence == SEEK_CUR){
+			file->offset = (file->offset) + (pos);
+
+		}
+		else if(whence == SEEK_END){
+			//kprintf("Offset, pos: %d, %d \n", (int)file->offset, (int)pos);
+			file->offset = (statBox->st_size + pos);
+		}
+		else{
+			//whence is invalid
+			*retval = -1;
+			return EINVAL;
+		}
+		*retval = file->offset; 
+		return (off_t)0;
 	}
 	else{
-		//whence is invalid
 		*retval = -1;
-		return EINVAL;
+		return EBADF;
 	}
-	//This is getting left shifted and its fucked
+
 	
-	kprintf("%d %d \n", (int)file->offset, (int)pos);
-	*retval = file->offset; // Bit manipulation is bonkers. 0 turns to 512 by black magic.
-	return (off_t)0;
 }
 
 ssize_t open(char *filename, int flags, int32_t *retval){
@@ -229,8 +234,7 @@ syscall(struct trapframe *tf)
 		break;
 
 	    case SYS___time:
-		err = sys___time((userptr_t)tf->tf_a0,
-				 (userptr_t)tf->tf_a1);
+		err = sys___time((userptr_t)tf->tf_a0, (userptr_t)tf->tf_a1);
 		break;
 
 		case SYS_open:
@@ -242,8 +246,11 @@ syscall(struct trapframe *tf)
 		break;
 
 		case SYS_close:
-
 		err = close(tf->tf_a0, &retval);
+		break;
+
+		case SYS_read:
+		err = read(tf->tf_a0, (userptr_t)tf->tf_a1, tf->tf_a2, &retval);
 		break;
 
 		case SYS_lseek:
@@ -252,17 +259,16 @@ syscall(struct trapframe *tf)
 		pos64 = pos64 << 32;
 		pos64 = pos64 | tf->tf_a3;
 		copyin((userptr_t)tf->tf_sp+16, &whenceIn, 4);
-
-		//need to use copyin() copyout() to get stuff between user stack pointer and here
 		pos64 = lseek(tf->tf_a0, pos64, whenceIn, &retval);
 		err = (int)pos64;
-		
-		//kprintf("%d", (int)tf->tf_sp+16);
+		//kprintf("lseek retval: %d\n", retval);
 		break;
+
 	    /* Add stuff here */
 		case 3:
 		err = 0;
 		break;
+
 	    default:
 		kprintf("Unknown syscall %d\n", callno);
 		err = ENOSYS;
@@ -281,8 +287,16 @@ syscall(struct trapframe *tf)
 	}
 	else {
 		/* Success. */
+		if(callno == SYS_lseek){
+			tf->tf_v0 = 0;
+			tf->tf_v1 = retval;
+			tf->tf_a3 = 0;  
+		}
+		else{
 		tf->tf_v0 = retval;
 		tf->tf_a3 = 0;      /* signal no error */
+			
+		}
 	}
 
 	/*
