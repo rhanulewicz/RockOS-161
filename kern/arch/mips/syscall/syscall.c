@@ -43,7 +43,7 @@
 #include <kern/seek.h>
 #include <copyinout.h>
 #include <kern/stat.h>
-
+#include <addrspace.h>
 /*
  * System call dispatcher.
  *
@@ -122,8 +122,9 @@ ssize_t open(char *filename, int flags, int32_t *retval){
 	//You can change function prototypes, pass int value into all sys calls
 	struct fileContainer *file;
 	struct vnode *trash;
-
+	trash = kmalloc(sizeof(*trash));
 	file = kmalloc(sizeof(*file));
+	file->refCount = 1;
 	char* filestar = filename;
 	vfs_open(filestar, flags, 0, &trash);
 	file->llfile = trash;
@@ -169,7 +170,15 @@ ssize_t write(int filehandle, const void *buf, size_t size, int32_t *retval){
 }
 
 ssize_t close(int fd, int32_t *retval){
-	kfree(curproc->fileTable[fd]);
+	if(curproc->fileTable[fd] == NULL){
+		*retval = 0;
+		return (ssize_t)0;
+	}
+	curproc->fileTable[fd]->refCount--;
+	if(curproc->fileTable[fd]->refCount == 0){
+		kfree(curproc->fileTable[fd]->llfile);
+		kfree(curproc->fileTable[fd]);
+	}
 	curproc->fileTable[fd] = NULL;
 	*retval = (int32_t)0;
 	return (ssize_t)0;
@@ -202,6 +211,57 @@ ssize_t read(int fd, void *buf, size_t buflen, int32_t *retval){
 	return (ssize_t)0;
 }
 
+pid_t fork(int32_t *retval){
+	(void)retval;
+	
+	return (pid_t)0;
+}
+
+pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
+	(void)pid;
+	(void)status;
+	(void)options;
+	(void)retval;
+
+	return (pid_t)0;
+}
+
+void _exit(int exitcode){
+
+	if (curproc->p_cwd) {
+		VOP_DECREF(curproc->p_cwd);
+		curproc->p_cwd = NULL;
+	}
+
+	if (curproc->p_addrspace) {
+
+		struct addrspace *as;
+		//if (proc == curproc) {
+
+		as = proc_setas(NULL);
+		as_deactivate();
+		// }
+		// else {
+
+		// 	as = proc->p_addrspace;
+		// 	proc->p_addrspace = NULL;
+		// }
+
+		as_destroy(as);
+	}
+	spinlock_cleanup(&curproc->p_lock);
+	curproc->exitCode = exitcode;
+	
+}
+
+int execv(const char *program, char **args, int32_t *retval){
+	(void)program;
+	(void)args;
+	(void)retval;
+
+	return 0;
+}
+
 void
 syscall(struct trapframe *tf)
 {
@@ -227,6 +287,11 @@ syscall(struct trapframe *tf)
 	retval = 0;
 	off_t pos64;
 	int whenceIn;
+	// struct fileContainer* f1 = kmalloc(sizeof(f1));
+	// struct fileContainer* f2 = kmalloc(sizeof(f2));
+	// f1->offset = 0;
+	// f1->permflag = O_WRONLY;
+	// f1->llfile = curproc->fileTable[1]->llfile;
 	switch (callno) {
 	    case SYS_reboot:
 		err = sys_reboot(tf->tf_a0);
@@ -242,6 +307,11 @@ syscall(struct trapframe *tf)
 
 		case SYS_write:
 		err = write(tf->tf_a0, (userptr_t)tf->tf_a1, tf->tf_a2, &retval);
+		
+		// cloneFileContainer(f1, f2);
+		// //kfree(f1);
+		// //f1 = NULL;
+		// kprintf("%p\n%p", (void*)&f1->offset, (void*)&f2->offset);
 		break;
 
 		case SYS_close:
@@ -253,7 +323,6 @@ syscall(struct trapframe *tf)
 		break;
 
 		case SYS_lseek:
-		err = 0;
 		pos64 = tf->tf_a2;
 		pos64 = pos64 << 32;
 		pos64 = pos64 | tf->tf_a3;
@@ -263,10 +332,22 @@ syscall(struct trapframe *tf)
 		//kprintf("lseek retval: %d\n", retval);
 		break;
 
-	    /* Add stuff here */
-		case 3:
-		err = 0;
+		case SYS_fork:
+		err = fork(&retval);
 		break;
+
+		case SYS_waitpid:
+		err = waitpid(tf->tf_a0, (int*)tf->tf_a1, tf->tf_a2, &retval);
+		break;
+
+		case SYS_execv:
+		err = execv((const char*)tf->tf_a0, (char**)tf->tf_a1, &retval);
+		break;
+	    
+	    case SYS__exit:
+	    err = 0;
+	    _exit(tf->tf_a0);
+	    break;
 
 	    default:
 		kprintf("Unknown syscall %d\n", callno);

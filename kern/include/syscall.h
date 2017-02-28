@@ -61,6 +61,10 @@ ssize_t open(char *filename, int flags,  int32_t *retval);
 ssize_t close(int fd, int32_t *retval);
 ssize_t read(int fd, void *buf, size_t buflen, int32_t *retval);
 off_t lseek(int fd, off_t pos, int whence, int32_t *retval);
+pid_t fork(int32_t *retval);
+pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval);
+void _exit(int exitcode);
+int execv(const char *program, char **args, int32_t *retval);
 int sys_reboot(int code);
 int sys___time(userptr_t user_seconds, userptr_t user_nanoseconds);
 

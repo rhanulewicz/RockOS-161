@@ -72,6 +72,8 @@ struct proc {
 	/* VFS */
 	struct vnode *p_cwd;		/* current working directory */
 	struct fileContainer* fileTable[64];
+	int exitCode;
+	int waitingOnMe;
 	/* add more material here as needed */
 };
 
@@ -99,11 +101,15 @@ struct addrspace *proc_getas(void);
 /* Change the address space of the current process, and return the old one. */
 struct addrspace *proc_setas(struct addrspace *);
 
+
 struct fileContainer{
 	struct vnode *llfile;
 	off_t offset;
 	int permflag;
+	int refCount;
 };
+
+void cloneFileContainer(struct fileContainer*, struct fileContainer*);
 
 
 #endif /* _PROC_H_ */
