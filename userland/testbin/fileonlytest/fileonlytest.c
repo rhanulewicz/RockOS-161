@@ -80,11 +80,13 @@ main(int argc, char **argv)
 
   // 23 Mar 2012 : GWA : Do the even-numbered writes. Test read() and
   // lseek(SEEK_END).
+	
 
   for (i = 0; i < BUFFER_COUNT / 2; i++) {
 		for (j = 0; j < BUFFER_SIZE; j++) {
 			writebuf[j] = i * 2 * j;
 		}
+
 		len = write(fh, writebuf, sizeof(writebuf));
 		if (len != sizeof(writebuf)) {
 			err(1, "write failed");

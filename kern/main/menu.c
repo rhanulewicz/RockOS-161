@@ -126,14 +126,39 @@ common_prog(int nargs, char **args)
 	if (proc == NULL) {
 		return ENOMEM;
 	}
+	
 	struct fileContainer *stdout;
-	stdout = kmalloc(sizeof(*stdout));
+	stdout = kmalloc(sizeof(stdout));
 	stdout->offset = 0;
 	stdout->permflag = 1;
 	char bar [] = "con:";
 	vfs_open(bar, 1, 0, &stdout->llfile); 
+	proc->fileTable[0] = stdout;
 	proc->fileTable[1] = stdout;
+	proc->fileTable[2] = stdout;
 	tc = thread_count;
+
+	//If you're the first process, create the process table and point to it
+	if(proc->firstProc== 0){
+		*proc->highestPid = 1;
+		proc->firstProc = 1;
+		proc->procTable = kmalloc(2000*sizeof(struct proc*));
+		for(int i = 0; i < 2000; ++i){
+			proc->procTable = kmalloc(sizeof(struct proc*));
+		}
+	}
+
+	//This is our wraparound
+	if(*proc->highestPid == 1999){
+		*proc->highestPid = 0;
+	}
+	//Search for first empty place in process table, place proc in it
+	for(int i = *proc->highestPid; i < 2000; i++){
+		if(proc->procTable[i] == NULL){
+			proc->procTable[i] = proc;
+			break;
+		}
+	}
 
 	result = thread_fork(args[0] /* thread name */,
 			proc /* new process */,
@@ -190,7 +215,7 @@ cmd_shell(int nargs, char **args)
 	}
 
 	args[0] = (char *)_PATH_SHELL;
-
+	//struct proc procTable[1000];
 	return common_prog(nargs, args);
 }
 

@@ -71,9 +71,16 @@ struct proc {
 
 	/* VFS */
 	struct vnode *p_cwd;		/* current working directory */
-	struct fileContainer* fileTable[64];
+
+	struct fileContainer* *fileTable;
 	int exitCode;
 	int waitingOnMe;
+	bool firstProc;
+	int pid;
+	struct proc* *procTable;
+	int *highestPid;
+	int children[100];
+	
 	/* add more material here as needed */
 };
 
@@ -95,11 +102,16 @@ int proc_addthread(struct proc *proc, struct thread *t);
 /* Detach a thread from its process. */
 void proc_remthread(struct thread *t);
 
+//Initialize process table to be called on first process created
+void first_proc(void);
+
 /* Fetch the address space of the current process. */
 struct addrspace *proc_getas(void);
 
 /* Change the address space of the current process, and return the old one. */
 struct addrspace *proc_setas(struct addrspace *);
+
+
 
 
 struct fileContainer{

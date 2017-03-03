@@ -143,10 +143,16 @@ ssize_t open(char *filename, int flags, int32_t *retval){
 }
 
 ssize_t write(int filehandle, const void *buf, size_t size, int32_t *retval){
+	if(curproc->fileTable == NULL){
+		kprintf("get fetched");
+	}
+
 	struct fileContainer *file = curproc->fileTable[filehandle];
-	if (file == NULL || file->permflag == O_RDONLY){
+	if (file == NULL /*|| file->permflag == O_RDONLY*/){
+		*retval = (int32_t)0;
 		return EBADF;
 	}
+
 	//Remember to give the user the size variable back (copyout, look at sys__time)
 	struct uio thing;
 	struct iovec iov;
@@ -170,7 +176,7 @@ ssize_t write(int filehandle, const void *buf, size_t size, int32_t *retval){
 }
 
 ssize_t close(int fd, int32_t *retval){
-	if(curproc->fileTable[fd] == NULL){
+	if(fd < 0 || fd > 63 || curproc->fileTable[fd] == NULL){
 		*retval = 0;
 		return (ssize_t)0;
 	}
@@ -205,16 +211,100 @@ ssize_t read(int fd, void *buf, size_t buflen, int32_t *retval){
 	VOP_READ(file->llfile, &thing);
 
 	file->offset = file->offset + buflen;
-	// panic("die a miserable death\n")
 	*retval = (int32_t)buflen;
 
 	return (ssize_t)0;
 }
 
-pid_t fork(int32_t *retval){
-	(void)retval;
+pid_t fork(struct trapframe *tf, int32_t *retval){
+	(void) retval;
+	//If you're the first process, create the process table and point to it
+	struct proc *newProc;
+	newProc = kmalloc(sizeof(struct proc));
+
+	struct fileContainer* *newFT;
+	newFT = kmalloc(64*sizeof(struct fileContainer*));
+	//Copy file table to new process
+	newProc->fileTable = newFT;
+	for(int i = 0; i < 64; i++){
+		newProc->fileTable[i] = curproc->fileTable[i];
+	}
+
+	//Copy lots of other stuff to new process
+	newProc->firstProc = 1;
+	newProc->procTable = curproc->procTable;
+	newProc->highestPid = curproc->highestPid;
+	newProc->p_addrspace = curproc->p_addrspace;
+	newProc->p_cwd = curproc->p_cwd;
+	newProc->p_numthreads = curproc->p_numthreads;
+
+	//Gives new process its own lock
+	struct spinlock newLock;
+	spinlock_init(&newLock);
+	newProc->p_lock = newLock;
+
+	//Search for first empty place in process table starting at highestpid, place proc in it
+	//Also does wraparound
+	for(int i = *newProc->highestPid - 1; i < 2000; i++){
+		if(newProc->procTable[i] == NULL){
+			newProc->procTable[i] = newProc;
+			newProc->pid = i + 1;
+			*newProc->highestPid = newProc->pid + 1;
+			if (*newProc->highestPid > 2000){
+				*newProc->highestPid = 1;
+			}
+			break;
+		}
+		//If you make it to the last index, wrap around via highestpid
+		i = (i == 1999)? 0 : i;
+	}
+
+	//
+	newProc->p_name = curproc->p_name;
+	newProc->exitCode = -1;
+	newProc->waitingOnMe = 0;
+
+	//copy the trapframe
+	//fork the thread
+	//the thread's function is a helper function
+	//set the parent's return value to be the child's pid
+	//parent returns like any other syscall
+	//pass trapframe into mips_usermode
+	//helper function has to associate the parent and the child
+	//set the trapframe's proper return values
+	//child function copies
+	for(int i = 0; i < 100; i++){
+		if(curproc->children[i] == 0){
+			curproc->children[i] = newProc->pid;
+		}
+	}
+	//kprintf("===immediately before thread_fork\n");
+
+	thread_fork(newProc->p_name, newProc, copytf, tf, 0);
+
+	// for(int i = 0; i < 20000000; ++i){
+	// 	kprintf("fuuuuck");
+	// }
+	// *retval = (int32_t)curproc->pid;
+	return (pid_t)curproc->pid;
+}
+
+void copytf(void *tf, unsigned long ts){
+	(void)ts;
+
+	as_activate();
+	struct trapframe *ptf = (struct trapframe *)tf;
 	
-	return (pid_t)0;
+	struct trapframe ctf = *ptf;
+	struct trapframe *ctfp = &ctf;
+
+	//*ctf = *ptf;
+	
+	ctfp->tf_v0 = 0;
+	ctfp->tf_v1 = 0;
+	ctfp->tf_a3 = 0;
+	//kprintf("===immediately before mips_usermode\n"); 
+	mips_usermode(ctfp);
 }
 
 pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
@@ -224,6 +314,10 @@ pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
 	(void)retval;
 
 	return (pid_t)0;
+}
+
+void getpid(int32_t *retval){
+	*retval = (int32_t)curproc->pid;
 }
 
 void _exit(int exitcode){
@@ -251,7 +345,7 @@ void _exit(int exitcode){
 	}
 	spinlock_cleanup(&curproc->p_lock);
 	curproc->exitCode = exitcode;
-	
+
 }
 
 int execv(const char *program, char **args, int32_t *retval){
@@ -333,7 +427,12 @@ syscall(struct trapframe *tf)
 		break;
 
 		case SYS_fork:
-		err = fork(&retval);
+		err = fork(tf,&retval);
+		break;
+
+		case SYS_getpid:
+		err = 0;
+		getpid(&retval);
 		break;
 
 		case SYS_waitpid:

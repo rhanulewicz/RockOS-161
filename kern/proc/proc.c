@@ -54,6 +54,11 @@
  */
 struct proc *kproc;
 
+void first_proc(){
+	
+	return;
+}
+
 /*
  * Create a proc structure.
  */
@@ -63,6 +68,8 @@ proc_create(const char *name)
 {
 	struct proc *proc;
 
+
+	
 	proc = kmalloc(sizeof(*proc));
 	if (proc == NULL) {
 		return NULL;
@@ -72,12 +79,15 @@ proc_create(const char *name)
 		kfree(proc);
 		return NULL;
 	}
+	// *proc->highestPid = 0;
 
 	proc->p_numthreads = 0;
 	spinlock_init(&proc->p_lock);
+	proc->fileTable = kmalloc(64 * sizeof(struct fileContainer*));
 
 	/* VM fields */
 	proc->p_addrspace = NULL;
+	proc->highestPid = kmalloc(sizeof(int));
 
 	/* VFS fields */
 	proc->p_cwd = NULL;

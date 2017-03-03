@@ -125,10 +125,12 @@ thread_create(const char *name)
 	struct thread *thread;
 
 	DEBUGASSERT(name != NULL);
+
 	if (strlen(name) > MAX_NAME_LENGTH) {
 		return NULL;
 	}
 
+	
 	thread = kmalloc(sizeof(*thread));
 	if (thread == NULL) {
 		return NULL;
@@ -512,8 +514,10 @@ thread_fork(const char *name,
 {
 	struct thread *newthread;
 	int result;
-
+	
 	newthread = thread_create(name);
+
+	
 	if (newthread == NULL) {
 		return ENOMEM;
 	}
@@ -538,6 +542,7 @@ thread_fork(const char *name,
 		proc = curthread->t_proc;
 	}
 	result = proc_addthread(proc, newthread);
+	
 	if (result) {
 		/* thread_destroy will clean up the stack */
 		thread_destroy(newthread);
@@ -561,7 +566,8 @@ thread_fork(const char *name,
 
 	/* Lock the current cpu's run queue and make the new thread runnable */
 	thread_make_runnable(newthread, false);
-
+	//panic("made it to the end of thread");
+	//kprintf("===gets to the end of thread_fork\n");
 	return 0;
 }
 
