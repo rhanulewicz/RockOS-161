@@ -122,13 +122,17 @@ common_prog(int nargs, char **args)
 	unsigned tc;
 
 	/* Create a process for the new program to run in. */
+	
 	proc = proc_create_runprogram(args[0] /* name */);
+	
 	if (proc == NULL) {
 		return ENOMEM;
 	}
 	
 	struct fileContainer *stdout;
+	
 	stdout = kmalloc(sizeof(stdout));
+	stdout->lock = lock_create("stdoutlock");
 	stdout->offset = 0;
 	stdout->permflag = 1;
 	char bar [] = "con:";

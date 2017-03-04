@@ -119,6 +119,7 @@ struct fileContainer{
 	off_t offset;
 	int permflag;
 	int refCount;
+	struct lock* lock;
 };
 
 void cloneFileContainer(struct fileContainer*, struct fileContainer*);

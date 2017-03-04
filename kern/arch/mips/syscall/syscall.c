@@ -44,6 +44,7 @@
 #include <copyinout.h>
 #include <kern/stat.h>
 #include <addrspace.h>
+#include <synch.h>
 /*
  * System call dispatcher.
  *
@@ -130,6 +131,7 @@ ssize_t open(char *filename, int flags, int32_t *retval){
 	file->llfile = trash;
 	file->permflag = flags;
 	file->offset = 0;
+	file->lock = lock_create("mememachine");
 
 	for(int i = 0; i < 64; i++){
 		if(curproc->fileTable[i]== NULL){
@@ -143,15 +145,18 @@ ssize_t open(char *filename, int flags, int32_t *retval){
 }
 
 ssize_t write(int filehandle, const void *buf, size_t size, int32_t *retval){
+
 	if(curproc->fileTable == NULL){
 		kprintf("get fetched");
 	}
 
 	struct fileContainer *file = curproc->fileTable[filehandle];
-	if (file == NULL /*|| file->permflag == O_RDONLY*/){
+
+	if (file == NULL || file->permflag == O_RDONLY){
 		*retval = (int32_t)0;
 		return EBADF;
 	}
+	lock_acquire(file->lock);
 
 	//Remember to give the user the size variable back (copyout, look at sys__time)
 	struct uio thing;
@@ -169,9 +174,10 @@ ssize_t write(int filehandle, const void *buf, size_t size, int32_t *retval){
 	VOP_WRITE(file->llfile, &thing);
 
 	file->offset = file->offset + size;
-	// panic("die a miserable death\n")
-	*retval = (int32_t)size;
 
+	lock_release(file->lock);
+	*retval = (int32_t)size;
+	lock_release(file->lock);
 	return (ssize_t)0;
 }
 
@@ -296,15 +302,15 @@ void copytf(void *tf, unsigned long ts){
 	struct trapframe *ptf = (struct trapframe *)tf;
 	
 	struct trapframe ctf = *ptf;
-	struct trapframe *ctfp = &ctf;
+	// struct trapframe *ctfp = &ctf;
 
 	//*ctf = *ptf;
 	
-	ctfp->tf_v0 = 0;
-	ctfp->tf_v1 = 0;
-	ctfp->tf_a3 = 0;
+	ctf.tf_v0 = 0;
+	ctf.tf_v1 = 0;
+	ctf.tf_a3 = 0;
 	//kprintf("===immediately before mips_usermode\n"); 
-	mips_usermode(ctfp);
+	mips_usermode(&ctf);
 }
 
 pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
