@@ -80,6 +80,7 @@ struct proc {
 	struct proc* *procTable;
 	int *highestPid;
 	int children[100];
+	struct lock* proc_lock;
 	
 	/* add more material here as needed */
 };
@@ -118,7 +119,7 @@ struct fileContainer{
 	struct vnode *llfile;
 	off_t offset;
 	int permflag;
-	int refCount;
+	int *refCount;
 	struct lock* lock;
 };
 

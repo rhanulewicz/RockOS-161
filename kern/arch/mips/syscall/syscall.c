@@ -123,15 +123,18 @@ ssize_t open(char *filename, int flags, int32_t *retval){
 	//You can change function prototypes, pass int value into all sys calls
 	struct fileContainer *file;
 	struct vnode *trash;
-	trash = kmalloc(sizeof(*trash));
-	file = kmalloc(sizeof(*file));
-	file->refCount = 1;
+	trash = kmalloc(sizeof(struct vnode));
+	file = kmalloc(sizeof(struct fileContainer));
+	file->lock = lock_create("mememachine");
+	lock_acquire(file->lock);
+	file->refCount = kmalloc(sizeof(int));
+	*file->refCount = 1;
 	char* filestar = filename;
 	vfs_open(filestar, flags, 0, &trash);
 	file->llfile = trash;
 	file->permflag = flags;
 	file->offset = 0;
-	file->lock = lock_create("mememachine");
+	
 
 	for(int i = 0; i < 64; i++){
 		if(curproc->fileTable[i]== NULL){
@@ -141,11 +144,17 @@ ssize_t open(char *filename, int flags, int32_t *retval){
 		}
 	}
 
+	lock_release(file->lock);
 	return (ssize_t)0;
 }
 
 ssize_t write(int filehandle, const void *buf, size_t size, int32_t *retval){
+	//kprintf("-");
+	// if(filehandle == 2){
+	// 	*retval = (int32_t)size;
+	// 	return (ssize_t)0;
 
+	// }
 	if(curproc->fileTable == NULL){
 		kprintf("get fetched");
 	}
@@ -156,8 +165,10 @@ ssize_t write(int filehandle, const void *buf, size_t size, int32_t *retval){
 		*retval = (int32_t)0;
 		return EBADF;
 	}
+	KASSERT(file->lock != NULL);
 	lock_acquire(file->lock);
-
+	//kprintf("%p\n", &file->lock);
+	//kprintf("Refcount: %d\n", *file->refCount);
 	//Remember to give the user the size variable back (copyout, look at sys__time)
 	struct uio thing;
 	struct iovec iov;
@@ -175,22 +186,32 @@ ssize_t write(int filehandle, const void *buf, size_t size, int32_t *retval){
 
 	file->offset = file->offset + size;
 
-	lock_release(file->lock);
 	*retval = (int32_t)size;
+	KASSERT(file->lock != NULL);
+
 	lock_release(file->lock);
+	//kprintf("lock released\n");
+
 	return (ssize_t)0;
 }
 
 ssize_t close(int fd, int32_t *retval){
+	
 	if(fd < 0 || fd > 63 || curproc->fileTable[fd] == NULL){
+
 		*retval = 0;
 		return (ssize_t)0;
 	}
-	curproc->fileTable[fd]->refCount--;
-	if(curproc->fileTable[fd]->refCount == 0){
+	//kprintf("we close now\n");
+	lock_acquire(curproc->fileTable[fd]->lock);
+	*curproc->fileTable[fd]->refCount = *curproc->fileTable[fd]->refCount - 1;
+	lock_release(curproc->fileTable[fd]->lock);
+
+	if(*curproc->fileTable[fd]->refCount == 0){
 		kfree(curproc->fileTable[fd]->llfile);
 		kfree(curproc->fileTable[fd]);
 	}
+
 	curproc->fileTable[fd] = NULL;
 	*retval = (int32_t)0;
 	return (ssize_t)0;
@@ -201,6 +222,8 @@ ssize_t read(int fd, void *buf, size_t buflen, int32_t *retval){
 	if (file == NULL || file->permflag == O_WRONLY){
 		return EBADF;
 	}
+	lock_acquire(file->lock);
+
 	//Remember to give the user the size variable back (copyout, look at sys__time)
 	struct uio thing;
 	struct iovec iov;
@@ -218,13 +241,15 @@ ssize_t read(int fd, void *buf, size_t buflen, int32_t *retval){
 
 	file->offset = file->offset + buflen;
 	*retval = (int32_t)buflen;
+	lock_release(file->lock);
 
 	return (ssize_t)0;
 }
 
 pid_t fork(struct trapframe *tf, int32_t *retval){
 	(void) retval;
-	//If you're the first process, create the process table and point to it
+	//kprintf("Beginning of sysfork\n");
+	lock_acquire(curproc->proc_lock);
 	struct proc *newProc;
 	newProc = kmalloc(sizeof(struct proc));
 
@@ -233,7 +258,14 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 	//Copy file table to new process
 	newProc->fileTable = newFT;
 	for(int i = 0; i < 64; i++){
-		newProc->fileTable[i] = curproc->fileTable[i];
+		if(curproc->fileTable[i] != NULL){
+			newProc->fileTable[i] = curproc->fileTable[i];
+			*newProc->fileTable[i]->refCount = *newProc->fileTable[i]->refCount + 1;
+		}
+
+		// if(newProc->fileTable[i]->lock != curproc->fileTable[i]->lock){
+		// 	kprintf("COPIED WRONG YOU SHMUCK\n");
+		// }
 	}
 
 	//Copy lots of other stuff to new process
@@ -244,17 +276,17 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 	newProc->p_cwd = curproc->p_cwd;
 	newProc->p_numthreads = curproc->p_numthreads;
 
-	//Gives new process its own lock
-	struct spinlock newLock;
-	spinlock_init(&newLock);
-	newProc->p_lock = newLock;
+	//Gives new process the master lock
+	newProc->proc_lock = curproc->proc_lock;
 
 	//Search for first empty place in process table starting at highestpid, place proc in it
 	//Also does wraparound
+	//kprintf("Forked from pid %d\n", curproc->pid);
 	for(int i = *newProc->highestPid - 1; i < 2000; i++){
 		if(newProc->procTable[i] == NULL){
 			newProc->procTable[i] = newProc;
 			newProc->pid = i + 1;
+			//kprintf("Assigned pid: %d\n", newProc->pid);
 			*newProc->highestPid = newProc->pid + 1;
 			if (*newProc->highestPid > 2000){
 				*newProc->highestPid = 1;
@@ -264,6 +296,7 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 		//If you make it to the last index, wrap around via highestpid
 		i = (i == 1999)? 0 : i;
 	}
+	
 
 	//
 	newProc->p_name = curproc->p_name;
@@ -279,26 +312,35 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 	//helper function has to associate the parent and the child
 	//set the trapframe's proper return values
 	//child function copies
+
 	for(int i = 0; i < 100; i++){
 		if(curproc->children[i] == 0){
 			curproc->children[i] = newProc->pid;
 		}
 	}
-	//kprintf("===immediately before thread_fork\n");
+	
 
+	lock_release(curproc->proc_lock);
+	kprintf("Hi I'm %d\n", curproc->pid);
+	//kprintf("===immediately before thread_fork\n");
 	thread_fork(newProc->p_name, newProc, copytf, tf, 0);
 
+	//kprintf("===immediately after thread_fork\n");
 	// for(int i = 0; i < 20000000; ++i){
-	// 	kprintf("fuuuuck");
+		
 	// }
-	// *retval = (int32_t)curproc->pid;
-	return (pid_t)curproc->pid;
+	*retval = (int32_t)1000/*newProc->pid*/;
+	return (pid_t)1000;
 }
 
 void copytf(void *tf, unsigned long ts){
 	(void)ts;
+	while(1){
 
+	}
+	//kprintf("inside copytf\n");
 	as_activate();
+	
 	struct trapframe *ptf = (struct trapframe *)tf;
 	
 	struct trapframe ctf = *ptf;
@@ -307,10 +349,12 @@ void copytf(void *tf, unsigned long ts){
 	//*ctf = *ptf;
 	
 	ctf.tf_v0 = 0;
-	ctf.tf_v1 = 0;
+	ctf.tf_v1 = curproc->pid;
 	ctf.tf_a3 = 0;
 	//kprintf("===immediately before mips_usermode\n"); 
+	//kprintf("entering mips usermode\n");
 	mips_usermode(&ctf);
+
 }
 
 pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
@@ -434,6 +478,7 @@ syscall(struct trapframe *tf)
 
 		case SYS_fork:
 		err = fork(tf,&retval);
+		//kprintf("Do we even get here? pid: %d \n", curproc->pid);
 		break;
 
 		case SYS_getpid:
@@ -472,12 +517,13 @@ syscall(struct trapframe *tf)
 	}
 	else {
 		/* Success. */
-		if(callno == SYS_lseek){
+		if(callno == SYS_lseek /*|| callno == SYS_fork*/){
 			tf->tf_v0 = 0;
 			tf->tf_v1 = retval;
 			tf->tf_a3 = 0;  
 		}
 		else{
+
 		tf->tf_v0 = retval;
 		tf->tf_a3 = 0;      /* signal no error */
 			

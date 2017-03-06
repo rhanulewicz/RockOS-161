@@ -113,6 +113,8 @@ cmd_progthread(void *ptr, unsigned long nargs)
  * array and strings, until you do this a race condition exists
  * between that code and the menu input code.
  */
+
+
 static
 int
 common_prog(int nargs, char **args)
@@ -130,39 +132,71 @@ common_prog(int nargs, char **args)
 	}
 	
 	struct fileContainer *stdout;
-	
-	stdout = kmalloc(sizeof(stdout));
+	struct fileContainer *placehold1;
+	struct fileContainer *placehold2;
+
+	placehold1 = kmalloc(sizeof(struct fileContainer));
+	placehold1->lock = lock_create("stdoutlock");
+	placehold1->offset = 0;
+	placehold1->permflag = 1;
+	placehold1->refCount = kmalloc(sizeof(int));
+	*placehold1->refCount = 1;
+
+	placehold2 = kmalloc(sizeof(struct fileContainer));
+	placehold2->lock = lock_create("stdoutlock");
+	placehold2->offset = 0;
+	placehold2->permflag = 1;
+	placehold2->refCount = kmalloc(sizeof(int));
+	*placehold2->refCount = 1;
+
+	stdout = kmalloc(sizeof(struct fileContainer));
 	stdout->lock = lock_create("stdoutlock");
 	stdout->offset = 0;
 	stdout->permflag = 1;
+	stdout->refCount = kmalloc(sizeof(int));
+	*stdout->refCount = 1;
+
 	char bar [] = "con:";
-	vfs_open(bar, 1, 0, &stdout->llfile); 
-	proc->fileTable[0] = stdout;
+	char foo [] = "con:";
+	char foobar [] = "null:";
+	vfs_open(bar, 1, 0, &placehold1->llfile); 
+	vfs_open(foo, 1, 0, &stdout->llfile); 
+	vfs_open(foobar, 1, 0, &placehold2->llfile); 
+
+	proc->fileTable[0] = placehold1;
 	proc->fileTable[1] = stdout;
-	proc->fileTable[2] = stdout;
+	proc->fileTable[2] = placehold2;
+
 	tc = thread_count;
 
 	//If you're the first process, create the process table and point to it
 	if(proc->firstProc== 0){
+		proc->proc_lock = lock_create("proclock1");
 		*proc->highestPid = 1;
 		proc->firstProc = 1;
+
 		proc->procTable = kmalloc(2000*sizeof(struct proc*));
 		for(int i = 0; i < 2000; ++i){
 			proc->procTable = kmalloc(sizeof(struct proc*));
 		}
 	}
 
-	//This is our wraparound
-	if(*proc->highestPid == 1999){
-		*proc->highestPid = 0;
-	}
-	//Search for first empty place in process table, place proc in it
-	for(int i = *proc->highestPid; i < 2000; i++){
+	lock_acquire(proc->proc_lock);
+	//Assign pid and add process to proctable w/ wraparound
+	for(int i = *proc->highestPid - 1; i < 2000; i++){
 		if(proc->procTable[i] == NULL){
 			proc->procTable[i] = proc;
+			proc->pid = i + 1;
+			*proc->highestPid = proc->pid + 1;
+			if (*proc->highestPid > 2000){
+				*proc->highestPid = 1;
+			}
 			break;
 		}
+		//If you make it to the last index, wrap around via highestpid
+		i = (i == 1999)? 0 : i;
 	}
+	lock_release(proc->proc_lock);
 
 	result = thread_fork(args[0] /* thread name */,
 			proc /* new process */,
@@ -181,7 +215,10 @@ common_prog(int nargs, char **args)
 
 	// Wait for all threads to finish cleanup, otherwise khu be a bit behind,
 	// especially once swapping is enabled.
-	thread_wait_for_count(tc);
+	
+	//PUT THIS BACK WHEN DONE
+	(void)tc;
+	//thread_wait_for_count(tc);
 
 	return 0;
 }

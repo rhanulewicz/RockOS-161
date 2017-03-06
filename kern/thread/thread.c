@@ -512,9 +512,10 @@ thread_fork(const char *name,
 	    void (*entrypoint)(void *data1, unsigned long data2),
 	    void *data1, unsigned long data2)
 {
+
 	struct thread *newthread;
 	int result;
-	
+	//kprintf("===here in thread_fork\n");
 	newthread = thread_create(name);
 
 	

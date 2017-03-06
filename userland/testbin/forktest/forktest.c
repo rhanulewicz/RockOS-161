@@ -74,8 +74,9 @@ int
 dofork(void)
 {
 	int pid;
+
 	pid = fork();
-	tprintf("%d", pid);
+	tprintf("pid %d", pid);
 	if (pid < 0) {
 		warn("fork");
 	}
@@ -183,15 +184,10 @@ test(int nowait)
 	 * unique filename per instance of forktest.
 	 * So...
 	 */
-	tprintf("1\n");
 	
 	snprintf(filename, 32, "%s-%d.bin", FORKTEST_FILENAME_BASE, getpid());
-	
-	tprintf("2\n");
 
 	int fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC);
-
-	tprintf("3\n");
 
 	if(fd < 3) {
 		// 0, 1, 2 are stdin, stdout, stderr
@@ -201,15 +197,16 @@ test(int nowait)
 
 	pid0 = dofork();
 
-	tprintf("4\n");
-	
 	nprintf(".");
 	write(fd, "A", 1);
+
 	depth++;
 	if (depth != 1) {
 		warnx("depth %d, should be 1", depth);
 	}
+
 	check();
+
 	pid1 = dofork();
 	nprintf(".");
 	write(fd, "B", 1);
