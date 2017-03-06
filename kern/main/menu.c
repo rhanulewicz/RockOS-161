@@ -169,39 +169,39 @@ common_prog(int nargs, char **args)
 
 	tc = thread_count;
 
-	//If you're the first process, create the process table and point to it
-	if(proc->firstProc== 0){
-		proc->proc_lock = lock_create("proclock1");
-		*proc->highestPid = 1;
-		proc->firstProc = 1;
-
-		proc->procTable = kmalloc(2000*sizeof(struct proc*));
+	//If you're the kernel process, create the process table and point to it
+	if(kproc->procTable == NULL){
+		kproc->proc_lock = lock_create("proclock1");
+		*kproc->highestPid = 1;
+		kproc->procTable = kmalloc(2000*sizeof(struct proc*));
 		for(int i = 0; i < 2000; ++i){
-			proc->procTable = kmalloc(sizeof(struct proc*));
+			kproc->procTable = kmalloc(sizeof(struct proc*));
 		}
 	}
+	
 
-	lock_acquire(proc->proc_lock);
+	lock_acquire(kproc->proc_lock);
 	//Assign pid and add process to proctable w/ wraparound
-	for(int i = *proc->highestPid - 1; i < 2000; i++){
-		if(proc->procTable[i] == NULL){
-			proc->procTable[i] = proc;
+	for(int i = *kproc->highestPid - 1; i < 2000; i++){
+		if(kproc->procTable[i] == NULL){
+			kproc->procTable[i] = proc;
 			proc->pid = i + 1;
-			*proc->highestPid = proc->pid + 1;
-			if (*proc->highestPid > 2000){
-				*proc->highestPid = 1;
+			*kproc->highestPid = proc->pid + 1;
+			if (*kproc->highestPid > 2000){
+				*kproc->highestPid = 1;
 			}
 			break;
 		}
 		//If you make it to the last index, wrap around via highestpid
 		i = (i == 1999)? 0 : i;
 	}
-	lock_release(proc->proc_lock);
+	lock_release(kproc->proc_lock);
 
 	result = thread_fork(args[0] /* thread name */,
 			proc /* new process */,
 			cmd_progthread /* thread function */,
 			args /* thread arg */, nargs /* thread arg */);
+	
 	if (result) {
 		kprintf("thread_fork failed: %s\n", strerror(result));
 		proc_destroy(proc);
@@ -256,7 +256,6 @@ cmd_shell(int nargs, char **args)
 	}
 
 	args[0] = (char *)_PATH_SHELL;
-	//struct proc procTable[1000];
 	return common_prog(nargs, args);
 }
 

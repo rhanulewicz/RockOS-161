@@ -246,50 +246,56 @@ ssize_t read(int fd, void *buf, size_t buflen, int32_t *retval){
 	return (ssize_t)0;
 }
 
+//copy the trapframe
+//fork the thread
+//the thread's function is a helper function
+//set the parent's return value to be the child's pid
+//parent returns like any other syscall
+//pass trapframe into mips_usermode
+//helper function has to associate the parent and the child
+//set the trapframe's proper return values
+//child function copies
+
+//REMEMBER CHILDREN
+//THE PROCESS TABLE BELONGS TO KPROC
+//THE HIGHEST PID BELONGS TO KPROC
+//THE MASTER LOCK BELONGS TO KPROC
+//YOUR SOUL BELONGS TO KPROC
 pid_t fork(struct trapframe *tf, int32_t *retval){
 	(void) retval;
-	//kprintf("Beginning of sysfork\n");
-	lock_acquire(curproc->proc_lock);
+
+	lock_acquire(kproc->proc_lock);
+	//Initialize pointer to new process
 	struct proc *newProc;
 	newProc = kmalloc(sizeof(struct proc));
-
+	//Initialize pointer to a new file table for the new process
 	struct fileContainer* *newFT;
 	newFT = kmalloc(64*sizeof(struct fileContainer*));
-	//Copy file table to new process
+
+	//Copy curproc's file table to new process
 	newProc->fileTable = newFT;
 	for(int i = 0; i < 64; i++){
 		if(curproc->fileTable[i] != NULL){
 			newProc->fileTable[i] = curproc->fileTable[i];
 			*newProc->fileTable[i]->refCount = *newProc->fileTable[i]->refCount + 1;
 		}
-
-		// if(newProc->fileTable[i]->lock != curproc->fileTable[i]->lock){
-		// 	kprintf("COPIED WRONG YOU SHMUCK\n");
-		// }
 	}
 
 	//Copy lots of other stuff to new process
-	newProc->firstProc = 1;
-	newProc->procTable = curproc->procTable;
-	newProc->highestPid = curproc->highestPid;
 	newProc->p_addrspace = curproc->p_addrspace;
 	newProc->p_cwd = curproc->p_cwd;
 	newProc->p_numthreads = curproc->p_numthreads;
-
-	//Gives new process the master lock
-	newProc->proc_lock = curproc->proc_lock;
+	newProc->p_name = curproc->p_name;
 
 	//Search for first empty place in process table starting at highestpid, place proc in it
 	//Also does wraparound
-	//kprintf("Forked from pid %d\n", curproc->pid);
-	for(int i = *newProc->highestPid - 1; i < 2000; i++){
-		if(newProc->procTable[i] == NULL){
-			newProc->procTable[i] = newProc;
+	for(int i = *kproc->highestPid - 1; i < 2000; i++){
+		if(kproc->procTable[i] == NULL){
+			kproc->procTable[i] = newProc;
 			newProc->pid = i + 1;
-			//kprintf("Assigned pid: %d\n", newProc->pid);
-			*newProc->highestPid = newProc->pid + 1;
-			if (*newProc->highestPid > 2000){
-				*newProc->highestPid = 1;
+			*kproc->highestPid = newProc->pid + 1;
+			if (*kproc->highestPid > 2000){
+				*kproc->highestPid = 1;
 			}
 			break;
 		}
@@ -297,62 +303,40 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 		i = (i == 1999)? 0 : i;
 	}
 	
-
-	//
-	newProc->p_name = curproc->p_name;
+	//Set some specifics for the new process, including the parent's pid (curproc)
 	newProc->exitCode = -1;
 	newProc->waitingOnMe = 0;
+	newProc->parentpid = curproc->pid;
 
-	//copy the trapframe
-	//fork the thread
-	//the thread's function is a helper function
-	//set the parent's return value to be the child's pid
-	//parent returns like any other syscall
-	//pass trapframe into mips_usermode
-	//helper function has to associate the parent and the child
-	//set the trapframe's proper return values
-	//child function copies
+	lock_release(kproc->proc_lock);
 
-	for(int i = 0; i < 100; i++){
-		if(curproc->children[i] == 0){
-			curproc->children[i] = newProc->pid;
-		}
-	}
-	
-
-	lock_release(curproc->proc_lock);
-	kprintf("Hi I'm %d\n", curproc->pid);
-	//kprintf("===immediately before thread_fork\n");
+	//Fork new process
 	thread_fork(newProc->p_name, newProc, copytf, tf, 0);
 
-	//kprintf("===immediately after thread_fork\n");
-	// for(int i = 0; i < 20000000; ++i){
-		
-	// }
-	*retval = (int32_t)1000/*newProc->pid*/;
-	return (pid_t)1000;
+	//Return child's pid to userland
+	*retval = (int32_t)newProc->pid;
+	//Return errno 
+	return (pid_t)0;
 }
 
 void copytf(void *tf, unsigned long ts){
 	(void)ts;
+
 	while(1){
-
+		//Plugs the child thread so it can't go dicking around
 	}
-	//kprintf("inside copytf\n");
+	//Activitates new address space
 	as_activate();
-	
+	//Copies parent trapframe (ptf) to child trapframe (ctf)
 	struct trapframe *ptf = (struct trapframe *)tf;
-	
 	struct trapframe ctf = *ptf;
-	// struct trapframe *ctfp = &ctf;
-
-	//*ctf = *ptf;
-	
+	//Gives ctf the right return values (returns 0)
 	ctf.tf_v0 = 0;
-	ctf.tf_v1 = curproc->pid;
+	ctf.tf_v1 = 0;
 	ctf.tf_a3 = 0;
-	//kprintf("===immediately before mips_usermode\n"); 
-	//kprintf("entering mips usermode\n");
+	//Moves child thread to next instruction so it doesn't fork for fucking ever
+	ctf.tf_epc += 4;
+	//Give the child trapframe to usermode. Say bye bye.
 	mips_usermode(&ctf);
 
 }
@@ -478,6 +462,9 @@ syscall(struct trapframe *tf)
 
 		case SYS_fork:
 		err = fork(tf,&retval);
+
+		//kprintf("Retval in switch: %d\n", retval);
+		
 		//kprintf("Do we even get here? pid: %d \n", curproc->pid);
 		break;
 
@@ -512,6 +499,7 @@ syscall(struct trapframe *tf)
 		 * userlevel to a return value of -1 and the error
 		 * code in errno.
 		 */
+		//kprintf("Error: %d\n", err);
 		tf->tf_v0 = err;
 		tf->tf_a3 = 1;      /* signal an error */
 	}
@@ -523,7 +511,7 @@ syscall(struct trapframe *tf)
 			tf->tf_a3 = 0;  
 		}
 		else{
-
+		//kprintf("Retval in tf: %d\n", retval);
 		tf->tf_v0 = retval;
 		tf->tf_a3 = 0;      /* signal no error */
 			

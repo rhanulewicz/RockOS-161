@@ -67,8 +67,6 @@ struct proc *
 proc_create(const char *name)
 {
 	struct proc *proc;
-
-
 	
 	proc = kmalloc(sizeof(*proc));
 	if (proc == NULL) {

@@ -75,11 +75,12 @@ struct proc {
 	struct fileContainer* *fileTable;
 	int exitCode;
 	int waitingOnMe;
-	bool firstProc;
 	int pid;
+	int parentpid;
+
+	//These only ever get used by kproc. Don't try to access these on any other proc
 	struct proc* *procTable;
 	int *highestPid;
-	int children[100];
 	struct lock* proc_lock;
 	
 	/* add more material here as needed */

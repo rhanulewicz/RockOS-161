@@ -39,9 +39,9 @@ int
 main(void)
 {
 	/* Just exit with success. */
-	printf("%d", fork());
+	printf("Child is: %d \n", fork());
 	while(1){
-		
+
 	}
 	//exit(0);
 }
