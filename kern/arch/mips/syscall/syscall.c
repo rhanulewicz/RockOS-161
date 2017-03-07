@@ -341,11 +341,36 @@ void copytf(void *tf, unsigned long ts){
 
 }
 
+//IF WE HAVE MEMORY PROBLEMS, LOOKY HERE
+//We can save on memory if we only have one condition variable
+//But will be more inefficient in terms of the broadcast
 pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
 	(void)pid;
 	(void)status;
 	(void)options;
 	(void)retval;
+	struct proc* procToReap = kproc->procTable[pid+1];
+
+	//If child process does not exist, waitpid fails
+	if(procToReap == NULL){
+		//WAITPID FAILS HERE
+		*retval = -1;
+		return (pid_t)ESRCH;
+	}
+	//Reap child if it has already exited
+	if(procToReap->exitcode != -1){
+		for(int i = 0; i < 2000; i++){
+			if(kproc->procTable[i] == curproc){
+				kproc->procTable[i] == NULL;
+			}
+		}
+		//Free up other shit
+		//TODO
+
+		*retval = *status;
+		return (pid_t)0;
+	}
+	
 
 	return (pid_t)0;
 }
@@ -364,22 +389,14 @@ void _exit(int exitcode){
 	if (curproc->p_addrspace) {
 
 		struct addrspace *as;
-		//if (proc == curproc) {
-
+		
 		as = proc_setas(NULL);
 		as_deactivate();
-		// }
-		// else {
-
-		// 	as = proc->p_addrspace;
-		// 	proc->p_addrspace = NULL;
-		// }
 
 		as_destroy(as);
 	}
 	spinlock_cleanup(&curproc->p_lock);
-	curproc->exitCode = exitcode;
-
+	curproc->exitCode = exitcode;	
 }
 
 int execv(const char *program, char **args, int32_t *retval){
