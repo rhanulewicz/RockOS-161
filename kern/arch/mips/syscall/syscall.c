@@ -263,7 +263,6 @@ ssize_t read(int fd, void *buf, size_t buflen, int32_t *retval){
 //YOUR SOUL BELONGS TO KPROC
 pid_t fork(struct trapframe *tf, int32_t *retval){
 	(void) retval;
-
 	lock_acquire(kproc->proc_lock);
 	//Initialize pointer to new process
 	struct proc *newProc;
@@ -280,9 +279,9 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 			*newProc->fileTable[i]->refCount = *newProc->fileTable[i]->refCount + 1;
 		}
 	}
-
+ 
 	//Copy lots of other stuff to new process
-	newProc->p_addrspace = curproc->p_addrspace;
+	as_copy(curproc->p_addrspace, &newProc->p_addrspace);
 	newProc->p_cwd = curproc->p_cwd;
 	newProc->p_numthreads = curproc->p_numthreads;
 	newProc->p_name = curproc->p_name;
@@ -307,9 +306,12 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 	newProc->exitCode = -1;
 	newProc->waitingOnMe = 0;
 	newProc->parentpid = curproc->pid;
+	newProc->proc_lock = lock_create("proclockelse");
+
 
 	lock_release(kproc->proc_lock);
 
+	kprintf("Refcount on curproc: %d\n", *curproc->fileTable[0]->refCount);
 	//Fork new process
 	thread_fork(newProc->p_name, newProc, copytf, tf, 0);
 
@@ -322,11 +324,12 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 void copytf(void *tf, unsigned long ts){
 	(void)ts;
 
-	while(1){
-		//Plugs the child thread so it can't go dicking around
-	}
+	// while(1){
+	// 	//Plugs the child thread so it can't go dicking around
+	// }
 	//Activitates new address space
 	as_activate();
+	lock_acquire(curproc->proc_lock);
 	//Copies parent trapframe (ptf) to child trapframe (ctf)
 	struct trapframe *ptf = (struct trapframe *)tf;
 	struct trapframe ctf = *ptf;
@@ -337,7 +340,10 @@ void copytf(void *tf, unsigned long ts){
 	//Moves child thread to next instruction so it doesn't fork for fucking ever
 	ctf.tf_epc += 4;
 	//Give the child trapframe to usermode. Say bye bye.
-	mips_usermode(&ctf);
+	curproc->exitCode = 0;
+	_exit(0);
+
+	//mips_usermode(&ctf);
 
 }
 
@@ -349,6 +355,7 @@ pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
 	(void)status;
 	(void)options;
 	(void)retval;
+	//kprintf("Ssdssdssdgihbzj\n");
 	struct proc* procToReap = kproc->procTable[pid+1];
 
 	//If child process does not exist, waitpid fails
@@ -357,23 +364,68 @@ pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
 		*retval = -1;
 		return (pid_t)ESRCH;
 	}
-	//Reap child if it has already exited
-	if(procToReap->exitcode != -1){
-		for(int i = 0; i < 2000; i++){
-			if(kproc->procTable[i] == curproc){
-				kproc->procTable[i] == NULL;
-			}
-		}
+	//If the child has not yet exited, sleep the parent using the child's lock and cv
+	if(procToReap->exitCode == -1){
+		lock_acquire(procToReap->proc_lock);
+		lock_release(procToReap->proc_lock);
+	}
+	
+	
+	//The child should have exited if you get here. Reap it.
+	if(procToReap->exitCode != -1){
+		lock_acquire(kproc->proc_lock);
 		//Free up other shit
-		//TODO
+		if (procToReap->p_cwd) {
+			VOP_DECREF(procToReap->p_cwd);
+			procToReap->p_cwd = NULL;
+		}
+		//lock_destroy(procToReap->proc_lock);
+		// for(int i = 0; i < 2000; i++){
+		// 	if(procToReap->fileTable[i] != NULL && *procToReap->fileTable[i]->refCount == 1){
+		// 		kfree(procToReap->fileTable[i]->llfile);
+		// 		kfree(procToReap->fileTable[i]->refCount);
+		// 		kfree(procToReap->fileTable[i]->lock);
+		// 		kfree(procToReap->fileTable[i]);
+		// 	}
+		// 	procToReap->fileTable[i] = NULL;
+		// }
+		
+		//spinlock_cleanup(&procToReap->p_lock);
 
-		*retval = *status;
+		
+		
+		kfree(procToReap->fileTable);
+		kproc->procTable[pid+1] = NULL;
+		if (procToReap->p_addrspace) {
+		
+			struct addrspace *as;
+
+			if (procToReap == curproc) {
+				as = proc_setas(NULL);
+				as_deactivate();
+			}
+			else {
+				as = procToReap->p_addrspace;
+				procToReap->p_addrspace = NULL;
+			}
+			as_destroy(as);
+		}
+		*retval = 0;
+		lock_release(kproc->proc_lock);
 		return (pid_t)0;
 	}
 	
-
+	//kprintf("asdewrwqer\n");
 	return (pid_t)0;
 }
+
+// void freeFileContainer(struct fileContainer *fileCont){
+// 	kfree(fileCont->llfile);
+// 	kfree(fileCont->refCount);
+// 	kfree(fileCont->lock);
+// 	kfree(fileCont);
+// 	return;
+// }
 
 void getpid(int32_t *retval){
 	*retval = (int32_t)curproc->pid;
@@ -395,8 +447,16 @@ void _exit(int exitcode){
 
 		as_destroy(as);
 	}
-	spinlock_cleanup(&curproc->p_lock);
+	//spinlock_cleanup(&curproc->p_lock);
+
 	curproc->exitCode = exitcode;	
+	//kprintf("WE HIT EXIT\n");
+	//kprintf("Pid of exiter: %d", curproc->pid);
+	if(lock_do_i_hold(curproc->proc_lock)){
+		lock_release(curproc->proc_lock);
+		
+	}
+	thread_exit();
 }
 
 int execv(const char *program, char **args, int32_t *retval){
@@ -479,7 +539,9 @@ syscall(struct trapframe *tf)
 
 		case SYS_fork:
 		err = fork(tf,&retval);
+		// while(1){
 
+		// }
 		//kprintf("Retval in switch: %d\n", retval);
 		
 		//kprintf("Do we even get here? pid: %d \n", curproc->pid);

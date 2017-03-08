@@ -179,8 +179,9 @@ common_prog(int nargs, char **args)
 		}
 	}
 	
-
 	lock_acquire(kproc->proc_lock);
+	proc->proc_lock = lock_create("proclock");
+
 	//Assign pid and add process to proctable w/ wraparound
 	for(int i = *kproc->highestPid - 1; i < 2000; i++){
 		if(kproc->procTable[i] == NULL){
@@ -201,7 +202,7 @@ common_prog(int nargs, char **args)
 			proc /* new process */,
 			cmd_progthread /* thread function */,
 			args /* thread arg */, nargs /* thread arg */);
-	
+
 	if (result) {
 		kprintf("thread_fork failed: %s\n", strerror(result));
 		proc_destroy(proc);

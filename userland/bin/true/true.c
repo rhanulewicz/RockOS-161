@@ -40,8 +40,7 @@ main(void)
 {
 	/* Just exit with success. */
 	printf("Child is: %d \n", fork());
-	while(1){
-
-	}
-	//exit(0);
+	
+	
+	exit(0);
 }

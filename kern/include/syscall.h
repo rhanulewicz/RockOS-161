@@ -69,4 +69,5 @@ int sys_reboot(int code);
 int sys___time(userptr_t user_seconds, userptr_t user_nanoseconds);
 void copytf(void *tf, unsigned long);
 void getpid(int32_t *retval);
+//void freeFileContainer(struct fileContainer*);
 #endif /* _SYSCALL_H_ */

@@ -77,11 +77,14 @@ struct proc {
 	int waitingOnMe;
 	int pid;
 	int parentpid;
+	//Every process gets a lock BUT
+	//kproc's proc_lock is to be used as a universal lock
+	struct lock *proc_lock;
 
 	//These only ever get used by kproc. Don't try to access these on any other proc
 	struct proc* *procTable;
 	int *highestPid;
-	struct lock* proc_lock;
+
 	
 	/* add more material here as needed */
 };
