@@ -263,11 +263,13 @@ ssize_t read(int fd, void *buf, size_t buflen, int32_t *retval){
 //YOUR SOUL BELONGS TO KPROC
 pid_t fork(struct trapframe *tf, int32_t *retval){
 	(void) retval;
-	//lock_acquire(kproc->proc_lock);
+
 	//Initialize pointer to new process
-	// kprintf("proc %d forked\n", curproc->pid);
+	//Give it a lock immediately
 	struct proc *newProc;
 	newProc = kmalloc(sizeof(struct proc));
+	newProc->proc_lock = lock_create("proclockelse");
+
 	//Initialize pointer to a new file table for the new process
 	struct fileContainer* *newFT;
 	newFT = kmalloc(64*sizeof(struct fileContainer*));
@@ -276,8 +278,10 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 	newProc->fileTable = newFT;
 	for(int i = 0; i < 64; i++){
 		if(curproc->fileTable[i] != NULL){
+			lock_acquire(curproc->fileTable[i]->lock);
 			newProc->fileTable[i] = curproc->fileTable[i];
 			*newProc->fileTable[i]->refCount += 1;
+			lock_release(curproc->fileTable[i]->lock);
 		}
 	}
  
@@ -289,6 +293,7 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 
 	//Search for first empty place in process table starting at highestpid, place proc in it
 	//Also does wraparound
+
 	for(int i = *kproc->highestPid - 1; i < 2000; i++){
 		if(kproc->procTable[i] == NULL){
 			kproc->procTable[i] = newProc;
@@ -307,16 +312,11 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 	newProc->exitCode = -1;
 	newProc->waitingOnMe = 0;
 	newProc->parentpid = curproc->pid;
-	newProc->proc_lock = lock_create("proclockelse");
-
-
-	//lock_release(kproc->proc_lock);
-
-	// kprintf("Refcount on curproc: %d\n", *curproc->fileTable[0]->refCount);
+	
 	struct trapframe *tfc = kmalloc(sizeof(struct trapframe));
 	*tfc = *tf;
-	//Fork new process
 
+	//Fork new process
 	thread_fork(newProc->p_name, newProc, copytf, tfc, 0);
 
 	//Return child's pid to userland
@@ -361,30 +361,34 @@ pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
 	(void)status;
 	(void)options;
 	(void)retval;
-	//kprintf("Ssdssdssdgihbzj\n");
+	
 	struct proc* procToReap = kproc->procTable[pid-1];
-
 
 	//If child process does not exist, waitpid fails
 	if(procToReap == NULL){
 		//WAITPID FAILS HERE
 		*retval = -1;
 		return (pid_t)ESRCH;
-	}	//If the child has not yet exited, sleep the parent using the child's lock and cv
-		// kprintf("reaping %d with exit code %d i am proc %d\n", procToReap->pid, procToReap->exitCode,curproc->pid);
+	}	
+	//If the child has not yet exited, sleep the parent using the child's lock and cv
+	
 	if(procToReap->exitCode == -1){
 		lock_acquire(procToReap->proc_lock);
 		lock_release(procToReap->proc_lock);
 	}
+
+	copyout(&procToReap->exitCode, (userptr_t)status, 4);
 	
 	//The child should have exited if you get here. Reap it.
 	if(procToReap->exitCode != -1){
+
 		// lock_acquire(kproc->proc_lock);
 		//Free up other shit
 		if (procToReap->p_cwd) {
-			VOP_DECREF(procToReap->p_cwd);
+			//VOP_DECREF(procToReap->p_cwd);
 			procToReap->p_cwd = NULL;
 		}
+
 		//lock_destroy(procToReap->proc_lock);
 		// for(int i = 0; i < 2000; i++){
 		// 	if(procToReap->fileTable[i] != NULL && *procToReap->fileTable[i]->refCount == 1){
@@ -398,8 +402,6 @@ pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
 		
 		//spinlock_cleanup(&procToReap->p_lock);
 
-		
-		
 		kfree(procToReap->fileTable);
 		kproc->procTable[pid-1] = NULL;
 		if (procToReap->p_addrspace) {
@@ -441,9 +443,11 @@ void getpid(int32_t *retval){
 void _exit(int exitcode){
 
 	if (curproc->p_cwd) {
-		VOP_DECREF(curproc->p_cwd);
+		//VOP_DECREF(curproc->p_cwd);
 		curproc->p_cwd = NULL;
 	}
+
+	curproc->exitCode = exitcode;
 
 	if (curproc->p_addrspace) {
 
@@ -456,14 +460,10 @@ void _exit(int exitcode){
 	}
 	//spinlock_cleanup(&curproc->p_lock);
 
-	curproc->exitCode = exitcode;	
-	//kprintf("WE HIT EXIT\n");
-	//kprintf("Pid of exiter: %d", curproc->pid);
 	if(lock_do_i_hold(curproc->proc_lock)){
 		lock_release(curproc->proc_lock);
 		
 	}
-	// kprintf("proc %d is dead now\n", curproc->pid);
 	thread_exit();
 }
 
@@ -500,7 +500,7 @@ syscall(struct trapframe *tf)
 	retval = 0;
 	off_t pos64;
 	int whenceIn;
-	int status;
+	//int *status = NULL;
 	// struct fileContainer* f1 = kmalloc(sizeof(f1));
 	// struct fileContainer* f2 = kmalloc(sizeof(f2));
 	// f1->offset = 0;
@@ -562,9 +562,13 @@ syscall(struct trapframe *tf)
 		break;
 
 		case SYS_waitpid:
-		// copyin((userptr_t)tf->tf_a1, &status, 4);
-		err = waitpid(tf->tf_a0, &status, tf->tf_a2, &retval);
-		// copyout(&status,(userptr_t)tf->tf_a1 , 4);
+		
+		//copyin((userptr_t)tf->tf_a1, &status, 4);
+	
+		err = waitpid(tf->tf_a0, (int *)tf->tf_a1, tf->tf_a2, &retval);
+
+		//COPYOUT IN WAITPID, EXITCODE -> STATUS
+		//copyout(&status,(userptr_t)tf->tf_a1 , 4);
 		break;
 
 		case SYS_execv:

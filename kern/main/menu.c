@@ -182,9 +182,10 @@ common_prog(int nargs, char **args)
 		kproc->fileTable[0] = placehold1;
 		kproc->fileTable[1] = stdout;
 		kproc->fileTable[2] = placehold2;
-		placehold1->refCount += 1;
-		stdout->refCount += 1;
-		placehold2 += 1;
+
+		*placehold1->refCount = 1;
+		*stdout->refCount = 1;
+		*placehold2->refCount = 1;
 
 	}
 	

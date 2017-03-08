@@ -95,6 +95,7 @@ spinlock_acquire(struct spinlock *splk)
 	}
 
 	while (1) {
+
 		/*
 		 * Do test-test-and-set, that is, read first before
 		 * doing test-and-set, to reduce bus contention.
@@ -111,6 +112,7 @@ spinlock_acquire(struct spinlock *splk)
 		if (spinlock_data_testandset(&splk->splk_lock) != 0) {
 			continue;
 		}
+
 		break;
 	}
 
