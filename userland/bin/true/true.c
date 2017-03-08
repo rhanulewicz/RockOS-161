@@ -39,8 +39,27 @@ int
 main(void)
 {
 	/* Just exit with success. */
-	printf("Child is: %d \n", fork());
+	pid_t pid = fork();
+
+	if(pid == -1){
+		printf("Fork Failed\n");
+
+	}else if (pid == 0){
+		while(1){
+
+		}
+		exit(0);
+		
+	}else{
+
+
+		int status;
+		(void)waitpid(pid, &status, 0);
+		printf("am i dead yet\n");
+		exit(0);
+		
+	}	
+
+return 0;
 	
-	
-	exit(0);
 }

@@ -158,7 +158,7 @@ common_prog(int nargs, char **args)
 
 	char bar [] = "con:";
 	char foo [] = "con:";
-	char foobar [] = "null:";
+	char foobar [] = "con:";
 	vfs_open(bar, 1, 0, &placehold1->llfile); 
 	vfs_open(foo, 1, 0, &stdout->llfile); 
 	vfs_open(foobar, 1, 0, &placehold2->llfile); 
@@ -166,6 +166,8 @@ common_prog(int nargs, char **args)
 	proc->fileTable[0] = placehold1;
 	proc->fileTable[1] = stdout;
 	proc->fileTable[2] = placehold2;
+
+
 
 	tc = thread_count;
 
@@ -177,6 +179,13 @@ common_prog(int nargs, char **args)
 		for(int i = 0; i < 2000; ++i){
 			kproc->procTable = kmalloc(sizeof(struct proc*));
 		}
+		kproc->fileTable[0] = placehold1;
+		kproc->fileTable[1] = stdout;
+		kproc->fileTable[2] = placehold2;
+		placehold1->refCount += 1;
+		stdout->refCount += 1;
+		placehold2 += 1;
+
 	}
 	
 	lock_acquire(kproc->proc_lock);
@@ -219,7 +228,7 @@ common_prog(int nargs, char **args)
 	
 	//PUT THIS BACK WHEN DONE
 	(void)tc;
-	//thread_wait_for_count(tc);
+	thread_wait_for_count(tc);
 
 	return 0;
 }

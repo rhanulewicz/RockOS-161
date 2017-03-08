@@ -263,8 +263,9 @@ ssize_t read(int fd, void *buf, size_t buflen, int32_t *retval){
 //YOUR SOUL BELONGS TO KPROC
 pid_t fork(struct trapframe *tf, int32_t *retval){
 	(void) retval;
-	lock_acquire(kproc->proc_lock);
+	//lock_acquire(kproc->proc_lock);
 	//Initialize pointer to new process
+	// kprintf("proc %d forked\n", curproc->pid);
 	struct proc *newProc;
 	newProc = kmalloc(sizeof(struct proc));
 	//Initialize pointer to a new file table for the new process
@@ -276,7 +277,7 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 	for(int i = 0; i < 64; i++){
 		if(curproc->fileTable[i] != NULL){
 			newProc->fileTable[i] = curproc->fileTable[i];
-			*newProc->fileTable[i]->refCount = *newProc->fileTable[i]->refCount + 1;
+			*newProc->fileTable[i]->refCount += 1;
 		}
 	}
  
@@ -309,11 +310,14 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 	newProc->proc_lock = lock_create("proclockelse");
 
 
-	lock_release(kproc->proc_lock);
+	//lock_release(kproc->proc_lock);
 
-	kprintf("Refcount on curproc: %d\n", *curproc->fileTable[0]->refCount);
+	// kprintf("Refcount on curproc: %d\n", *curproc->fileTable[0]->refCount);
+	struct trapframe *tfc = kmalloc(sizeof(struct trapframe));
+	*tfc = *tf;
 	//Fork new process
-	thread_fork(newProc->p_name, newProc, copytf, tf, 0);
+
+	thread_fork(newProc->p_name, newProc, copytf, tfc, 0);
 
 	//Return child's pid to userland
 	*retval = (int32_t)newProc->pid;
@@ -340,10 +344,12 @@ void copytf(void *tf, unsigned long ts){
 	//Moves child thread to next instruction so it doesn't fork for fucking ever
 	ctf.tf_epc += 4;
 	//Give the child trapframe to usermode. Say bye bye.
-	curproc->exitCode = 0;
-	_exit(0);
+	curproc->exitCode = -1;
+	
+	// kprintf("i am born %d\n", curproc->pid);
 
-	//mips_usermode(&ctf);
+	// _exit(0);
+	mips_usermode(&ctf);
 
 }
 
@@ -356,24 +362,24 @@ pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
 	(void)options;
 	(void)retval;
 	//kprintf("Ssdssdssdgihbzj\n");
-	struct proc* procToReap = kproc->procTable[pid+1];
+	struct proc* procToReap = kproc->procTable[pid-1];
+
 
 	//If child process does not exist, waitpid fails
 	if(procToReap == NULL){
 		//WAITPID FAILS HERE
 		*retval = -1;
 		return (pid_t)ESRCH;
-	}
-	//If the child has not yet exited, sleep the parent using the child's lock and cv
+	}	//If the child has not yet exited, sleep the parent using the child's lock and cv
+		// kprintf("reaping %d with exit code %d i am proc %d\n", procToReap->pid, procToReap->exitCode,curproc->pid);
 	if(procToReap->exitCode == -1){
 		lock_acquire(procToReap->proc_lock);
 		lock_release(procToReap->proc_lock);
 	}
 	
-	
 	//The child should have exited if you get here. Reap it.
 	if(procToReap->exitCode != -1){
-		lock_acquire(kproc->proc_lock);
+		// lock_acquire(kproc->proc_lock);
 		//Free up other shit
 		if (procToReap->p_cwd) {
 			VOP_DECREF(procToReap->p_cwd);
@@ -395,7 +401,7 @@ pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
 		
 		
 		kfree(procToReap->fileTable);
-		kproc->procTable[pid+1] = NULL;
+		kproc->procTable[pid-1] = NULL;
 		if (procToReap->p_addrspace) {
 		
 			struct addrspace *as;
@@ -411,11 +417,12 @@ pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
 			as_destroy(as);
 		}
 		*retval = 0;
-		lock_release(kproc->proc_lock);
+		// lock_release(kproc->proc_lock);
 		return (pid_t)0;
 	}
 	
 	//kprintf("asdewrwqer\n");
+	*retval = procToReap->pid;
 	return (pid_t)0;
 }
 
@@ -456,6 +463,7 @@ void _exit(int exitcode){
 		lock_release(curproc->proc_lock);
 		
 	}
+	// kprintf("proc %d is dead now\n", curproc->pid);
 	thread_exit();
 }
 
@@ -492,6 +500,7 @@ syscall(struct trapframe *tf)
 	retval = 0;
 	off_t pos64;
 	int whenceIn;
+	int status;
 	// struct fileContainer* f1 = kmalloc(sizeof(f1));
 	// struct fileContainer* f2 = kmalloc(sizeof(f2));
 	// f1->offset = 0;
@@ -553,7 +562,9 @@ syscall(struct trapframe *tf)
 		break;
 
 		case SYS_waitpid:
-		err = waitpid(tf->tf_a0, (int*)tf->tf_a1, tf->tf_a2, &retval);
+		// copyin((userptr_t)tf->tf_a1, &status, 4);
+		err = waitpid(tf->tf_a0, &status, tf->tf_a2, &retval);
+		// copyout(&status,(userptr_t)tf->tf_a1 , 4);
 		break;
 
 		case SYS_execv:
