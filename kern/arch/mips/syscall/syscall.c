@@ -294,6 +294,7 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 	
 	/*Search for first empty place in process table starting at highestpid, 
 	place proc in it using wraparound*/
+	
 	lock_acquire(kproc->proc_lock);
 	for(int i = *kproc->highestPid - 1; i < 2000; i++){
 		if(kproc->procTable[i] == NULL){
@@ -308,6 +309,7 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 		//If you make it to the last index, wrap around via highestpid
 		i = (i == 1999)? 0 : i;
 	}
+
 	lock_release(kproc->proc_lock);
 	//Set some specifics for the new process, including the parent's pid (curproc)
 	newProc->exitCode = -1;
