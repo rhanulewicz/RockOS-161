@@ -38,28 +38,27 @@
 int
 main(void)
 {
-	/* Just exit with success. */
-	pid_t pid = fork();
+	for(int i = 0; i < 16; i++){
+		/* Just exit with success. */
+		pid_t pid = fork();
 
-	if(pid == -1){
-		printf("Fork Failed\n");
+		if(pid == -1){
+			printf("Fork Failed\n");
 
-	}else if (pid == 0){
-		while(1){
+		}else if (pid == 0){
+			
+			exit(0);
+			
+		}else{
 
-		}
-		exit(0);
-		
-	}else{
+			int status;
+			(void)waitpid(pid, &status, 0);
+			//exit(0);
+			
+		}	
 
-
-		int status;
-		(void)waitpid(pid, &status, 0);
-		printf("am i dead yet\n");
-		exit(0);
-		
-	}	
-
-return 0;
+	
+	}
+	return 0;
 	
 }

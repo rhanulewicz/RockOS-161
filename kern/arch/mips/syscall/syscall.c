@@ -87,13 +87,14 @@
 off_t lseek(int fd, off_t pos, int whence, int32_t *retval){
 	struct fileContainer *file = curproc->fileTable[fd];
 	struct stat *statBox = kmalloc(sizeof(*statBox));
-	
+
+	//fd is not a valid file descriptor
 	if(file == NULL){
 		*retval = -1;
 		return EBADF;
 	}
-	
-	VOP_STAT(file->llfile, statBox); //This is where the NULL dereference is happening
+	//Gets us the size of the file, stores it in statBox->st_size
+	VOP_STAT(file->llfile, statBox);
 	if(whence == SEEK_SET){
 		file->offset = pos;
 	}
@@ -102,7 +103,6 @@ off_t lseek(int fd, off_t pos, int whence, int32_t *retval){
 
 	}
 	else if(whence == SEEK_END){
-		//kprintf("Offset, pos: %d, %d \n", (int)file->offset, (int)pos);
 		file->offset = (statBox->st_size + pos);
 	}
 	else{
@@ -112,15 +112,10 @@ off_t lseek(int fd, off_t pos, int whence, int32_t *retval){
 	}
 	*retval = file->offset; 
 	return (off_t)0;
-
-	
 }
 
 ssize_t open(char *filename, int flags, int32_t *retval){
-	//TODO
-	//Search filetable for first empty slot
-	//FIX THIS ITS SHIT
-	//You can change function prototypes, pass int value into all sys calls
+	//Build our fileContainer
 	struct fileContainer *file;
 	struct vnode *trash;
 	trash = kmalloc(sizeof(struct vnode));
@@ -130,12 +125,14 @@ ssize_t open(char *filename, int flags, int32_t *retval){
 	file->refCount = kmalloc(sizeof(int));
 	*file->refCount = 1;
 	char* filestar = filename;
-	vfs_open(filestar, flags, 0, &trash);
-	file->llfile = trash;
 	file->permflag = flags;
 	file->offset = 0;
+	//Generate our vnode
+	vfs_open(filestar, flags, 0, &trash);
+	file->llfile = trash;
 	
-
+	//Places our file in the first empty slot in curproc's fileTable
+	//The user gets back the index at which it was placed (file descriptor)
 	for(int i = 0; i < 64; i++){
 		if(curproc->fileTable[i]== NULL){
 			curproc->fileTable[i] = file;
@@ -149,27 +146,20 @@ ssize_t open(char *filename, int flags, int32_t *retval){
 }
 
 ssize_t write(int filehandle, const void *buf, size_t size, int32_t *retval){
-	//kprintf("-");
-	// if(filehandle == 2){
-	// 	*retval = (int32_t)size;
-	// 	return (ssize_t)0;
 
-	// }
-	if(curproc->fileTable == NULL){
-		kprintf("get fetched");
-	}
-
+	//Fetch our fileConainer
 	struct fileContainer *file = curproc->fileTable[filehandle];
-
+	//fd is not a valid file descriptor, or was not opened for writing.
 	if (file == NULL || file->permflag == O_RDONLY){
 		*retval = (int32_t)0;
 		return EBADF;
 	}
+
 	KASSERT(file->lock != NULL);
 	lock_acquire(file->lock);
-	//kprintf("%p\n", &file->lock);
-	//kprintf("Refcount: %d\n", *file->refCount);
+	//kprintf("i eat ass\n");
 	//Remember to give the user the size variable back (copyout, look at sys__time)
+	//Builds all the info we need to write
 	struct uio thing;
 	struct iovec iov;
 	iov.iov_ubase = (userptr_t)buf;
@@ -181,50 +171,53 @@ ssize_t write(int filehandle, const void *buf, size_t size, int32_t *retval){
 	thing.uio_segflg = UIO_USERSPACE;
 	thing.uio_rw = UIO_WRITE;
 	thing.uio_space = proc_getas();
-
+	//Does the actual writing
 	VOP_WRITE(file->llfile, &thing);
-
+	//The current seek position of the file is advanced by the number of bytes written.
 	file->offset = file->offset + size;
 
 	*retval = (int32_t)size;
 	KASSERT(file->lock != NULL);
-
+	//kprintf("hello mama\n");
 	lock_release(file->lock);
-	//kprintf("lock released\n");
-
+	
 	return (ssize_t)0;
 }
 
 ssize_t close(int fd, int32_t *retval){
-	
+	//fd is not a valid file descriptor.
 	if(fd < 0 || fd > 63 || curproc->fileTable[fd] == NULL){
-
 		*retval = 0;
-		return (ssize_t)0;
+		return (ssize_t)EBADF;
 	}
-	//kprintf("we close now\n");
+	//Decrement the reference count on the fileContainer being closed
 	lock_acquire(curproc->fileTable[fd]->lock);
 	*curproc->fileTable[fd]->refCount = *curproc->fileTable[fd]->refCount - 1;
 	lock_release(curproc->fileTable[fd]->lock);
-
+	//If this no more references to this fileContainer exist, OBLITERATE IT
 	if(*curproc->fileTable[fd]->refCount == 0){
-		kfree(curproc->fileTable[fd]->llfile);
+		vfs_close(curproc->fileTable[fd]->llfile);
 		kfree(curproc->fileTable[fd]);
 	}
-
+	//Empty its space in the table.
 	curproc->fileTable[fd] = NULL;
 	*retval = (int32_t)0;
 	return (ssize_t)0;
 }
 
 ssize_t read(int fd, void *buf, size_t buflen, int32_t *retval){
+	//Fetch our fileContainer
 	struct fileContainer *file = curproc->fileTable[fd];
+	//fd is not a valid file descriptor, or was not opened for reading.
 	if (file == NULL || file->permflag == O_WRONLY){
 		return EBADF;
 	}
+
 	lock_acquire(file->lock);
+	
 
 	//Remember to give the user the size variable back (copyout, look at sys__time)
+	//Builds all info we need to read
 	struct uio thing;
 	struct iovec iov;
 	iov.iov_ubase = (userptr_t)buf;
@@ -236,33 +229,38 @@ ssize_t read(int fd, void *buf, size_t buflen, int32_t *retval){
 	thing.uio_segflg = UIO_USERSPACE;
 	thing.uio_rw = UIO_READ;
 	thing.uio_space = proc_getas();
-
+	//Does the actual reading
 	VOP_READ(file->llfile, &thing);
-
+	//The current seek position of the file is advanced by the number of bytes read.
 	file->offset = file->offset + buflen;
+	//The count of bytes read is returned.
 	*retval = (int32_t)buflen;
+	
 	lock_release(file->lock);
 
 	return (ssize_t)0;
 }
 
-//copy the trapframe
-//fork the thread
-//the thread's function is a helper function
-//set the parent's return value to be the child's pid
-//parent returns like any other syscall
-//pass trapframe into mips_usermode
-//helper function has to associate the parent and the child
-//set the trapframe's proper return values
-//child function copies
+int dup2(int oldfd, int newfd, int32_t *retval){
+	//If newfd names an already-open file, that file is closed.
+	if(curproc->fileTable[newfd] != NULL){
+		close(newfd, 0);
+	}
+	/*Clones the file handle identifed by file descriptor oldfd onto the file handle
+	 identified by newfd. The two handles refer to the same "open" of the file -- that 
+	 is, they are references to the same object and share the same seek pointer.*/
+	curproc->fileTable[newfd] = curproc->fileTable[oldfd];
 
-//REMEMBER CHILDREN
-//THE PROCESS TABLE BELONGS TO KPROC
-//THE HIGHEST PID BELONGS TO KPROC
-//THE MASTER LOCK BELONGS TO KPROC
-//YOUR SOUL BELONGS TO KPROC
+	*retval = newfd;
+	return 0;
+}
+
+/*REMEMBER CHILDREN
+THE PROCESS TABLE BELONGS TO KPROC
+THE HIGHEST PID BELONGS TO KPROC
+THE MASTER LOCK BELONGS TO KPROC
+YOUR SOUL BELONGS TO KPROC*/
 pid_t fork(struct trapframe *tf, int32_t *retval){
-	(void) retval;
 
 	//Initialize pointer to new process
 	//Give it a lock immediately
@@ -280,6 +278,7 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 		if(curproc->fileTable[i] != NULL){
 			lock_acquire(curproc->fileTable[i]->lock);
 			newProc->fileTable[i] = curproc->fileTable[i];
+			//All shared files get their reference count incremented
 			*newProc->fileTable[i]->refCount += 1;
 			lock_release(curproc->fileTable[i]->lock);
 		}
@@ -290,10 +289,10 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 	newProc->p_cwd = curproc->p_cwd;
 	newProc->p_numthreads = curproc->p_numthreads;
 	newProc->p_name = curproc->p_name;
-
-	//Search for first empty place in process table starting at highestpid, place proc in it
-	//Also does wraparound
-
+	
+	/*Search for first empty place in process table starting at highestpid, 
+	place proc in it using wraparound*/
+	lock_acquire(kproc->proc_lock);
 	for(int i = *kproc->highestPid - 1; i < 2000; i++){
 		if(kproc->procTable[i] == NULL){
 			kproc->procTable[i] = newProc;
@@ -307,12 +306,12 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 		//If you make it to the last index, wrap around via highestpid
 		i = (i == 1999)? 0 : i;
 	}
-	
+	lock_release(kproc->proc_lock);
 	//Set some specifics for the new process, including the parent's pid (curproc)
 	newProc->exitCode = -1;
 	newProc->waitingOnMe = 0;
 	newProc->parentpid = curproc->pid;
-	
+	//Deep copy trapframe
 	struct trapframe *tfc = kmalloc(sizeof(struct trapframe));
 	*tfc = *tf;
 
@@ -328,120 +327,104 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 void copytf(void *tf, unsigned long ts){
 	(void)ts;
 
-	// while(1){
-	// 	//Plugs the child thread so it can't go dicking around
-	// }
 	//Activitates new address space
 	as_activate();
 	lock_acquire(curproc->proc_lock);
 	//Copies parent trapframe (ptf) to child trapframe (ctf)
-	struct trapframe *ptf = (struct trapframe *)tf;
-	struct trapframe ctf = *ptf;
-	//Gives ctf the right return values (returns 0)
+	struct trapframe ctf = *(struct trapframe *)tf;
+	//Gives ctf its return values (returns 0)
 	ctf.tf_v0 = 0;
 	ctf.tf_v1 = 0;
 	ctf.tf_a3 = 0;
-	//Moves child thread to next instruction so it doesn't fork for fucking ever
+	//Moves child thread to next instruction so it doesn't fork for-fucking-ever
 	ctf.tf_epc += 4;
-	//Give the child trapframe to usermode. Say bye bye.
+	//Ship the child trapframe to usermode. Wave goodbye.
 	curproc->exitCode = -1;
-	
-	// kprintf("i am born %d\n", curproc->pid);
 
-	// _exit(0);
 	mips_usermode(&ctf);
-
 }
 
 //IF WE HAVE MEMORY PROBLEMS, LOOKY HERE
 //We can save on memory if we only have one condition variable
 //But will be more inefficient in terms of the broadcast
 pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
-	(void)pid;
-	(void)status;
 	(void)options;
-	(void)retval;
-	
+	//Fetch the process we are waiting on to drop dead
 	struct proc* procToReap = kproc->procTable[pid-1];
 
-	//If child process does not exist, waitpid fails
+	//ERR: The pid argument named a nonexistent process.
 	if(procToReap == NULL){
-		//WAITPID FAILS HERE
 		*retval = -1;
 		return (pid_t)ESRCH;
-	}	
-	//If the child has not yet exited, sleep the parent using the child's lock and cv
-	
-	if(procToReap->exitCode == -1){
+	}
+
+	//If the child has not yet exited, sleep the parent
+	while(procToReap->exitCode == -1){
 		lock_acquire(procToReap->proc_lock);
 		lock_release(procToReap->proc_lock);
 	}
-
+	
+	//Copies the exitcode out to userland through status
 	copyout(&procToReap->exitCode, (userptr_t)status, 4);
 	
 	//The child should have exited if you get here. Reap it.
-	if(procToReap->exitCode != -1){
-
-		// lock_acquire(kproc->proc_lock);
-		//Free up other shit
-		if (procToReap->p_cwd) {
-			//VOP_DECREF(procToReap->p_cwd);
-			procToReap->p_cwd = NULL;
-		}
-
-		//lock_destroy(procToReap->proc_lock);
-		// for(int i = 0; i < 2000; i++){
-		// 	if(procToReap->fileTable[i] != NULL && *procToReap->fileTable[i]->refCount == 1){
-		// 		kfree(procToReap->fileTable[i]->llfile);
-		// 		kfree(procToReap->fileTable[i]->refCount);
-		// 		kfree(procToReap->fileTable[i]->lock);
-		// 		kfree(procToReap->fileTable[i]);
-		// 	}
-		// 	procToReap->fileTable[i] = NULL;
-		// }
-		
-		//spinlock_cleanup(&procToReap->p_lock);
-
-		kfree(procToReap->fileTable);
-		kproc->procTable[pid-1] = NULL;
-		if (procToReap->p_addrspace) {
-		
-			struct addrspace *as;
-
-			if (procToReap == curproc) {
-				as = proc_setas(NULL);
-				as_deactivate();
-			}
-			else {
-				as = procToReap->p_addrspace;
-				procToReap->p_addrspace = NULL;
-			}
-			as_destroy(as);
-		}
-		*retval = 0;
-		// lock_release(kproc->proc_lock);
-		return (pid_t)0;
-	}
 	
-	//kprintf("asdewrwqer\n");
+	lock_acquire(kproc->proc_lock);
+
+	//Free up other shit
+	if (procToReap->p_cwd) {
+		//VOP_DECREF(procToReap->p_cwd);
+		procToReap->p_cwd = NULL;
+	}
+
+	// lock_destroy(procToReap->proc_lock);
+	// for(int i = 0; i < 2000; i++){
+	// 	if(procToReap->fileTable[i] != NULL && *procToReap->fileTable[i]->refCount == 1){
+	// 		kfree(procToReap->fileTable[i]->llfile);
+	// 		kfree(procToReap->fileTable[i]->refCount);
+	// 		kfree(procToReap->fileTable[i]->lock);
+	// 		kfree(procToReap->fileTable[i]);
+	// 	}
+	// 	procToReap->fileTable[i] = NULL;
+	// }
+	
+	//spinlock_cleanup(&procToReap->p_lock);
+
+	//Free dead kiddo's file table, remove him from the proc table
+	kfree(procToReap->fileTable);
+	kproc->procTable[pid-1] = NULL;
+	//I guess this purges the address space related stuff
+	if (procToReap->p_addrspace) {
+	
+		struct addrspace *as;
+
+		as = procToReap->p_addrspace;
+		procToReap->p_addrspace = NULL;
+	
+		as_destroy(as);
+	}
+	lock_release(kproc->proc_lock);
+	
 	*retval = procToReap->pid;
 	return (pid_t)0;
 }
 
-// void freeFileContainer(struct fileContainer *fileCont){
-// 	kfree(fileCont->llfile);
-// 	kfree(fileCont->refCount);
-// 	kfree(fileCont->lock);
-// 	kfree(fileCont);
-// 	return;
-// }
-
 void getpid(int32_t *retval){
-	*retval = (int32_t)curproc->pid;
+
+ *retval = (int32_t)curproc->pid;
+/*  	     ___^___ _
+	 L    __/      [] \
+	LOL===__           \
+	 L      \___ ___ ___]
+	              I   I
+	          ----------/ 
+*/
+
 }
 
 void _exit(int exitcode){
-
+	
+	//All this shit might be unnecessary since we do it in waitpid
 	if (curproc->p_cwd) {
 		//VOP_DECREF(curproc->p_cwd);
 		curproc->p_cwd = NULL;
@@ -452,10 +435,10 @@ void _exit(int exitcode){
 	if (curproc->p_addrspace) {
 
 		struct addrspace *as;
-		
 		as = proc_setas(NULL);
+		
 		as_deactivate();
-
+		
 		as_destroy(as);
 	}
 	//spinlock_cleanup(&curproc->p_lock);
@@ -464,6 +447,7 @@ void _exit(int exitcode){
 		lock_release(curproc->proc_lock);
 		
 	}
+
 	thread_exit();
 }
 
@@ -500,13 +484,8 @@ syscall(struct trapframe *tf)
 	retval = 0;
 	off_t pos64;
 	int whenceIn;
-	//int *status = NULL;
-	// struct fileContainer* f1 = kmalloc(sizeof(f1));
-	// struct fileContainer* f2 = kmalloc(sizeof(f2));
-	// f1->offset = 0;
-	// f1->permflag = O_WRONLY;
-	// f1->llfile = curproc->fileTable[1]->llfile;
 	switch (callno) {
+
 	    case SYS_reboot:
 		err = sys_reboot(tf->tf_a0);
 		break;
@@ -521,11 +500,6 @@ syscall(struct trapframe *tf)
 
 		case SYS_write:
 		err = write(tf->tf_a0, (userptr_t)tf->tf_a1, tf->tf_a2, &retval);
-		
-		// cloneFileContainer(f1, f2);
-		// //kfree(f1);
-		// //f1 = NULL;
-		// kprintf("%p\n%p", (void*)&f1->offset, (void*)&f2->offset);
 		break;
 
 		case SYS_close:
@@ -543,17 +517,14 @@ syscall(struct trapframe *tf)
 		copyin((userptr_t)tf->tf_sp+16, &whenceIn, 4);
 		pos64 = lseek(tf->tf_a0, pos64, whenceIn, &retval);
 		err = (int)pos64;
-		//kprintf("lseek retval: %d\n", retval);
+		break;
+
+		case SYS_dup2:
+		err = dup2(tf->tf_a0, tf->tf_a1, &retval);
 		break;
 
 		case SYS_fork:
 		err = fork(tf,&retval);
-		// while(1){
-
-		// }
-		//kprintf("Retval in switch: %d\n", retval);
-		
-		//kprintf("Do we even get here? pid: %d \n", curproc->pid);
 		break;
 
 		case SYS_getpid:
@@ -562,13 +533,7 @@ syscall(struct trapframe *tf)
 		break;
 
 		case SYS_waitpid:
-		
-		//copyin((userptr_t)tf->tf_a1, &status, 4);
-	
 		err = waitpid(tf->tf_a0, (int *)tf->tf_a1, tf->tf_a2, &retval);
-
-		//COPYOUT IN WAITPID, EXITCODE -> STATUS
-		//copyout(&status,(userptr_t)tf->tf_a1 , 4);
 		break;
 
 		case SYS_execv:
@@ -593,7 +558,6 @@ syscall(struct trapframe *tf)
 		 * userlevel to a return value of -1 and the error
 		 * code in errno.
 		 */
-		//kprintf("Error: %d\n", err);
 		tf->tf_v0 = err;
 		tf->tf_a3 = 1;      /* signal an error */
 	}
@@ -605,10 +569,8 @@ syscall(struct trapframe *tf)
 			tf->tf_a3 = 0;  
 		}
 		else{
-		//kprintf("Retval in tf: %d\n", retval);
 		tf->tf_v0 = retval;
 		tf->tf_a3 = 0;      /* signal no error */
-			
 		}
 	}
 
@@ -623,18 +585,4 @@ syscall(struct trapframe *tf)
 	KASSERT(curthread->t_curspl == 0);
 	/* ...or leak any spinlocks */
 	KASSERT(curthread->t_iplhigh_count == 0);
-}
-
-/*
- * Enter user mode for a newly forked process.
- *
- * This function is provided as a reminder. You need to write
- * both it and the code that calls it.
- *
- * Thus, you can trash it and do things another way if you prefer.
- */
-void
-enter_forked_process(struct trapframe *tf)
-{
-	(void)tf;
 }
