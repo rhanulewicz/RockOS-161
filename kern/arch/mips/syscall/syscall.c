@@ -149,6 +149,7 @@ ssize_t write(int filehandle, const void *buf, size_t size, int32_t *retval){
 
 	//Fetch our fileConainer
 	struct fileContainer *file = curproc->fileTable[filehandle];
+	// kprintf("%p\n", curproc->fileTable[filehandle]);
 	//fd is not a valid file descriptor, or was not opened for writing.
 	if (file == NULL || file->permflag == O_RDONLY){
 		*retval = (int32_t)0;
@@ -197,7 +198,7 @@ ssize_t close(int fd, int32_t *retval){
 	//If this no more references to this fileContainer exist, OBLITERATE IT
 	if(*curproc->fileTable[fd]->refCount == 0){
 		vfs_close(curproc->fileTable[fd]->llfile);
-		kfree(curproc->fileTable[fd]);
+		// kfree(curproc->fileTable[fd]);
 	}
 	//Empty its space in the table.
 	curproc->fileTable[fd] = NULL;
@@ -287,6 +288,7 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 	//Copy lots of other stuff to new process
 	as_copy(curproc->p_addrspace, &newProc->p_addrspace);
 	newProc->p_cwd = curproc->p_cwd;
+	VOP_INCREF(newProc->p_cwd);
 	newProc->p_numthreads = curproc->p_numthreads;
 	newProc->p_name = curproc->p_name;
 	
@@ -365,17 +367,17 @@ pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
 	}
 	
 	//Copies the exitcode out to userland through status
-	copyout(&procToReap->exitCode, (userptr_t)status, 4);
+	copyout(&procToReap->exitCode, (userptr_t)status, sizeof(int));
 	
 	//The child should have exited if you get here. Reap it.
 	
 	lock_acquire(kproc->proc_lock);
 
 	//Free up other shit
-	if (procToReap->p_cwd) {
+//	if (procToReap->p_cwd) {
 		//VOP_DECREF(procToReap->p_cwd);
-		procToReap->p_cwd = NULL;
-	}
+//		procToReap->p_cwd = NULL;
+//	}
 
 	// lock_destroy(procToReap->proc_lock);
 	// for(int i = 0; i < 2000; i++){
@@ -391,21 +393,22 @@ pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
 	//spinlock_cleanup(&procToReap->p_lock);
 
 	//Free dead kiddo's file table, remove him from the proc table
-	kfree(procToReap->fileTable);
-	kproc->procTable[pid-1] = NULL;
+	// kfree(procToReap->fileTable);
+	*retval = procToReap->pid;
+	//kproc->procTable[pid-1] = NULL;
 	//I guess this purges the address space related stuff
-	if (procToReap->p_addrspace) {
+	// if (procToReap->p_addrspace) {
 	
-		struct addrspace *as;
+	// 	struct addrspace *as;
 
-		as = procToReap->p_addrspace;
-		procToReap->p_addrspace = NULL;
+	// 	as = procToReap->p_addrspace;
+	// 	procToReap->p_addrspace = NULL;
 	
-		as_destroy(as);
-	}
+	// 	as_destroy(as);
+	// }
 	lock_release(kproc->proc_lock);
 	
-	*retval = procToReap->pid;
+	
 	return (pid_t)0;
 }
 
@@ -425,22 +428,22 @@ void getpid(int32_t *retval){
 void _exit(int exitcode){
 	
 	//All this shit might be unnecessary since we do it in waitpid
-	if (curproc->p_cwd) {
+//	if (curproc->p_cwd) {
 		//VOP_DECREF(curproc->p_cwd);
-		curproc->p_cwd = NULL;
-	}
+//		curproc->p_cwd = NULL;
+//	}
 
 	curproc->exitCode = exitcode;
 
-	if (curproc->p_addrspace) {
+	// if (curproc->p_addrspace) {
 
-		struct addrspace *as;
-		as = proc_setas(NULL);
+	// 	struct addrspace *as;
+	// 	as = proc_setas(NULL);
 		
-		as_deactivate();
+	// 	as_deactivate();
 		
-		as_destroy(as);
-	}
+	// 	as_destroy(as);
+	// }
 	//spinlock_cleanup(&curproc->p_lock);
 
 	if(lock_do_i_hold(curproc->proc_lock)){

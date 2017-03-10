@@ -82,7 +82,7 @@ struct proc {
 	struct lock *proc_lock;
 
 	//These only ever get used by kproc. Don't try to access these on any other proc
-	struct proc* *procTable;
+	struct proc *procTable[2000];
 	int *highestPid;
 
 	

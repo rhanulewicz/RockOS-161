@@ -167,26 +167,27 @@ common_prog(int nargs, char **args)
 	proc->fileTable[1] = stdout;
 	proc->fileTable[2] = placehold2;
 
+
+
 	tc = thread_count;
 
 	//If you're the kernel process, create the process table and point to it
-	if(kproc->procTable == NULL){
+	//if(kproc->procTable == NULL){
 		kproc->proc_lock = lock_create("proclock1");
 		*kproc->highestPid = 1;
-		kproc->procTable = kmalloc(2000*sizeof(struct proc*));
-		for(int i = 0; i < 2000; ++i){
-			kproc->procTable[i] = kmalloc(sizeof(struct proc*));
-			kproc->procTable[i] = NULL;
-		}
-		
+		//kproc->procTable = kmalloc(2000*sizeof(struct proc*));
+		 for(int i = 0; i < 2000; ++i){
+		 	kproc->procTable[i] = NULL;
+		 }
 		kproc->fileTable[0] = placehold1;
 		kproc->fileTable[1] = stdout;
 		kproc->fileTable[2] = placehold2;
-		*placehold1->refCount += 1;
-		*stdout->refCount += 1;
-		*placehold2->refCount += 1;
-	}
+		placehold1->refCount += 1;
+		stdout->refCount += 1;
+		placehold2 += 1;
 
+	//}
+	
 	lock_acquire(kproc->proc_lock);
 	proc->proc_lock = lock_create("proclock");
 
@@ -204,7 +205,6 @@ common_prog(int nargs, char **args)
 		//If you make it to the last index, wrap around via highestpid
 		i = (i == 1999)? 0 : i;
 	}
-	
 	lock_release(kproc->proc_lock);
 
 	result = thread_fork(args[0] /* thread name */,
@@ -222,6 +222,8 @@ common_prog(int nargs, char **args)
 	 * The new process will be destroyed when the program exits...
 	 * once you write the code for handling that.
 	 */
+	int retval;
+	waitpid(proc->pid, NULL, 0, &retval);
 
 	// Wait for all threads to finish cleanup, otherwise khu be a bit behind,
 	// especially once swapping is enabled.

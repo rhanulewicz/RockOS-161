@@ -195,6 +195,7 @@ test(int nowait)
 	}
 
 	pid0 = dofork();
+	printf("fork1 \n");
 
 	nprintf(".");
 	write(fd, "A", 1);
@@ -207,6 +208,8 @@ test(int nowait)
 	check();
 
 	pid1 = dofork();
+	printf("fork2 \n");
+
 	nprintf(".");
 	write(fd, "B", 1);
 	depth++;
@@ -216,6 +219,8 @@ test(int nowait)
 	check();
 	
 	pid2 = dofork();
+	printf("fork3 \n");
+
 	nprintf(".");
 	write(fd, "C", 1);
 	depth++;
@@ -225,6 +230,8 @@ test(int nowait)
 	check();
 	
 	pid3 = dofork();
+	printf("fork4 \n");
+
 	nprintf(".");
 	write(fd, "D", 1);
 	depth++;
@@ -250,6 +257,8 @@ test(int nowait)
 	// lseek may not be implemented..so close and reopen
 	close(fd);
 	fd = open(filename, O_RDONLY);
+	printf("open \n");
+
 	if(fd < 3) {
 		err(1, "Failed to open file for verification\n");
 	}
@@ -268,6 +277,8 @@ test(int nowait)
 		err(1, "Did not get expected number of characters\n");
 	}
 	nprintf(".");
+	printf("done reading \n");
+
 	// Check if number of instances of each character is correct
 	// 2As; 4Bs; 8Cs; 16Ds
 	for(char_idx = 0; char_idx < 4; char_idx++) {
