@@ -72,17 +72,17 @@ struct proc {
 	/* VFS */
 	struct vnode *p_cwd;		/* current working directory */
 
-	struct fileContainer* *fileTable;
+	struct fileContainer* fileTable[64];
 	int exitCode;
 	int waitingOnMe;
 	int pid;
 	int parentpid;
+	struct proc* parent;
 	//Every process gets a lock BUT
 	//kproc's proc_lock is to be used as a universal lock
 	struct lock *proc_lock;
 
-	//These only ever get used by kproc. Don't try to access these on any other proc
-	struct proc *procTable[2000];
+	struct proc* procTable[2000];
 	int *highestPid;
 
 	

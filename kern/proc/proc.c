@@ -81,11 +81,6 @@ proc_create(const char *name)
 
 	proc->p_numthreads = 0;
 	spinlock_init(&proc->p_lock);
-	proc->fileTable = kmalloc(64 * sizeof(struct fileContainer*));
-	for(int i = 0; i < 64; i++){
-		proc->fileTable[i] = kmalloc(sizeof(struct fileContainer));
-		proc->fileTable[i] = NULL;
-	}
 
 	/* VM fields */
 	proc->p_addrspace = NULL;

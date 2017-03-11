@@ -32,6 +32,13 @@
 
 
 #include <cdefs.h> /* for __DEAD */
+
+extern struct proc* procTable[2000];
+extern struct lock* procLock;
+extern int highPid;
+
+
+
 struct trapframe; /* from <machine/trapframe.h> */
 
 /*
