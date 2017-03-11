@@ -83,9 +83,9 @@
  * stack, starting at sp+16 to skip over the slots for the
  * registerized values, with copyin().
  */
-	struct lock* procLock;
-	int	highPid;
-	struct proc* procTable[2000];
+struct lock* procLock;
+int	highPid;
+struct proc* procTable[2000];
 
 
 
@@ -144,9 +144,6 @@ ssize_t open(char *filename, int flags, int32_t *retval){
 			*retval = (int32_t)i;
 			break;
 		}
-	}
-	if(*retval < 3){
-		kprintf("%d\n",curproc->pid);
 	}
 	lock_release(file->lock);
 	return (ssize_t)0;
@@ -288,7 +285,7 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 			lock_release(curproc->fileTable[i]->lock);
 		}
 	}
- 
+	
 	//Copy lots of other stuff to new process
 	as_copy(curproc->p_addrspace, &newProc->p_addrspace);
 	newProc->p_cwd = curproc->p_cwd;
@@ -326,6 +323,7 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 	//Fork new process
 	thread_fork(newProc->p_name, newProc, copytf, tfc, 0);
 
+
 	//Return child's pid to userland
 	*retval = (int32_t)newProc->pid;
 	//Return errno 
@@ -340,6 +338,7 @@ void copytf(void *tf, unsigned long ts){
 	// lock_acquire(curproc->proc_lock);
 	//Copies parent trapframe (ptf) to child trapframe (ctf)
 	struct trapframe ctf = *(struct trapframe *)tf;
+	kfree(tf);
 	//Gives ctf its return values (returns 0)
 	ctf.tf_v0 = 0;
 	ctf.tf_v1 = 0;
@@ -375,15 +374,31 @@ pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
 	//Copies the exitcode out to userland through status
 	copyout(&procToReap->exitCode, (userptr_t)status, sizeof(int));
 
+	for(int i = 0; i < 64; ++i){
+		procToReap->fileTable[i] = NULL;
+	}
+	lock_destroy(procToReap->proc_lock);
 
 	*retval = procToReap->pid;
+	procTable[procToReap->pid - 1] = NULL;
+	struct addrspace *as;
+	as = procToReap->p_addrspace;
+	procToReap->p_addrspace = NULL;
+	as_destroy(as);
+
+	// spinlock_cleanup(&procToReap->p_lock);
+
+	// kfree(procToReap->p_name);
+	// kfree(procToReap);
+
+
 	
 	return (pid_t)0;
 }
 
 void getpid(int32_t *retval){
 
- *retval = (int32_t)curproc->pid;
+	*retval = (int32_t)curproc->pid;
 /*  	     ___^___ _
 	 L    __/      [] \
 	LOL===__           \
@@ -398,9 +413,13 @@ void _exit(int exitcode){
 	
 	curproc->exitCode = exitcode;
 
+
 	if(lock_do_i_hold(curproc->proc_lock)){
 		lock_release(curproc->proc_lock);
 	}
+
+	/* VM fields */
+
 
 	thread_exit();
 }
@@ -440,11 +459,11 @@ syscall(struct trapframe *tf)
 	int whenceIn;
 	switch (callno) {
 
-	    case SYS_reboot:
+		case SYS_reboot:
 		err = sys_reboot(tf->tf_a0);
 		break;
 
-	    case SYS___time:
+		case SYS___time:
 		err = sys___time((userptr_t)tf->tf_a0, (userptr_t)tf->tf_a1);
 		break;
 
@@ -493,13 +512,13 @@ syscall(struct trapframe *tf)
 		case SYS_execv:
 		err = execv((const char*)tf->tf_a0, (char**)tf->tf_a1, &retval);
 		break;
-	    
-	    case SYS__exit:
-	    err = 0;
-	    _exit(tf->tf_a0);
-	    break;
+		
+		case SYS__exit:
+		err = 0;
+		_exit(tf->tf_a0);
+		break;
 
-	    default:
+		default:
 		kprintf("Unknown syscall %d\n", callno);
 		err = ENOSYS;
 		break;
@@ -518,25 +537,25 @@ syscall(struct trapframe *tf)
 	else {
 		/* Success. */
 		if(callno == SYS_lseek /*|| callno == SYS_fork*/){
-			tf->tf_v0 = 0;
-			tf->tf_v1 = retval;
-			tf->tf_a3 = 0;  
-		}
-		else{
+		tf->tf_v0 = 0;
+		tf->tf_v1 = retval;
+		tf->tf_a3 = 0;  
+	}
+	else{
 		tf->tf_v0 = retval;
 		tf->tf_a3 = 0;      /* signal no error */
-		}
 	}
+}
 
 	/*
 	 * Now, advance the program counter, to avoid restarting
 	 * the syscall over and over again.
 	 */
 
-	tf->tf_epc += 4;
+tf->tf_epc += 4;
 
 	/* Make sure the syscall code didn't forget to lower spl */
-	KASSERT(curthread->t_curspl == 0);
+KASSERT(curthread->t_curspl == 0);
 	/* ...or leak any spinlocks */
-	KASSERT(curthread->t_iplhigh_count == 0);
+KASSERT(curthread->t_iplhigh_count == 0);
 }
