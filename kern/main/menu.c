@@ -123,6 +123,8 @@ common_prog(int nargs, char **args)
 	int result;
 	unsigned tc;
 
+
+
 	/* Create a process for the new program to run in. */
 	
 	proc = proc_create_runprogram(args[0] /* name */);
@@ -130,24 +132,15 @@ common_prog(int nargs, char **args)
 	if (proc == NULL) {
 		return ENOMEM;
 	}
+
+	if(procLock == NULL){
+		procLock = lock_create("new lock");
+		highPid = 3;
+	}
 	
 	struct fileContainer *stdout;
-	struct fileContainer *placehold1;
-	struct fileContainer *placehold2;
-
-	placehold1 = kmalloc(sizeof(struct fileContainer));
-	placehold1->lock = lock_create("stdoutlock");
-	placehold1->offset = 0;
-	placehold1->permflag = 1;
-	placehold1->refCount = kmalloc(sizeof(int));
-	*placehold1->refCount = 1;
-
-	placehold2 = kmalloc(sizeof(struct fileContainer));
-	placehold2->lock = lock_create("stdoutlock");
-	placehold2->offset = 0;
-	placehold2->permflag = 1;
-	placehold2->refCount = kmalloc(sizeof(int));
-	*placehold2->refCount = 1;
+	struct fileContainer *placehold1 = kmalloc(sizeof(struct fileContainer));
+	struct fileContainer *placehold2 = kmalloc(sizeof(struct fileContainer));
 
 	stdout = kmalloc(sizeof(struct fileContainer));
 	stdout->lock = lock_create("stdoutlock");
@@ -155,6 +148,8 @@ common_prog(int nargs, char **args)
 	stdout->permflag = 1;
 	stdout->refCount = kmalloc(sizeof(int));
 	*stdout->refCount = 1;
+	*placehold1 = *stdout;
+	*placehold2 = *stdout;
 
 	char bar [] = "con:";
 	char foo [] = "con:";
@@ -167,45 +162,45 @@ common_prog(int nargs, char **args)
 	proc->fileTable[1] = stdout;
 	proc->fileTable[2] = placehold2;
 
-
+	proc->pid = 1;
 
 	tc = thread_count;
 
-	//If you're the kernel process, create the process table and point to it
-	//if(kproc->procTable == NULL){
-		kproc->proc_lock = lock_create("proclock1");
-		*kproc->highestPid = 1;
-		//kproc->procTable = kmalloc(2000*sizeof(struct proc*));
-		 for(int i = 0; i < 2000; ++i){
-		 	kproc->procTable[i] = NULL;
-		 }
-		kproc->fileTable[0] = placehold1;
-		kproc->fileTable[1] = stdout;
-		kproc->fileTable[2] = placehold2;
-		placehold1->refCount += 1;
-		stdout->refCount += 1;
-		placehold2 += 1;
+	// //If you're the kernel process, create the process table and point to it
+	// //if(kproc->procTable == NULL){
+	// 	kproc->proc_lock = lock_create("proclock1");
+	// 	*kproc->highestPid = 1;
+	// 	//kproc->procTable = kmalloc(2000*sizeof(struct proc*));
+	// 	 for(int i = 0; i < 2000; ++i){
+	// 	 	kproc->procTable[i] = NULL;
+	// 	 }
+	// 	kproc->fileTable[0] = placehold1;
+	// 	kproc->fileTable[1] = stdout;
+	// 	kproc->fileTable[2] = placehold2;
+	// 	placehold1->refCount += 1;
+	// 	stdout->refCount += 1;
+	// 	placehold2 += 1;
 
-	//}
+	// //}
 	
-	lock_acquire(kproc->proc_lock);
+	// lock_acquire(kproc->proc_lock);
 	proc->proc_lock = lock_create("proclock");
 
-	//Assign pid and add process to proctable w/ wraparound
-	for(int i = *kproc->highestPid - 1; i < 2000; i++){
-		if(kproc->procTable[i] == NULL){
-			kproc->procTable[i] = proc;
-			proc->pid = i + 1;
-			*kproc->highestPid = proc->pid + 1;
-			if (*kproc->highestPid > 2000){
-				*kproc->highestPid = 1;
-			}
-			break;
-		}
-		//If you make it to the last index, wrap around via highestpid
-		i = (i == 1999)? 0 : i;
-	}
-	lock_release(kproc->proc_lock);
+	// //Assign pid and add process to proctable w/ wraparound
+	// for(int i = *kproc->highestPid - 1; i < 2000; i++){
+	// 	if(kproc->procTable[i] == NULL){
+	// 		kproc->procTable[i] = proc;
+	// 		proc->pid = i + 1;
+	// 		*kproc->highestPid = proc->pid + 1;
+	// 		if (*kproc->highestPid > 2000){
+	// 			*kproc->highestPid = 1;
+	// 		}
+	// 		break;
+	// 	}
+	// 	//If you make it to the last index, wrap around via highestpid
+	// 	i = (i == 1999)? 0 : i;
+	// }
+	// lock_release(kproc->proc_lock);
 
 	result = thread_fork(args[0] /* thread name */,
 			proc /* new process */,
@@ -261,6 +256,8 @@ static
 int
 cmd_shell(int nargs, char **args)
 {
+	procLock = lock_create("table lock");
+	highPid = 0;
 	(void)args;
 	if (nargs != 1) {
 		kprintf("Usage: s\n");

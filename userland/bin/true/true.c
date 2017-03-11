@@ -38,7 +38,7 @@
 int
 main(void)
 {
-	for(int i = 0; i < 16; i++){
+	for(int i = 0; i < 160; i++){
 		/* Just exit with success. */
 		pid_t pid = fork();
 

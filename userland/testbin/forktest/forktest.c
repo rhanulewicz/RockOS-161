@@ -195,7 +195,7 @@ test(int nowait)
 	}
 
 	pid0 = dofork();
-	printf("fork1 \n");
+
 
 	nprintf(".");
 	write(fd, "A", 1);
@@ -208,7 +208,7 @@ test(int nowait)
 	check();
 
 	pid1 = dofork();
-	printf("fork2 \n");
+
 
 	nprintf(".");
 	write(fd, "B", 1);
@@ -219,7 +219,6 @@ test(int nowait)
 	check();
 	
 	pid2 = dofork();
-	printf("fork3 \n");
 
 	nprintf(".");
 	write(fd, "C", 1);
@@ -230,7 +229,6 @@ test(int nowait)
 	check();
 	
 	pid3 = dofork();
-	printf("fork4 \n");
 
 	nprintf(".");
 	write(fd, "D", 1);
@@ -277,7 +275,6 @@ test(int nowait)
 		err(1, "Did not get expected number of characters\n");
 	}
 	nprintf(".");
-	printf("done reading \n");
 
 	// Check if number of instances of each character is correct
 	// 2As; 4Bs; 8Cs; 16Ds

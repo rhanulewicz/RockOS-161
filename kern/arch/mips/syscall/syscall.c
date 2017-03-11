@@ -83,6 +83,11 @@
  * stack, starting at sp+16 to skip over the slots for the
  * registerized values, with copyin().
  */
+	struct lock* procLock;
+	int	highPid;
+	struct proc* procTable[2000];
+
+
 
 off_t lseek(int fd, off_t pos, int whence, int32_t *retval){
 	struct fileContainer *file = curproc->fileTable[fd];
@@ -140,7 +145,9 @@ ssize_t open(char *filename, int flags, int32_t *retval){
 			break;
 		}
 	}
-
+	if(*retval < 3){
+		kprintf("%d\n",curproc->pid);
+	}
 	lock_release(file->lock);
 	return (ssize_t)0;
 }
@@ -196,7 +203,7 @@ ssize_t close(int fd, int32_t *retval){
 	*curproc->fileTable[fd]->refCount = *curproc->fileTable[fd]->refCount - 1;
 	lock_release(curproc->fileTable[fd]->lock);
 	//If this no more references to this fileContainer exist, OBLITERATE IT
-	if(*curproc->fileTable[fd]->refCount == 0){
+	if(*curproc->fileTable[fd]->refCount == 6464654){
 		vfs_close(curproc->fileTable[fd]->llfile);
 		// kfree(curproc->fileTable[fd]);
 	}
@@ -266,15 +273,12 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 	//Initialize pointer to new process
 	//Give it a lock immediately
 	struct proc *newProc;
-	newProc = kmalloc(sizeof(struct proc));
+	newProc = proc_create_runprogram("child");
 	newProc->proc_lock = lock_create("proclockelse");
 
-	//Initialize pointer to a new file table for the new process
-	struct fileContainer* *newFT;
-	newFT = kmalloc(64*sizeof(struct fileContainer*));
+	//Initialize pointer to a new file table for the new proces
 
-	//Copy curproc's file table to new process
-	newProc->fileTable = newFT;
+	// Copy curproc's file table to new process
 	for(int i = 0; i < 64; i++){
 		if(curproc->fileTable[i] != NULL){
 			lock_acquire(curproc->fileTable[i]->lock);
@@ -294,24 +298,24 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 	
 	/*Search for first empty place in process table starting at highestpid, 
 	place proc in it using wraparound*/
-	lock_acquire(kproc->proc_lock);
-	for(int i = *kproc->highestPid - 1; i < 2000; i++){
-		if(kproc->procTable[i] == NULL){
-			kproc->procTable[i] = newProc;
+	lock_acquire(procLock);
+	for(int i = highPid - 1; i < 2000; i++){
+		if(procTable[i] == NULL){
+			procTable[i] = newProc;
 			newProc->pid = i + 1;
-			*kproc->highestPid = newProc->pid + 1;
-			if (*kproc->highestPid > 2000){
-				*kproc->highestPid = 1;
+			highPid = newProc->pid + 1;
+			if (highPid > 2000){
+				highPid = 1;
 			}
 			break;
 		}
 		//If you make it to the last index, wrap around via highestpid
 		i = (i == 1999)? 0 : i;
 	}
-	lock_release(kproc->proc_lock);
+
+	lock_release(procLock);
 	//Set some specifics for the new process, including the parent's pid (curproc)
 	newProc->exitCode = -1;
-	newProc->waitingOnMe = 0;
 	newProc->parentpid = curproc->pid;
 	//Deep copy trapframe
 	struct trapframe *tfc = kmalloc(sizeof(struct trapframe));
@@ -331,7 +335,7 @@ void copytf(void *tf, unsigned long ts){
 
 	//Activitates new address space
 	as_activate();
-	lock_acquire(curproc->proc_lock);
+	// lock_acquire(curproc->proc_lock);
 	//Copies parent trapframe (ptf) to child trapframe (ctf)
 	struct trapframe ctf = *(struct trapframe *)tf;
 	//Gives ctf its return values (returns 0)
@@ -352,7 +356,7 @@ void copytf(void *tf, unsigned long ts){
 pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
 	(void)options;
 	//Fetch the process we are waiting on to drop dead
-	struct proc* procToReap = kproc->procTable[pid-1];
+	struct proc* procToReap = procTable[pid-1];
 
 	//ERR: The pid argument named a nonexistent process.
 	if(procToReap == NULL){
@@ -368,46 +372,9 @@ pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
 	
 	//Copies the exitcode out to userland through status
 	copyout(&procToReap->exitCode, (userptr_t)status, sizeof(int));
-	
-	//The child should have exited if you get here. Reap it.
-	
-	lock_acquire(kproc->proc_lock);
 
-	//Free up other shit
-//	if (procToReap->p_cwd) {
-		//VOP_DECREF(procToReap->p_cwd);
-//		procToReap->p_cwd = NULL;
-//	}
 
-	// lock_destroy(procToReap->proc_lock);
-	// for(int i = 0; i < 2000; i++){
-	// 	if(procToReap->fileTable[i] != NULL && *procToReap->fileTable[i]->refCount == 1){
-	// 		kfree(procToReap->fileTable[i]->llfile);
-	// 		kfree(procToReap->fileTable[i]->refCount);
-	// 		kfree(procToReap->fileTable[i]->lock);
-	// 		kfree(procToReap->fileTable[i]);
-	// 	}
-	// 	procToReap->fileTable[i] = NULL;
-	// }
-	
-	//spinlock_cleanup(&procToReap->p_lock);
-
-	//Free dead kiddo's file table, remove him from the proc table
-	// kfree(procToReap->fileTable);
 	*retval = procToReap->pid;
-	//kproc->procTable[pid-1] = NULL;
-	//I guess this purges the address space related stuff
-	// if (procToReap->p_addrspace) {
-	
-	// 	struct addrspace *as;
-
-	// 	as = procToReap->p_addrspace;
-	// 	procToReap->p_addrspace = NULL;
-	
-	// 	as_destroy(as);
-	// }
-	lock_release(kproc->proc_lock);
-	
 	
 	return (pid_t)0;
 }
@@ -427,28 +394,10 @@ void getpid(int32_t *retval){
 
 void _exit(int exitcode){
 	
-	//All this shit might be unnecessary since we do it in waitpid
-//	if (curproc->p_cwd) {
-		//VOP_DECREF(curproc->p_cwd);
-//		curproc->p_cwd = NULL;
-//	}
-
 	curproc->exitCode = exitcode;
-
-	// if (curproc->p_addrspace) {
-
-	// 	struct addrspace *as;
-	// 	as = proc_setas(NULL);
-		
-	// 	as_deactivate();
-		
-	// 	as_destroy(as);
-	// }
-	//spinlock_cleanup(&curproc->p_lock);
 
 	if(lock_do_i_hold(curproc->proc_lock)){
 		lock_release(curproc->proc_lock);
-		
 	}
 
 	thread_exit();
