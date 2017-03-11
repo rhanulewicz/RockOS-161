@@ -295,6 +295,7 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 	
 	/*Search for first empty place in process table starting at highestpid, 
 	place proc in it using wraparound*/
+
 	lock_acquire(procLock);
 	for(int i = highPid - 1; i < 2000; i++){
 		if(procTable[i] == NULL){
@@ -311,6 +312,7 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 	}
 
 	lock_release(procLock);
+
 	//Set some specifics for the new process, including the parent's pid (curproc)
 	newProc->exitCode = -1;
 	newProc->parentpid = curproc->pid;
