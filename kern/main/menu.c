@@ -166,41 +166,9 @@ common_prog(int nargs, char **args)
 
 	tc = thread_count;
 
-	// //If you're the kernel process, create the process table and point to it
-	// //if(kproc->procTable == NULL){
-	// 	kproc->proc_lock = lock_create("proclock1");
-	// 	*kproc->highestPid = 1;
-	// 	//kproc->procTable = kmalloc(2000*sizeof(struct proc*));
-	// 	 for(int i = 0; i < 2000; ++i){
-	// 	 	kproc->procTable[i] = NULL;
-	// 	 }
-	// 	kproc->fileTable[0] = placehold1;
-	// 	kproc->fileTable[1] = stdout;
-	// 	kproc->fileTable[2] = placehold2;
-	// 	placehold1->refCount += 1;
-	// 	stdout->refCount += 1;
-	// 	placehold2 += 1;
-
-	// //}
 	
 	// lock_acquire(kproc->proc_lock);
 	proc->proc_lock = lock_create("proclock");
-
-	// //Assign pid and add process to proctable w/ wraparound
-	// for(int i = *kproc->highestPid - 1; i < 2000; i++){
-	// 	if(kproc->procTable[i] == NULL){
-	// 		kproc->procTable[i] = proc;
-	// 		proc->pid = i + 1;
-	// 		*kproc->highestPid = proc->pid + 1;
-	// 		if (*kproc->highestPid > 2000){
-	// 			*kproc->highestPid = 1;
-	// 		}
-	// 		break;
-	// 	}
-	// 	//If you make it to the last index, wrap around via highestpid
-	// 	i = (i == 1999)? 0 : i;
-	// }
-	// lock_release(kproc->proc_lock);
 
 	result = thread_fork(args[0] /* thread name */,
 			proc /* new process */,
