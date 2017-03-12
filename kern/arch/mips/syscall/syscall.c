@@ -84,6 +84,7 @@
  * registerized values, with copyin().
  */
 struct lock* procLock;
+struct lock* forkLock;
 int	highPid;
 struct proc* procTable[2000];
 
@@ -269,6 +270,10 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 
 	//Initialize pointer to new process
 	//Give it a lock immediately
+	for(int i = 0; i < 3000000; ++i){
+
+	}
+	lock_acquire(forkLock);
 	struct proc *newProc;
 	newProc = proc_create_runprogram("child");
 	newProc->proc_lock = lock_create("proclockelse");
@@ -288,14 +293,13 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 	
 	//Copy lots of other stuff to new process
 	as_copy(curproc->p_addrspace, &newProc->p_addrspace);
-	newProc->p_cwd = curproc->p_cwd;
-	VOP_INCREF(newProc->p_cwd);
+	// newProc->p_cwd = curproc->p_cwd;
+	// VOP_INCREF(newProc->p_cwd);
 	newProc->p_numthreads = curproc->p_numthreads;
 	newProc->p_name = curproc->p_name;
 	
 	/*Search for first empty place in process table starting at highestpid, 
 	place proc in it using wraparound*/
-
 	lock_acquire(procLock);
 	for(int i = highPid - 1; i < 2000; i++){
 		if(procTable[i] == NULL){
@@ -327,12 +331,13 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 	//Return child's pid to userland
 	*retval = (int32_t)newProc->pid;
 	//Return errno 
+		lock_release(forkLock);
 	return (pid_t)0;
 }
 
 void copytf(void *tf, unsigned long ts){
 	(void)ts;
-
+	lock_acquire(forkLock);
 	//Activitates new address space
 	as_activate();
 	// lock_acquire(curproc->proc_lock);
@@ -347,7 +352,7 @@ void copytf(void *tf, unsigned long ts){
 	ctf.tf_epc += 4;
 	//Ship the child trapframe to usermode. Wave goodbye.
 	curproc->exitCode = -1;
-
+	lock_release(forkLock);
 	mips_usermode(&ctf);
 }
 
@@ -385,6 +390,7 @@ pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
 	as = procToReap->p_addrspace;
 	procToReap->p_addrspace = NULL;
 	as_destroy(as);
+	// proc_destroy(procToReap);
 
 	// spinlock_cleanup(&procToReap->p_lock);
 
@@ -428,12 +434,48 @@ int execv(const char *program, char **args, int32_t *retval){
 	(void)program;
 	(void)args;
 	(void)retval;
-	char ** buffer = kmalloc(sizeof(*args));
-	copyin((const_userptr_t)args, buffer, sizeof(*args));
-	kprintf(*buffer);
-	buffer = kmalloc(sizeof(*args + 4));
-	copyin((const_userptr_t)args + 4, buffer, sizeof(*args));
-	kprintf(*buffer);
+	void ** buffer = kmalloc(64000);
+
+
+	int nargs = 2;
+	int sizeOfLastArg = 0;
+	// void * lastArgAddress;
+
+
+	for(int i = 0; i < 64000/8; i = i + 4){
+		copyin((const_userptr_t)args+i, buffer + i , sizeof(*args));
+	}
+	// kprintf("num of args %d\n", nargs);
+	// kprintf(*(char **)buffer);
+	// kprintf("\n");
+	// kprintf(*((char**)buffer + 4));
+
+
+
+	for(int i = 0; i<nargs; i++){
+		for(int j = 0; j > -1; j++){
+			kprintf("%d\n",i);
+
+			if(*(*(args + (i *4))+ j) == '\0'){
+				kprintf("shit");
+				int k = 0;
+				if(j%4 != 0){
+					for(k = 0; 4 == (j%4) + k; ++k){
+					*(char *)(*(buffer + (nargs *4) + sizeOfLastArg) + j + k) = '\0';
+					}
+				}
+				sizeOfLastArg = sizeOfLastArg + j+k;
+				break;
+				
+			}
+				kprintf("%c", **(char **)(buffer+8));
+				memset((char *)(*(buffer + (nargs *4) + sizeOfLastArg) + j), '\0', 1);
+			*(char *)(*(buffer + (nargs *4) + sizeOfLastArg) + j) = *(*(args + (i *4))+ j);
+		}
+	}
+
+	kprintf("%c", **(char **)(buffer+10));
+
 	as_deactivate();
 	// struct addrspace *old = proc_setas(NULL);
 	proc_setas(NULL);

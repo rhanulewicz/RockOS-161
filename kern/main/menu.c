@@ -135,6 +135,7 @@ common_prog(int nargs, char **args)
 
 	if(procLock == NULL){
 		procLock = lock_create("new lock");
+		forkLock = lock_create("locks");
 		highPid = 3;
 	}
 	
