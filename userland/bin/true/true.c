@@ -38,27 +38,15 @@
 int
 main(void)
 {
-	for(int i = 0; i < 160; i++){
-		/* Just exit with success. */
-		pid_t pid = fork();
-
-		if(pid == -1){
-			printf("Fork Failed\n");
-
-		}else if (pid == 0){
-			
-			exit(0);
-			
-		}else{
-
-			int status;
-			(void)waitpid(pid, &status, 0);
-			//exit(0);
-			
-		}	
+		const char* args[20];
+		const char* buf[20];
+		args[0] = "hello";
+		args[1] = "hi";
+		args[2] = NULL;
+		buf[0] = "bin/false";
+		execv(*buf,  (char**)args);
 
 	
-	}
 	return 0;
 	
 }

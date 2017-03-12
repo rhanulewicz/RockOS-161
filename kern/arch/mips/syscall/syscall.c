@@ -398,7 +398,7 @@ pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
 
 void getpid(int32_t *retval){
 
-	*retval = (int32_t)curproc->pid;
+  *retval = (int32_t)curproc->pid;
 /*  	     ___^___ _
 	 L    __/      [] \
 	LOL===__           \
@@ -428,9 +428,12 @@ int execv(const char *program, char **args, int32_t *retval){
 	(void)program;
 	(void)args;
 	(void)retval;
-
-	char * buffer = kmalloc(sizeof(*args));
-	copyin((const_userptr_t)*args, buffer, sizeof(*args));
+	char ** buffer = kmalloc(sizeof(*args));
+	copyin((const_userptr_t)args, buffer, sizeof(*args));
+	kprintf(*buffer);
+	buffer = kmalloc(sizeof(*args + 4));
+	copyin((const_userptr_t)args + 4, buffer, sizeof(*args));
+	kprintf(*buffer);
 	as_deactivate();
 	// struct addrspace *old = proc_setas(NULL);
 	proc_setas(NULL);
