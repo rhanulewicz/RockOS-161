@@ -434,44 +434,66 @@ int execv(const char *program, char **args, int32_t *retval){
 	void ** buffer = kmalloc(64000);
 
 
-	int nargs = 2;
-	int sizeOfLastArg = 0;
+	//char* padding = '\0';
+	
+
+	// int nargs = 2;
+	// int sizeOfLastArg = 0;
 	// void * lastArgAddress;
 
 
-	for(int i = 0; i < 64000/8; i = i + 4){
-		copyin((const_userptr_t)args+i, buffer + i , sizeof(*args));
-	}
+	// for(int i = 0; i < 64000/8; i = i + 4){
+	// 	copyin((const_userptr_t)args+i, buffer + i , sizeof(*args));
+	// }
+
 	// kprintf("num of args %d\n", nargs);
 	// kprintf(*(char **)buffer);
 	// kprintf("\n");
 	// kprintf(*((char**)buffer + 4));
+// 	kprintf("%c", *((*args) + 10));
+// if(*((*args) + 9) == '\0'){
+// 	kprintf("done");
+// }
+	kprintf("%p\n",((*args + 8 )));
+	kprintf("len: %d\n", strlen(*args));
+	((*(char **)buffer) ) = kmalloc(12);
+	//((*(char **)buffer) ) = (*args + 8);
+	memcpy(((*(char **)buffer) ), ((*args)  ),8);
+	memcpy(((*(char **)buffer + 8) ), ((*args + 8)  ),4);
+	//copyin((const_userptr_t)((*args) ), ((*(char **)buffer) ), 1);
+	kprintf("%p\n",((*(char **)buffer) ));
+	kprintf(((*(char **)buffer) ));
+	kprintf(((*(char **)buffer + 8) ));
+	
+	
 
+	
 
+	// for(int i = 0; i<nargs; i++){
+	// 	kprintf("%d\n", i);
+	// 	for(int j = 0; j > -1; j++){
+	// 		kprintf("%d\n",j);
 
-	for(int i = 0; i<nargs; i++){
-		for(int j = 0; j > -1; j++){
-			kprintf("%d\n",i);
-
-			if(*(*(args + (i *4))+ j) == '\0'){
-				kprintf("shit");
-				int k = 0;
-				if(j%4 != 0){
-					for(k = 0; 4 == (j%4) + k; ++k){
-					*(char *)(*(buffer + (nargs *4) + sizeOfLastArg) + j + k) = '\0';
-					}
-				}
-				sizeOfLastArg = sizeOfLastArg + j+k;
-				break;
+	// 		if(*(*(args + (i *4))+ j) == '\0'){
+	// 			kprintf("shit");
+	// 			int k = 0;
+	// 			if(j%4 != 0){
+	// 				j++;
+	// 				for(k = 0; k < 4 - (j%4); ++k){
+	// 					kprintf("Fuck\n");
+	// 					//memcpy(((*(char **)buffer) + (4*i) + sizeOfLastArg +  j + k), padding, 1);	
+	// 				}
+	// 			}
+	// 			sizeOfLastArg = sizeOfLastArg + j+k;
+	// 			break;
 				
-			}
-				kprintf("%c", **(char **)(buffer+8));
-				memset((char *)(*(buffer + (nargs *4) + sizeOfLastArg) + j), '\0', 1);
-			*(char *)(*(buffer + (nargs *4) + sizeOfLastArg) + j) = *(*(args + (i *4))+ j);
-		}
-	}
+	// 		}
+	// 		kprintf("%c",*((*(char **)args) + (4*1) + j));
+	// 		memcpy(((*(char **)buffer) + (4*i) + sizeOfLastArg + j), ((*args) + (4*i) + j),1);	
+	// 	}
+	// }
 
-	kprintf("%c", **(char **)(buffer+10));
+	// kprintf("%c", **(char **)(buffer+10));
 
 	as_deactivate();
 	// struct addrspace *old = proc_setas(NULL);

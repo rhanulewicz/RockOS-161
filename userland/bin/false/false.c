@@ -41,15 +41,15 @@
 int
 main(int argc, char *argv[])
 {
-	int i = 0;
-	while(i < 5){
-		fork();
-		++i;
-	}
+	//int i = 0;
+	// while(i < 5){
+	// 	fork();
+	// 	++i;
+	// }
 
 	(void) argc;
 	(void) argv;
-	// printf(argv[0]);
+	printf(argv[0]);
 	// /* Just exit with a failure code. */
 	// exit(1);
 }

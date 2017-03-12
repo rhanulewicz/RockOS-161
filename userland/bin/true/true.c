@@ -41,7 +41,7 @@ main(void)
 		const char* args[20];
 		const char* buf[20];
 		args[0] = "hello\0";
-		args[1] = "hi\0";
+		args[1] = "bye\0";
 		buf[0] = "bin/false";
 		execv(*buf,  (char**)args);
 
