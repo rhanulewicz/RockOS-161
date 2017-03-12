@@ -270,9 +270,6 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 
 	//Initialize pointer to new process
 	//Give it a lock immediately
-	for(int i = 0; i < 3000000; ++i){
-
-	}
 	lock_acquire(forkLock);
 	struct proc *newProc;
 	newProc = proc_create_runprogram("child");
