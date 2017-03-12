@@ -75,5 +75,6 @@ int sys___time(userptr_t user_seconds, userptr_t user_nanoseconds);
 void copytf(void *tf, unsigned long);
 void getpid(int32_t *retval);
 int dup2(int oldfd, int newfd, int32_t *retval);
+int rounded(int a);
 
 #endif /* _SYSCALL_H_ */

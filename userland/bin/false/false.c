@@ -49,7 +49,9 @@ main(int argc, char *argv[])
 
 	(void) argc;
 	(void) argv;
-	printf(argv[0]);
+	printf("%d\n",argc);
+	printf("%p\n",argv);
+	printf((char*)argv[3]);
 	// /* Just exit with a failure code. */
 	// exit(1);
 }

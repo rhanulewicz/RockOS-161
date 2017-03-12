@@ -427,73 +427,55 @@ void _exit(int exitcode){
 	thread_exit();
 }
 
+int rounded(int a){
+	if(a%4 == 0){
+		return a;
+	}
+	return rounded(a+1);
+}
+
 int execv(const char *program, char **args, int32_t *retval){
 	(void)program;
 	(void)args;
 	(void)retval;
-	void ** buffer = kmalloc(64000);
+	void * buffer = kmalloc(64000);
 
 
-	//char* padding = '\0';
+	// char* padding = '\0';
 	
 
-	// int nargs = 2;
-	// int sizeOfLastArg = 0;
+	int nargs = 2;
+	int sizeOfLastArgs = 0;
 	// void * lastArgAddress;
 
+	// kprintf("%p\n",buffer);
+	for(int i = 0; i < 64000/8; i = i + 4){
+		copyin((const_userptr_t)args+i, (void **)buffer + i , 4);
+	}
 
-	// for(int i = 0; i < 64000/8; i = i + 4){
-	// 	copyin((const_userptr_t)args+i, buffer + i , sizeof(*args));
-	// }
 
-	// kprintf("num of args %d\n", nargs);
+
+
 	// kprintf(*(char **)buffer);
+	// kprintf("\n%p\n", args);
+	// kprintf("\n%p\n", *(void **)buffer);
+
 	// kprintf("\n");
-	// kprintf(*((char**)buffer + 4));
-// 	kprintf("%c", *((*args) + 10));
-// if(*((*args) + 9) == '\0'){
-// 	kprintf("done");
-// }
-	kprintf("%p\n",((*args + 8 )));
-	kprintf("len: %d\n", strlen(*args));
-	((*(char **)buffer) ) = kmalloc(12);
-	//((*(char **)buffer) ) = (*args + 8);
-	memcpy(((*(char **)buffer) ), ((*args)  ),8);
-	memcpy(((*(char **)buffer + 8) ), ((*args + 8)  ),4);
-	//copyin((const_userptr_t)((*args) ), ((*(char **)buffer) ), 1);
-	kprintf("%p\n",((*(char **)buffer) ));
-	kprintf(((*(char **)buffer) ));
-	kprintf(((*(char **)buffer + 8) ));
-	
-	
 
-	
+	// kprintf("%d\n",strlen(*args + 8));
+	// copyin((const_userptr_t)*args + 8, (void *)buffer + 8 , 4);
+	// kprintf((char *)buffer+ 8);
+	// kprintf("\n%p\n", *args);
+	// kprintf("\n%p\n", (void *)buffer + 8);
 
-	// for(int i = 0; i<nargs; i++){
-	// 	kprintf("%d\n", i);
-	// 	for(int j = 0; j > -1; j++){
-	// 		kprintf("%d\n",j);
+	// kprintf("%d\n" , rounded(strlen(*(char **)args + sizeOfLastArgs)));
 
-	// 		if(*(*(args + (i *4))+ j) == '\0'){
-	// 			kprintf("shit");
-	// 			int k = 0;
-	// 			if(j%4 != 0){
-	// 				j++;
-	// 				for(k = 0; k < 4 - (j%4); ++k){
-	// 					kprintf("Fuck\n");
-	// 					//memcpy(((*(char **)buffer) + (4*i) + sizeOfLastArg +  j + k), padding, 1);	
-	// 				}
-	// 			}
-	// 			sizeOfLastArg = sizeOfLastArg + j+k;
-	// 			break;
-				
-	// 		}
-	// 		kprintf("%c",*((*(char **)args) + (4*1) + j));
-	// 		memcpy(((*(char **)buffer) + (4*i) + sizeOfLastArg + j), ((*args) + (4*i) + j),1);	
-	// 	}
-	// }
-
-	// kprintf("%c", **(char **)(buffer+10));
+	for(int i = 0; i<nargs; i++){
+		int size = rounded(strlen(*(char **)args + sizeOfLastArgs));
+		// kprintf("size:%d",size);
+		copyin((const_userptr_t)*args + sizeOfLastArgs, (void *)buffer +(4*nargs) + sizeOfLastArgs , size);
+		sizeOfLastArgs += size;
+	}
 
 	as_deactivate();
 	// struct addrspace *old = proc_setas(NULL);
@@ -541,8 +523,12 @@ int execv(const char *program, char **args, int32_t *retval){
 		return result;
 	}
 
+
+	copyout(&buffer, (userptr_t)&stackptr,(4*nargs) - sizeOfLastArgs);
+
+
 	/* Warp to user mode. */
-	enter_new_process(0 /*argc*/, NULL /*userspace addr of argv*/,
+	enter_new_process(nargs /*argc*/, (userptr_t)(0x80000000 - (4*nargs) - sizeOfLastArgs) /*userspace addr of argv*/,
 			  NULL /*userspace addr of environment*/,
 			  stackptr, entrypoint);
 
