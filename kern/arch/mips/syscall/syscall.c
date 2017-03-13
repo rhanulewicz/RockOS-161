@@ -84,7 +84,6 @@
  * registerized values, with copyin().
  */
 struct lock* procLock;
-struct lock* forkLock;
 int	highPid;
 struct proc* procTable[2000];
 
@@ -270,10 +269,18 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 
 	//Initialize pointer to new process
 	//Give it a lock immediately
-	lock_acquire(forkLock);
 	struct proc *newProc;
 	newProc = proc_create_runprogram("child");
+	if(newProc == NULL){
+		*retval = 0;
+		return 0;
+
+	}
 	newProc->proc_lock = lock_create("proclockelse");
+	if(newProc->proc_lock == NULL){
+				*retval = 0;
+		return 0;
+	}
 
 	//Initialize pointer to a new file table for the new proces
 
@@ -289,8 +296,12 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 	}
 	
 	//Copy lots of other stuff to new process
-	as_copy(curproc->p_addrspace, &newProc->p_addrspace);
-	// newProc->p_cwd = curproc->p_cwd;
+	int res = as_copy(curproc->p_addrspace, &newProc->p_addrspace);
+	if(res == 3){
+		*retval = 0;
+		return 0;
+	}
+	newProc->p_cwd = curproc->p_cwd;
 	// VOP_INCREF(newProc->p_cwd);
 	newProc->p_numthreads = curproc->p_numthreads;
 	newProc->p_name = curproc->p_name;
@@ -319,6 +330,11 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 	newProc->parentpid = curproc->pid;
 	//Deep copy trapframe
 	struct trapframe *tfc = kmalloc(sizeof(struct trapframe));
+	if(tfc == NULL){
+		*retval = 0;
+		return 0;
+
+	}
 	*tfc = *tf;
 
 	//Fork new process
@@ -328,13 +344,11 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 	//Return child's pid to userland
 	*retval = (int32_t)newProc->pid;
 	//Return errno 
-		lock_release(forkLock);
 	return (pid_t)0;
 }
 
 void copytf(void *tf, unsigned long ts){
 	(void)ts;
-	lock_acquire(forkLock);
 	//Activitates new address space
 	as_activate();
 	// lock_acquire(curproc->proc_lock);
@@ -349,7 +363,6 @@ void copytf(void *tf, unsigned long ts){
 	ctf.tf_epc += 4;
 	//Ship the child trapframe to usermode. Wave goodbye.
 	curproc->exitCode = -1;
-	lock_release(forkLock);
 	mips_usermode(&ctf);
 }
 
