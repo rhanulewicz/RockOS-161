@@ -121,6 +121,20 @@ off_t lseek(int fd, off_t pos, int whence, int32_t *retval){
 
 ssize_t open(char *filename, int flags, int32_t *retval){
 	//Build our fileContainer
+	//kprintf("Flags %d\n", flags);
+	if(flags != 22 && flags != 21 && flags != O_RDONLY && flags != O_WRONLY && flags != O_RDWR && flags != O_CREAT && flags != O_EXCL && flags != O_TRUNC && flags != O_APPEND){
+		*retval = (int32_t)0;
+		return EINVAL;
+	}
+	//If there's an issue with this error, it's because I fucking guessed the 0x410000 lower bounds
+	//kprintf("Addr: %p", filename);
+	char* ptr = kmalloc(sizeof(char));
+	int err = copyin((const_userptr_t)filename, ptr, 4);
+	if(err){
+		*retval = (int32_t)0;
+		return EFAULT;
+
+	}
 	struct fileContainer *file;
 	struct vnode *trash;
 	trash = kmalloc(sizeof(struct vnode));
@@ -133,17 +147,26 @@ ssize_t open(char *filename, int flags, int32_t *retval){
 	file->permflag = flags;
 	file->offset = 0;
 	//Generate our vnode
+
 	vfs_open(filestar, flags, 0, &trash);
+
+
 	file->llfile = trash;
 	
 	//Places our file in the first empty slot in curproc's fileTable
 	//The user gets back the index at which it was placed (file descriptor)
+	bool full = true;
 	for(int i = 0; i < 64; i++){
 		if(curproc->fileTable[i]== NULL){
 			curproc->fileTable[i] = file;
 			*retval = (int32_t)i;
+			full = false;
 			break;
 		}
+	}
+	if(full){
+		*retval = (int32_t)0;
+		return ENOSPC;
 	}
 	lock_release(file->lock);
 	return (ssize_t)0;
