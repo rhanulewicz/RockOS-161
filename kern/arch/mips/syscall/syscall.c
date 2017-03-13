@@ -177,7 +177,11 @@ ssize_t write(int filehandle, const void *buf, size_t size, int32_t *retval){
 	thing.uio_rw = UIO_WRITE;
 	thing.uio_space = proc_getas();
 	//Does the actual writing
-	VOP_WRITE(file->llfile, &thing);
+
+	int err = VOP_WRITE(file->llfile, &thing);
+	if(err){
+		kprintf("get fucked");
+	}
 	//The current seek position of the file is advanced by the number of bytes written.
 	file->offset = file->offset + size;
 
@@ -212,11 +216,13 @@ ssize_t close(int fd, int32_t *retval){
 
 ssize_t read(int fd, void *buf, size_t buflen, int32_t *retval){
 	//Fetch our fileContainer
+
 	struct fileContainer *file = curproc->fileTable[fd];
 	//fd is not a valid file descriptor, or was not opened for reading.
 	if (file == NULL || file->permflag == O_WRONLY){
 		return EBADF;
 	}
+
 
 	lock_acquire(file->lock);
 	
@@ -235,7 +241,10 @@ ssize_t read(int fd, void *buf, size_t buflen, int32_t *retval){
 	thing.uio_rw = UIO_READ;
 	thing.uio_space = proc_getas();
 	//Does the actual reading
-	VOP_READ(file->llfile, &thing);
+	int err = VOP_READ(file->llfile, &thing);
+	if(err){
+		kprintf("get fed\n");
+	}
 	//The current seek position of the file is advanced by the number of bytes read.
 	file->offset = file->offset + buflen;
 	//The count of bytes read is returned.

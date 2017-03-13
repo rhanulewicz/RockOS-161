@@ -150,11 +150,12 @@ common_prog(int nargs, char **args)
 	*stdout->refCount = 1;
 	*placehold1 = *stdout;
 	*placehold2 = *stdout;
+	placehold1->permflag = 0;
 
 	char bar [] = "con:";
 	char foo [] = "con:";
 	char foobar [] = "con:";
-	vfs_open(bar, 1, 0, &placehold1->llfile); 
+	vfs_open(bar, 0, 0, &placehold1->llfile); 
 	vfs_open(foo, 1, 0, &stdout->llfile); 
 	vfs_open(foobar, 1, 0, &placehold2->llfile); 
 
