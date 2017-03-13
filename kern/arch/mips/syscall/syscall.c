@@ -150,8 +150,9 @@ ssize_t open(char *filename, int flags, int32_t *retval){
 }
 
 ssize_t write(int filehandle, const void *buf, size_t size, int32_t *retval){
-
+	//kprintf("Pid: %d\n", curproc->pid);
 	//Fetch our fileConainer
+
 	struct fileContainer *file = curproc->fileTable[filehandle];
 	// kprintf("%p\n", curproc->fileTable[filehandle]);
 	//fd is not a valid file descriptor, or was not opened for writing.
@@ -162,7 +163,7 @@ ssize_t write(int filehandle, const void *buf, size_t size, int32_t *retval){
 
 	KASSERT(file->lock != NULL);
 	lock_acquire(file->lock);
-	//kprintf("i eat ass\n");
+
 	//Remember to give the user the size variable back (copyout, look at sys__time)
 	//Builds all the info we need to write
 	struct uio thing;
@@ -177,11 +178,8 @@ ssize_t write(int filehandle, const void *buf, size_t size, int32_t *retval){
 	thing.uio_rw = UIO_WRITE;
 	thing.uio_space = proc_getas();
 	//Does the actual writing
-
-	int err = VOP_WRITE(file->llfile, &thing);
-	if(err){
-		kprintf("get fucked");
-	}
+	//Returns err sometimes
+	VOP_WRITE(file->llfile, &thing);
 	//The current seek position of the file is advanced by the number of bytes written.
 	file->offset = file->offset + size;
 
@@ -240,11 +238,11 @@ ssize_t read(int fd, void *buf, size_t buflen, int32_t *retval){
 	thing.uio_segflg = UIO_USERSPACE;
 	thing.uio_rw = UIO_READ;
 	thing.uio_space = proc_getas();
+
 	//Does the actual reading
-	int err = VOP_READ(file->llfile, &thing);
-	if(err){
-		kprintf("get fed\n");
-	}
+	//Returns err sometimes
+	VOP_READ(file->llfile, &thing);
+
 	//The current seek position of the file is advanced by the number of bytes read.
 	file->offset = file->offset + buflen;
 	//The count of bytes read is returned.
@@ -358,6 +356,10 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 
 void copytf(void *tf, unsigned long ts){
 	(void)ts;
+	// if(curproc->pid == 0){
+	// 	thread_exit();
+	// 	return;
+	// }
 	//Activitates new address space
 	as_activate();
 	// lock_acquire(curproc->proc_lock);
@@ -457,64 +459,17 @@ int rounded(int a){
 }
 
 int execv(const char *program, char **args, int32_t *retval){
-	(void)program;
-	(void)args;
-	(void)retval;
-	void * buffer = kmalloc(64000);
-
-
-	// char* padding = '\0';
-	
-
-	int nargs = 2;
-	int sizeOfLastArgs = 0;
-	// void * lastArgAddress;
-
-	// kprintf("%p\n",buffer);
-	for(int i = 0; i < 64000/8; i = i + 4){
-		copyin((const_userptr_t)args+i, (void **)buffer + i , 4);
-	}
-
-
-
-
-	// kprintf(*(char **)buffer);
-	// kprintf("\n%p\n", args);
-	// kprintf("\n%p\n", *(void **)buffer);
-
-	// kprintf("\n");
-
-	// kprintf("%d\n",strlen(*args + 8));
-	// copyin((const_userptr_t)*args + 8, (void *)buffer + 8 , 4);
-	// kprintf((char *)buffer+ 8);
-	// kprintf("\n%p\n", *args);
-	// kprintf("\n%p\n", (void *)buffer + 8);
-
-	// kprintf("%d\n" , rounded(strlen(*(char **)args + sizeOfLastArgs)));
-
-	for(int i = 0; i<nargs; i++){
-		int size = rounded(strlen(*(char **)args + sizeOfLastArgs));
-		// kprintf("size:%d",size);
-		copyin((const_userptr_t)*args + sizeOfLastArgs, (void *)buffer +(4*nargs) + sizeOfLastArgs , size);
-		sizeOfLastArgs += size;
-	}
-
-	as_deactivate();
-	// struct addrspace *old = proc_setas(NULL);
-	proc_setas(NULL);
 	struct addrspace *as;
 	struct vnode *v;
 	vaddr_t entrypoint, stackptr;
 	int result;
-
+	(void)args;
+	(void)retval;
 	/* Open the file. */
-	result = vfs_open((char*) program, O_RDONLY, 0, &v);
+	result = vfs_open((char*)program, O_RDONLY, 0, &v);
 	if (result) {
 		return result;
 	}
-
-	/* We should be a new process. */
-	KASSERT(proc_getas() == NULL);
 
 	/* Create a new address space. */
 	as = as_create();
@@ -545,16 +500,14 @@ int execv(const char *program, char **args, int32_t *retval){
 		return result;
 	}
 
-
-	copyout(&buffer, (userptr_t)&stackptr,(4*nargs) - sizeOfLastArgs);
-
-
 	/* Warp to user mode. */
-	enter_new_process(nargs /*argc*/, (userptr_t)(0x80000000 - (4*nargs) - sizeOfLastArgs) /*userspace addr of argv*/,
+	enter_new_process(0 /*argc*/, NULL /*userspace addr of argv*/,
 			  NULL /*userspace addr of environment*/,
 			  stackptr, entrypoint);
 
-	return 0;
+	/* enter_new_process does not return. */
+	panic("enter_new_process returned\n");
+	return EINVAL;
 }
 
 void

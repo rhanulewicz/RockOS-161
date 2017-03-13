@@ -123,19 +123,12 @@ common_prog(int nargs, char **args)
 	int result;
 	unsigned tc;
 
-
-
 	/* Create a process for the new program to run in. */
 	
 	proc = proc_create_runprogram(args[0] /* name */);
 	
 	if (proc == NULL) {
 		return ENOMEM;
-	}
-
-	if(procLock == NULL){
-		procLock = lock_create("new lock");
-		highPid = 3;
 	}
 	
 	struct fileContainer *stdout;
@@ -163,7 +156,7 @@ common_prog(int nargs, char **args)
 	proc->fileTable[1] = stdout;
 	proc->fileTable[2] = placehold2;
 
-	proc->pid = 1;
+	proc->pid = 2;
 
 	tc = thread_count;
 
@@ -188,7 +181,7 @@ common_prog(int nargs, char **args)
 	 */
 	int retval;
 	waitpid(proc->pid, NULL, 0, &retval);
-
+	
 	// Wait for all threads to finish cleanup, otherwise khu be a bit behind,
 	// especially once swapping is enabled.
 	
@@ -225,8 +218,6 @@ static
 int
 cmd_shell(int nargs, char **args)
 {
-	procLock = lock_create("table lock");
-	highPid = 0;
 	(void)args;
 	if (nargs != 1) {
 		kprintf("Usage: s\n");

@@ -48,6 +48,8 @@
 #include <current.h>
 #include <addrspace.h>
 #include <vnode.h>
+#include <syscall.h>
+#include <synch.h>
 
 /*
  * The process for the kernel; this holds all the kernel-only threads.
@@ -184,8 +186,12 @@ proc_destroy(struct proc *proc)
  */
 void
 proc_bootstrap(void)
-{
+{	
+
 	kproc = proc_create("[kernel]");
+	highPid = 3;
+	kproc->pid = 1;
+	procLock = lock_create("proclock");
 	if (kproc == NULL) {
 		panic("proc_create for kproc failed\n");
 	}
