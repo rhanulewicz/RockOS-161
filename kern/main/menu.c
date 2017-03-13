@@ -163,7 +163,7 @@ common_prog(int nargs, char **args)
 	proc->fileTable[1] = stdout;
 	proc->fileTable[2] = placehold2;
 
-	proc->pid = 1;
+	proc->pid = 2;
 
 	tc = thread_count;
 
@@ -225,8 +225,6 @@ static
 int
 cmd_shell(int nargs, char **args)
 {
-	procLock = lock_create("table lock");
-	highPid = 0;
 	(void)args;
 	if (nargs != 1) {
 		kprintf("Usage: s\n");

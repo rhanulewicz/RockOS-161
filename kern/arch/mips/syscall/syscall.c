@@ -460,23 +460,40 @@ int execv(const char *program, char **args, int32_t *retval){
 	(void)program;
 	(void)args;
 	(void)retval;
+	
 	void * buffer = kmalloc(64000);
+	memset(buffer, '\0', 64000);
 
 
 	// char* padding = '\0';
 	
 
-	int nargs = 2;
+	int nargs = 0;
 	int sizeOfLastArgs = 0;
 	// void * lastArgAddress;
 
 	// kprintf("%p\n",buffer);
-	for(int i = 0; i < 64000/8; i = i + 4){
-		copyin((const_userptr_t)args+i, (void **)buffer + i , 4);
+	for(int i = 0; i < 64000/8; i++){
+		if(*(args+i) == NULL){
+			break;
+		}
+		copyin((const_userptr_t)args+i, buffer + i , 4);
+		nargs++;
 	}
+	//  copyin((const_userptr_t)*args, (char *)(buffer + 8) , 8);
+	//  copyin((const_userptr_t)*(args + 1), (char *)(buffer + 16), 4);
+	// kprintf("%s\n",(char*) buffer+8);
+	// kprintf("%s\n",(char*) buffer+16);
 
+	for(int i = 0; i < nargs; i++){
+		copyin((const_userptr_t)*(args + i), (char *)(buffer + (4*nargs) + sizeOfLastArgs), rounded(strlen(*(args + i))));
+		sizeOfLastArgs += rounded(strlen(*(args + i)));
+	}
+		// kprintf("%s\n", (char*)(buffer + 8));
+	// kprintf("%s\n",(char*) buffer+8);
+	// kprintf("%s\n",(char*) buffer+16);
 
-
+	// panic("stop");
 
 	// kprintf(*(char **)buffer);
 	// kprintf("\n%p\n", args);
@@ -484,20 +501,6 @@ int execv(const char *program, char **args, int32_t *retval){
 
 	// kprintf("\n");
 
-	// kprintf("%d\n",strlen(*args + 8));
-	// copyin((const_userptr_t)*args + 8, (void *)buffer + 8 , 4);
-	// kprintf((char *)buffer+ 8);
-	// kprintf("\n%p\n", *args);
-	// kprintf("\n%p\n", (void *)buffer + 8);
-
-	// kprintf("%d\n" , rounded(strlen(*(char **)args + sizeOfLastArgs)));
-
-	for(int i = 0; i<nargs; i++){
-		int size = rounded(strlen(*(char **)args + sizeOfLastArgs));
-		// kprintf("size:%d",size);
-		copyin((const_userptr_t)*args + sizeOfLastArgs, (void *)buffer +(4*nargs) + sizeOfLastArgs , size);
-		sizeOfLastArgs += size;
-	}
 
 	as_deactivate();
 	// struct addrspace *old = proc_setas(NULL);
@@ -513,8 +516,6 @@ int execv(const char *program, char **args, int32_t *retval){
 		return result;
 	}
 
-	/* We should be a new process. */
-	KASSERT(proc_getas() == NULL);
 
 	/* Create a new address space. */
 	as = as_create();
@@ -544,13 +545,40 @@ int execv(const char *program, char **args, int32_t *retval){
 		/* p_addrspace will go away when curproc is destroyed */
 		return result;
 	}
+	stackptr -= ((4*nargs) + sizeOfLastArgs);
+	kprintf("%p\n", (void *)stackptr);
+	sizeOfLastArgs = 0; 
 
+	for(int i = 0; i < nargs; ++i){
+		copyout(buffer + i, (userptr_t)stackptr, 4);
+		stackptr += 4;
+	}
+	//housekeeping
+	stackptr -= 8;
 
-	copyout(&buffer, (userptr_t)&stackptr,(4*nargs) - sizeOfLastArgs);
+	//copies out data
+	copyout((char*)(buffer + 8), (userptr_t)(stackptr + 8), 8);
 
+	//updates pointer
+	*(char **)stackptr =  (char*)(stackptr +8);
+	
+	// kprintf("%p\n", buffer);
+	// kprintf("%p\n", (void *) stackptr - 8);
+	// kprintf("%s\n", (char*)buffer + 8);
+	// kprintf("%p\n",	(char*)(buffer + 8));
+	kprintf("%p\n",*(char**)stackptr);
+	kprintf("%s\n",*(char**)stackptr);
+	// panic("stop");
+
+	// for(int i = 0; i < nargs; ++i){
+	// 	copyout(*((char**)buffer + (4*nargs) + sizeOfLastArgs), (userptr_t)stackptr,rounded(strlen(*((char**)buffer + (4*nargs) + sizeOfLastArgs))));
+	// 	sizeOfLastArgs += rounded(strlen(*((char**)buffer + (4*nargs) + sizeOfLastArgs)));
+	// 	stackptr += rounded(strlen(*((char**)buffer + (4*nargs) + sizeOfLastArgs)));
+
+	// }
 
 	/* Warp to user mode. */
-	enter_new_process(nargs /*argc*/, (userptr_t)(0x80000000 - (4*nargs) - sizeOfLastArgs) /*userspace addr of argv*/,
+	enter_new_process(nargs /*argc*/, (userptr_t)stackptr/*userspace addr of argv*/,
 			  NULL /*userspace addr of environment*/,
 			  stackptr, entrypoint);
 

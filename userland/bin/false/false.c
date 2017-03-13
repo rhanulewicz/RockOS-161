@@ -51,7 +51,7 @@ main(int argc, char *argv[])
 	(void) argv;
 	printf("%d\n",argc);
 	printf("%p\n",argv);
-	printf((char*)argv[3]);
+	printf(argv[0]);
 	// /* Just exit with a failure code. */
 	// exit(1);
 }
