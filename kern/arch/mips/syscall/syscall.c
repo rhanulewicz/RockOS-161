@@ -45,6 +45,7 @@
 #include <kern/stat.h>
 #include <addrspace.h>
 #include <synch.h>
+#include <limits.h>
 /*
  * System call dispatcher.
  *
