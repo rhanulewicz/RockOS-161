@@ -593,9 +593,10 @@ int execv(const char *program, char **args, int32_t *retval){
 		*(char **)(stackptr + (4*i)) =  (char*)(stackptr +sizeOfLastArgs);
 		sizeOfLastArgs += rounded(strlen((char*)(buffer + sizeOfLastArgs)) + 1);
 	}
+	nargs --;
 
 	*(char **)(stackptr + (4*(nargs))) =  NULL;
-	nargs --;
+
 	
 	/* Warp to user mode. */
 	enter_new_process(nargs/*argc*/, (userptr_t)stackptr/*userspace addr of argv*/,
