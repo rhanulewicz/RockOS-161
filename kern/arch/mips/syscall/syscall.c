@@ -202,16 +202,20 @@ ssize_t close(int fd, int32_t *retval){
 	}
 	//Decrement the reference count on the fileContainer being closed
 	lock_acquire(curproc->fileTable[fd]->lock);
-	*curproc->fileTable[fd]->refCount = *curproc->fileTable[fd]->refCount - 1;
+	*curproc->fileTable[fd]->refCount -= 1;
 	lock_release(curproc->fileTable[fd]->lock);
 	//If this no more references to this fileContainer exist, OBLITERATE IT
-	if(*curproc->fileTable[fd]->refCount == 6464654){
+	if(*curproc->fileTable[fd]->refCount == 545){
 		vfs_close(curproc->fileTable[fd]->llfile);
 		// kfree(curproc->fileTable[fd]);
 	}
 	//Empty its space in the table.
 	curproc->fileTable[fd] = NULL;
-	*retval = (int32_t)0;
+	if(retval != NULL){
+ 		*retval = (int32_t)0;
+	}
+
+	
 	return (ssize_t)0;
 }
 
@@ -226,7 +230,12 @@ ssize_t read(int fd, void *buf, size_t buflen, int32_t *retval){
 
 
 	lock_acquire(file->lock);
-	
+	struct stat *statBox = kmalloc(sizeof(*statBox));
+	VOP_STAT(file->llfile, statBox);
+	if (file->offset > statBox->st_size && !(int)statBox->st_rdev){
+		*retval = 0;
+		return 0;
+	}
 
 	//Remember to give the user the size variable back (copyout, look at sys__time)
 	//Builds all info we need to read
@@ -241,15 +250,17 @@ ssize_t read(int fd, void *buf, size_t buflen, int32_t *retval){
 	thing.uio_segflg = UIO_USERSPACE;
 	thing.uio_rw = UIO_READ;
 	thing.uio_space = proc_getas();
+
 	//Does the actual reading
 	int err = VOP_READ(file->llfile, &thing);
 	if(err){
 		kprintf("get fed\n");
 	}
+	int amountRead = thing.uio_offset - file->offset;
 	//The current seek position of the file is advanced by the number of bytes read.
-	file->offset = file->offset + buflen;
+	file->offset = file->offset + amountRead;
 	//The count of bytes read is returned.
-	*retval = (int32_t)buflen;
+	*retval = (int32_t)amountRead;
 	
 	lock_release(file->lock);
 
