@@ -490,8 +490,8 @@ int execv(const char *program, char **args, int32_t *retval){
 
 
 	for(int i = 0; i < nargs; i++){
-		copyin((const_userptr_t)*(args + i), (char *)(buffer + (4*nargs) + sizeOfLastArgs), rounded(strlen(*(args + i))));
-		sizeOfLastArgs += rounded(strlen(*(args + i)));
+		copyin((const_userptr_t)*(args + i), (char *)(buffer + (4*nargs) + sizeOfLastArgs), rounded(strlen(*(args + i)) + 1));
+		sizeOfLastArgs += rounded(strlen(*(args + i)) + 1);
 	}
 		// kprintf("%s\n", (char*)(buffer + 8));
 	// kprintf("%s\n",(char*) buffer+8);
@@ -587,9 +587,9 @@ int execv(const char *program, char **args, int32_t *retval){
 
 
 	for(int i = 0; i < nargs; ++i){
-		copyout((char*)(buffer + sizeOfLastArgs), (userptr_t)(stackptr + sizeOfLastArgs), rounded(strlen((char*)(buffer + sizeOfLastArgs))));
+		copyout((char*)(buffer + sizeOfLastArgs), (userptr_t)(stackptr + sizeOfLastArgs), rounded(strlen((char*)(buffer + sizeOfLastArgs)) + 1));
 		*(char **)(stackptr + (4*i)) =  (char*)(stackptr +sizeOfLastArgs);
-		sizeOfLastArgs += rounded(strlen((char*)(buffer + sizeOfLastArgs)));
+		sizeOfLastArgs += rounded(strlen((char*)(buffer + sizeOfLastArgs)) + 1);
 	}
 
 
