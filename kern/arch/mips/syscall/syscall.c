@@ -175,19 +175,30 @@ ssize_t open(char *filename, int flags, int32_t *retval){
 ssize_t write(int filehandle, const void *buf, size_t size, int32_t *retval){
 	//kprintf("Pid: %d\n", curproc->pid);
 	//Fetch our fileConainer
-	//kprintf("fd: %d\n", filehandle);
+	//kprintf("fd: %d", filehandle);
+	char* ptr = kmalloc(sizeof(char));
+	int err = copyin((const_userptr_t)buf, ptr, 4);
+	if(err){
+		*retval = (int32_t)0;
+		return EFAULT;
+
+	}
 	if(filehandle < 0 || filehandle > 63){
 		*retval = (int32_t)0;
 		return EBADF;
 	}
 	struct fileContainer *file = curproc->fileTable[filehandle];
-	// kprintf("%p\n", curproc->fileTable[filehandle]);
-	//fd is not a valid file descriptor, or was not opened for writing.
-	
-	if (file == NULL || file->permflag == O_RDONLY){
+
+	if (file == NULL || file->permflag == O_RDONLY || file->permflag == 4){
 		*retval = (int32_t)0;
 		return EBADF;
 	}
+	//kprintf("flag %d", file->permflag);
+	
+	// kprintf("%p\n", curproc->fileTable[filehandle]);
+	//fd is not a valid file descriptor, or was not opened for writing.
+
+	
 
 	KASSERT(file->lock != NULL);
 	lock_acquire(file->lock);
