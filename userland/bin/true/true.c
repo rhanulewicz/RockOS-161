@@ -41,10 +41,10 @@ main(void)
 		const char* args[20];
 		const char* buf[20];
 		
-		args[0] = "bin/false\0";
+		args[0] = "testbin/argtest\0";
 		args[1] = "hello\0";
 		args[2] = "bye\0";
-		buf[0] = "bin/false";
+		buf[0] = "testbin/argtest";
 		execv(*buf,  (char**)args);
 
 	
