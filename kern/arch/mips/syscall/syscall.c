@@ -90,6 +90,13 @@ struct proc* procTable[2000];
 
 
 off_t lseek(int fd, off_t pos, int whence, int32_t *retval){
+	
+
+	if(fd < 0 || fd > 63 || curproc->fileTable[fd] == NULL){
+		*retval = 0;
+		return (ssize_t)EBADF;
+	}
+	
 	struct fileContainer *file = curproc->fileTable[fd];
 	struct stat *statBox = kmalloc(sizeof(*statBox));
 
@@ -100,6 +107,12 @@ off_t lseek(int fd, off_t pos, int whence, int32_t *retval){
 	}
 	//Gets us the size of the file, stores it in statBox->st_size
 	VOP_STAT(file->llfile, statBox);
+
+	if((int)statBox->st_rdev){
+		*retval = 0;
+		return (ssize_t)ESPIPE;
+	}
+
 	if(whence == SEEK_SET){
 		file->offset = pos;
 	}
@@ -149,9 +162,7 @@ ssize_t open(char *filename, int flags, int32_t *retval){
 	//Generate our vnode
 
 	vfs_open(filestar, flags, 0, &trash);
-
-
-	file->llfile = trash;
+		file->llfile = trash;
 	
 	//Places our file in the first empty slot in curproc's fileTable
 	//The user gets back the index at which it was placed (file descriptor)
@@ -187,6 +198,7 @@ ssize_t write(int filehandle, const void *buf, size_t size, int32_t *retval){
 		*retval = (int32_t)0;
 		return EBADF;
 	}
+	
 	struct fileContainer *file = curproc->fileTable[filehandle];
 
 	if (file == NULL || file->permflag == O_RDONLY || file->permflag == 4){
@@ -226,7 +238,6 @@ ssize_t write(int filehandle, const void *buf, size_t size, int32_t *retval){
 	KASSERT(file->lock != NULL);
 	//kprintf("hello mama\n");
 	lock_release(file->lock);
-	
 	return (ssize_t)0;
 }
 
@@ -253,7 +264,17 @@ ssize_t close(int fd, int32_t *retval){
 
 ssize_t read(int fd, void *buf, size_t buflen, int32_t *retval){
 	//Fetch our fileContainer
+	char* ptr = kmalloc(sizeof(char));
+	int err = copyin((const_userptr_t)buf, ptr, 4);
+	if(err){
+		*retval = (int32_t)0;
+		return EFAULT;
 
+	}
+	if(fd < 0 || fd > 63){
+		*retval = (int32_t)0;
+		return EBADF;
+	}
 	struct fileContainer *file = curproc->fileTable[fd];
 	//fd is not a valid file descriptor, or was not opened for reading.
 	if (file == NULL || file->permflag == O_WRONLY){
