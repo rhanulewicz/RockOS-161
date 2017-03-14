@@ -460,12 +460,8 @@ int execv(const char *program, char **args, int32_t *retval){
 	(void)program;
 	(void)args;
 	(void)retval;
-	kprintf("here");
-	kprintf(*args);
 
-	//temp pointer for program name
-	char * temp = kmalloc(rounded(strlen(program)));	
-	int sizeOfProgramName = rounded(strlen(program));
+	//temp pointer for program name	
 	
 	void * buffer = kmalloc(64000);
 	memset(buffer, '\0', 64000);
@@ -474,32 +470,25 @@ int execv(const char *program, char **args, int32_t *retval){
 	// char* padding = '\0';
 	
 
-	int nargs = 1;
-	int sizeOfLastArgs = rounded(strlen(program));
+	int nargs = 0;
+	int sizeOfLastArgs = 0;
 
 
-	//load in program name pointer
-	copyin((const_userptr_t)&temp,buffer, 4);
 	
-	int j = 1;
 	for(int i = 0; i < 64000/8; i++){
 		if(*(args+i) == NULL){
 			break;
 		}
-		copyin((const_userptr_t)args, buffer + j , 4);
+		copyin((const_userptr_t)args, buffer + i , 4);
 		nargs++;
-		j = i + 1;
 	}
 	//  copyin((const_userptr_t)*args, (char *)(buffer + 8) , 8);
 	//  copyin((const_userptr_t)*(args + 1), (char *)(buffer + 16), 4);
 	// kprintf("%s\n",(char*) buffer+8);
 	// kprintf("%s\n",(char*) buffer+16);
 
-	//load in program name
-	copyin((const_userptr_t)program,(char *)(buffer + (4*nargs)), sizeOfLastArgs);
 
-	kprintf("%p\n",buffer);
-	for(int i = 0; i < (nargs - 1); i++){
+	for(int i = 0; i < nargs; i++){
 		copyin((const_userptr_t)*(args + i), (char *)(buffer + (4*nargs) + sizeOfLastArgs), rounded(strlen(*(args + i))));
 		sizeOfLastArgs += rounded(strlen(*(args + i)));
 	}
@@ -563,7 +552,7 @@ int execv(const char *program, char **args, int32_t *retval){
 
 
 	// + 12 will be the size of programname
-	stackptr -= ((4*nargs) + sizeOfLastArgs + sizeOfProgramName);
+	stackptr -= ((4*nargs) + sizeOfLastArgs);
 	// kprintf("%p\n", (void *)stackptr);
 	sizeOfLastArgs = 0; 
 
@@ -591,7 +580,6 @@ int execv(const char *program, char **args, int32_t *retval){
 	// kprintf("%s\n",*(char**)(stackptr +4));
 	// kprintf("%p\n",*(char**)(stackptr +8));
 	// kprintf("%s\n",*(char**)(stackptr +8));
-	kfree(temp);
 
 	//reset size
 	sizeOfLastArgs = 4*nargs;
@@ -606,7 +594,7 @@ int execv(const char *program, char **args, int32_t *retval){
 
 
 	/* Warp to user mode. */
-	enter_new_process(nargs /*argc*/, (userptr_t)stackptr/*userspace addr of argv*/,
+	enter_new_process(nargs/*argc*/, (userptr_t)stackptr/*userspace addr of argv*/,
 			  NULL /*userspace addr of environment*/,
 			  stackptr, entrypoint);
 
