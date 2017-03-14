@@ -123,19 +123,12 @@ common_prog(int nargs, char **args)
 	int result;
 	unsigned tc;
 
-
-
 	/* Create a process for the new program to run in. */
 	
 	proc = proc_create_runprogram(args[0] /* name */);
 	
 	if (proc == NULL) {
 		return ENOMEM;
-	}
-
-	if(procLock == NULL){
-		procLock = lock_create("new lock");
-		highPid = 3;
 	}
 	
 	struct fileContainer *stdout;
@@ -188,7 +181,7 @@ common_prog(int nargs, char **args)
 	 */
 	int retval;
 	waitpid(proc->pid, NULL, 0, &retval);
-
+	
 	// Wait for all threads to finish cleanup, otherwise khu be a bit behind,
 	// especially once swapping is enabled.
 	

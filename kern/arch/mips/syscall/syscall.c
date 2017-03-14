@@ -91,6 +91,13 @@ struct proc* procTable[2000];
 
 
 off_t lseek(int fd, off_t pos, int whence, int32_t *retval){
+	
+
+	if(fd < 0 || fd > 63 || curproc->fileTable[fd] == NULL){
+		*retval = 0;
+		return (ssize_t)EBADF;
+	}
+	
 	struct fileContainer *file = curproc->fileTable[fd];
 	struct stat *statBox = kmalloc(sizeof(*statBox));
 
@@ -101,6 +108,12 @@ off_t lseek(int fd, off_t pos, int whence, int32_t *retval){
 	}
 	//Gets us the size of the file, stores it in statBox->st_size
 	VOP_STAT(file->llfile, statBox);
+
+	if((int)statBox->st_rdev){
+		*retval = 0;
+		return (ssize_t)ESPIPE;
+	}
+
 	if(whence == SEEK_SET){
 		file->offset = pos;
 	}
@@ -122,6 +135,20 @@ off_t lseek(int fd, off_t pos, int whence, int32_t *retval){
 
 ssize_t open(char *filename, int flags, int32_t *retval){
 	//Build our fileContainer
+	//kprintf("Flags %d\n", flags);
+	if(flags != 22 && flags != 21 && flags != O_RDONLY && flags != O_WRONLY && flags != O_RDWR && flags != O_CREAT && flags != O_EXCL && flags != O_TRUNC && flags != O_APPEND){
+		*retval = (int32_t)0;
+		return EINVAL;
+	}
+	//If there's an issue with this error, it's because I fucking guessed the 0x410000 lower bounds
+	//kprintf("Addr: %p", filename);
+	char* ptr = kmalloc(sizeof(char));
+	int err = copyin((const_userptr_t)filename, ptr, 4);
+	if(err){
+		*retval = (int32_t)0;
+		return EFAULT;
+
+	}
 	struct fileContainer *file;
 	struct vnode *trash;
 	trash = kmalloc(sizeof(struct vnode));
@@ -134,36 +161,62 @@ ssize_t open(char *filename, int flags, int32_t *retval){
 	file->permflag = flags;
 	file->offset = 0;
 	//Generate our vnode
+
 	vfs_open(filestar, flags, 0, &trash);
-	file->llfile = trash;
+		file->llfile = trash;
 	
 	//Places our file in the first empty slot in curproc's fileTable
 	//The user gets back the index at which it was placed (file descriptor)
+	bool full = true;
 	for(int i = 0; i < 64; i++){
 		if(curproc->fileTable[i]== NULL){
 			curproc->fileTable[i] = file;
 			*retval = (int32_t)i;
+			full = false;
 			break;
 		}
+	}
+	if(full){
+		*retval = (int32_t)0;
+		return ENOSPC;
 	}
 	lock_release(file->lock);
 	return (ssize_t)0;
 }
 
 ssize_t write(int filehandle, const void *buf, size_t size, int32_t *retval){
+	
+	//TODO THIS ERROR HANDLING BREAKS FORKBOMB
+	// char* ptr = kmalloc(sizeof(char));
+	// int err = copyin((const_userptr_t)buf, ptr, 4);
+	// if(err){
+	// 	*retval = (int32_t)0;
+	// 	return EFAULT;
 
-	//Fetch our fileConainer
-	struct fileContainer *file = curproc->fileTable[filehandle];
-	// kprintf("%p\n", curproc->fileTable[filehandle]);
-	//fd is not a valid file descriptor, or was not opened for writing.
-	if (file == NULL || file->permflag == O_RDONLY){
+	// }
+
+
+	if(filehandle < 0 || filehandle > 63){
 		*retval = (int32_t)0;
 		return EBADF;
 	}
+	
+	struct fileContainer *file = curproc->fileTable[filehandle];
+
+	if (file == NULL || file->permflag == O_RDONLY || file->permflag == 4){
+		*retval = (int32_t)0;
+		return EBADF;
+	}
+	//kprintf("flag %d", file->permflag);
+	
+	// kprintf("%p\n", curproc->fileTable[filehandle]);
+	//fd is not a valid file descriptor, or was not opened for writing.
+
+	
 
 	KASSERT(file->lock != NULL);
 	lock_acquire(file->lock);
-	//kprintf("i eat ass\n");
+
 	//Remember to give the user the size variable back (copyout, look at sys__time)
 	//Builds all the info we need to write
 	struct uio thing;
@@ -178,11 +231,8 @@ ssize_t write(int filehandle, const void *buf, size_t size, int32_t *retval){
 	thing.uio_rw = UIO_WRITE;
 	thing.uio_space = proc_getas();
 	//Does the actual writing
-
-	int err = VOP_WRITE(file->llfile, &thing);
-	if(err){
-		kprintf("get fucked");
-	}
+	//Returns err sometimes
+	VOP_WRITE(file->llfile, &thing);
 	//The current seek position of the file is advanced by the number of bytes written.
 	file->offset = file->offset + size;
 
@@ -190,7 +240,6 @@ ssize_t write(int filehandle, const void *buf, size_t size, int32_t *retval){
 	KASSERT(file->lock != NULL);
 	//kprintf("hello mama\n");
 	lock_release(file->lock);
-	
 	return (ssize_t)0;
 }
 
@@ -221,7 +270,17 @@ ssize_t close(int fd, int32_t *retval){
 
 ssize_t read(int fd, void *buf, size_t buflen, int32_t *retval){
 	//Fetch our fileContainer
+	char* ptr = kmalloc(sizeof(char));
+	int err = copyin((const_userptr_t)buf, ptr, 4);
+	if(err){
+		*retval = (int32_t)0;
+		return EFAULT;
 
+	}
+	if(fd < 0 || fd > 63){
+		*retval = (int32_t)0;
+		return EBADF;
+	}
 	struct fileContainer *file = curproc->fileTable[fd];
 	//fd is not a valid file descriptor, or was not opened for reading.
 	if (file == NULL || file->permflag == O_WRONLY){
@@ -232,6 +291,7 @@ ssize_t read(int fd, void *buf, size_t buflen, int32_t *retval){
 	lock_acquire(file->lock);
 	struct stat *statBox = kmalloc(sizeof(*statBox));
 	VOP_STAT(file->llfile, statBox);
+
 	if (file->offset > statBox->st_size && !(int)statBox->st_rdev){
 		*retval = 0;
 		return 0;
@@ -252,11 +312,13 @@ ssize_t read(int fd, void *buf, size_t buflen, int32_t *retval){
 	thing.uio_space = proc_getas();
 
 	//Does the actual reading
-	int err = VOP_READ(file->llfile, &thing);
+	err = VOP_READ(file->llfile, &thing);
 	if(err){
-		kprintf("get fed\n");
+		*retval = -1;
+		return err;
 	}
 	int amountRead = thing.uio_offset - file->offset;
+
 	//The current seek position of the file is advanced by the number of bytes read.
 	file->offset = file->offset + amountRead;
 	//The count of bytes read is returned.
@@ -370,6 +432,10 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 
 void copytf(void *tf, unsigned long ts){
 	(void)ts;
+	// if(curproc->pid == 0){
+	// 	thread_exit();
+	// 	return;
+	// }
 	//Activitates new address space
 	as_activate();
 	// lock_acquire(curproc->proc_lock);
@@ -469,6 +535,7 @@ int rounded(int a){
 }
 
 int execv(const char *program, char **args, int32_t *retval){
+
 	(void)program;
 	(void)args;
 	(void)retval;
@@ -520,17 +587,18 @@ int execv(const char *program, char **args, int32_t *retval){
 	as_deactivate();
 	// struct addrspace *old = proc_setas(NULL);
 	proc_setas(NULL);
+
 	struct addrspace *as;
 	struct vnode *v;
 	vaddr_t entrypoint, stackptr;
 	int result;
-
+	(void)args;
+	(void)retval;
 	/* Open the file. */
-	result = vfs_open((char*) program, O_RDONLY, 0, &v);
+	result = vfs_open((char*)program, O_RDONLY, 0, &v);
 	if (result) {
 		return result;
 	}
-
 
 	/* Create a new address space. */
 	as = as_create();
@@ -560,7 +628,6 @@ int execv(const char *program, char **args, int32_t *retval){
 		/* p_addrspace will go away when curproc is destroyed */
 		return result;
 	}
-
 
 	// + 12 will be the size of programname
 	stackptr -= ((4*nargs) + sizeOfLastArgs);
@@ -610,7 +677,9 @@ int execv(const char *program, char **args, int32_t *retval){
 			  NULL /*userspace addr of environment*/,
 			  stackptr, entrypoint);
 
-	return 0;
+	/* enter_new_process does not return. */
+	panic("enter_new_process returned\n");
+	return EINVAL;
 }
 
 void
