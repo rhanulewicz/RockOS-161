@@ -175,10 +175,15 @@ ssize_t open(char *filename, int flags, int32_t *retval){
 ssize_t write(int filehandle, const void *buf, size_t size, int32_t *retval){
 	//kprintf("Pid: %d\n", curproc->pid);
 	//Fetch our fileConainer
-
+	//kprintf("fd: %d\n", filehandle);
+	if(filehandle < 0 || filehandle > 63){
+		*retval = (int32_t)0;
+		return EBADF;
+	}
 	struct fileContainer *file = curproc->fileTable[filehandle];
 	// kprintf("%p\n", curproc->fileTable[filehandle]);
 	//fd is not a valid file descriptor, or was not opened for writing.
+	
 	if (file == NULL || file->permflag == O_RDONLY){
 		*retval = (int32_t)0;
 		return EBADF;
