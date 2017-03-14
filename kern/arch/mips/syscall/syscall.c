@@ -463,8 +463,8 @@ int execv(const char *program, char **args, int32_t *retval){
 
 	//temp pointer for program name	
 	
-	void * buffer = kmalloc(64000);
-	memset(buffer, '\0', 64000);
+	void * buffer = kmalloc(__ARG_MAX);
+	memset(buffer, '\0', __ARG_MAX);
 	// kprintf(program);
 
 	// char* padding = '\0';
@@ -475,7 +475,7 @@ int execv(const char *program, char **args, int32_t *retval){
 
 
 	
-	for(int i = 0; i < 64000/8; i++){
+	for(int i = 0; i < __ARG_MAX/8; i++){
 		if(*(args+i) == NULL){
 			break;
 		}
