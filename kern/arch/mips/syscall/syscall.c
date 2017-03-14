@@ -489,9 +489,7 @@ int execv(const char *program, char **args, int32_t *retval){
 	//  copyin((const_userptr_t)*(args + 1), (char *)(buffer + 16), 4);
 	// kprintf("%s\n",(char*) buffer+8);
 	// kprintf("%s\n",(char*) buffer+16);
-	nargs--;
-
-	for(int i = 0; i < nargs; i++){
+	for(int i = 0; i < (nargs - 1); i++){
 		copyin((const_userptr_t)*(args + i), (char *)(buffer + (4*nargs) + sizeOfLastArgs), rounded(strlen(*(args + i)) + 1));
 		sizeOfLastArgs += rounded(strlen(*(args + i)) + 1);
 	}
@@ -552,7 +550,6 @@ int execv(const char *program, char **args, int32_t *retval){
 		return result;
 	}
 
-	nargs++;
 
 	// + 12 will be the size of programname
 	stackptr -= ((4*nargs) + sizeOfLastArgs);
@@ -593,11 +590,10 @@ int execv(const char *program, char **args, int32_t *retval){
 		*(char **)(stackptr + (4*i)) =  (char*)(stackptr +sizeOfLastArgs);
 		sizeOfLastArgs += rounded(strlen((char*)(buffer + sizeOfLastArgs)) + 1);
 	}
-	nargs --;
-
+	nargs--;
 	*(char **)(stackptr + (4*(nargs))) =  NULL;
 
-	
+
 	/* Warp to user mode. */
 	enter_new_process(nargs/*argc*/, (userptr_t)stackptr/*userspace addr of argv*/,
 			  NULL /*userspace addr of environment*/,
