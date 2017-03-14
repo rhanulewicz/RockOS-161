@@ -460,9 +460,12 @@ int execv(const char *program, char **args, int32_t *retval){
 	(void)program;
 	(void)args;
 	(void)retval;
+	kprintf("here");
+	kprintf(*args);
 
 	//temp pointer for program name
 	char * temp = kmalloc(rounded(strlen(program)));	
+	int sizeOfProgramName = rounded(strlen(program));
 	
 	void * buffer = kmalloc(64000);
 	memset(buffer, '\0', 64000);
@@ -560,8 +563,8 @@ int execv(const char *program, char **args, int32_t *retval){
 
 
 	// + 12 will be the size of programname
-	stackptr -= ((4*nargs) + sizeOfLastArgs + 12);
-	kprintf("%p\n", (void *)stackptr);
+	stackptr -= ((4*nargs) + sizeOfLastArgs + sizeOfProgramName);
+	// kprintf("%p\n", (void *)stackptr);
 	sizeOfLastArgs = 0; 
 
 	for(int i = 0; i < nargs; ++i){
@@ -569,34 +572,38 @@ int execv(const char *program, char **args, int32_t *retval){
 		stackptr += 4;
 	}
 	//housekeeping
-	stackptr -= 12;
+	stackptr -= (4 * nargs);
 
 	//copies out data
-	copyout((char*)(buffer + 12), (userptr_t)(stackptr + 12), 12);
-	copyout((char*)(buffer + 24), (userptr_t)(stackptr + 24), 8);
-	copyout((char*)(buffer + 32), (userptr_t)(stackptr + 32), 4);
+	// copyout((char*)(buffer + 12), (userptr_t)(stackptr + 12), 12);
+	// copyout((char*)(buffer + 24), (userptr_t)(stackptr + 24), 8);
+	// copyout((char*)(buffer + 32), (userptr_t)(stackptr + 32), 4);
 
-	//updates pointers
-	*(char **)stackptr =  (char*)(stackptr +12);
-	*(char **)(stackptr + 4) =  (char*)(stackptr +24);
-	*(char **)(stackptr + 8) =  (char*)(stackptr +32);
+	// //updates pointers
+	// *(char **)stackptr =  (char*)(stackptr +12);
+	// *(char **)(stackptr + 4) =  (char*)(stackptr +24);
+	// *(char **)(stackptr + 8) =  (char*)(stackptr +32);
 	
 
-	kprintf("%p\n",*(char**)stackptr);
-	kprintf("%s\n",*(char**)stackptr);
-	kprintf("%p\n",*(char**)(stackptr +4));
-	kprintf("%s\n",*(char**)(stackptr +4));
-	kprintf("%p\n",*(char**)(stackptr +8));
-	kprintf("%s\n",*(char**)(stackptr +8));
-	// panic("stop");
+	// kprintf("%p\n",*(char**)stackptr);
+	// kprintf("%s\n",*(char**)stackptr);
+	// kprintf("%p\n",*(char**)(stackptr +4));
+	// kprintf("%s\n",*(char**)(stackptr +4));
+	// kprintf("%p\n",*(char**)(stackptr +8));
+	// kprintf("%s\n",*(char**)(stackptr +8));
 	kfree(temp);
 
-	// for(int i = 0; i < nargs; ++i){
-	// 	copyout(*((char**)buffer + (4*nargs) + sizeOfLastArgs), (userptr_t)stackptr,rounded(strlen(*((char**)buffer + (4*nargs) + sizeOfLastArgs))));
-	// 	sizeOfLastArgs += rounded(strlen(*((char**)buffer + (4*nargs) + sizeOfLastArgs)));
-	// 	stackptr += rounded(strlen(*((char**)buffer + (4*nargs) + sizeOfLastArgs)));
+	//reset size
+	sizeOfLastArgs = 4*nargs;
 
-	// }
+
+	for(int i = 0; i < nargs; ++i){
+		copyout((char*)(buffer + sizeOfLastArgs), (userptr_t)(stackptr + sizeOfLastArgs), rounded(strlen((char*)(buffer + sizeOfLastArgs))));
+		*(char **)(stackptr + (4*i)) =  (char*)(stackptr +sizeOfLastArgs);
+		sizeOfLastArgs += rounded(strlen((char*)(buffer + sizeOfLastArgs)));
+	}
+
+
 
 	/* Warp to user mode. */
 	enter_new_process(nargs /*argc*/, (userptr_t)stackptr/*userspace addr of argv*/,
