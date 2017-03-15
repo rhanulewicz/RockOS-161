@@ -542,31 +542,43 @@ int execv(const char *program, char **args, int32_t *retval){
 
 	//temp pointer for program name	
 	
-	void * buffer = kmalloc(__ARG_MAX);
-	memset(buffer, '\0', __ARG_MAX);
+	int totalSize = 0;
 	// kprintf(program);
 
 	// char* padding = '\0';
-	
+	char * name = kmalloc(strlen(program)+1);
+	copyin((const_userptr_t)program, name , rounded(strlen(program)+1));
 
 	int nargs = 0;
 	int sizeOfLastArgs = 0;
 
-
-	
-	for(int i = 0; i < __ARG_MAX/8; i++){
+for(int i = 0; i < __ARG_MAX/8; i++){
 		if(*(args+i) == NULL){
-			copyin((const_userptr_t)args, buffer + i , 4);
 			nargs++;
 			break;
 		}
-		copyin((const_userptr_t)args, buffer + i , 4);
 		nargs++;
 	}
+	
+	for(int i = 0; i < (nargs - 1); i++){
+		// copyin((const_userptr_t)*(args + i), (char *)(buffer + (4*nargs) + sizeOfLastArgs), rounded(strlen(*(args + i)) + 1));
+		totalSize += rounded(strlen(*(args + i)) + 1);
+	}
+
+	void * buffer = kmalloc((4*nargs) + totalSize);
+	memset(buffer, '\0', (4*nargs) + totalSize);
 	//  copyin((const_userptr_t)*args, (char *)(buffer + 8) , 8);
 	//  copyin((const_userptr_t)*(args + 1), (char *)(buffer + 16), 4);
 	// kprintf("%s\n",(char*) buffer+8);
 	// kprintf("%s\n",(char*) buffer+16);
+	for(int i = 0; i < __ARG_MAX/8; i++){
+		if(*(args+i) == NULL){
+			copyin((const_userptr_t)args, buffer + i , 4);
+			break;
+		}
+		copyin((const_userptr_t)args, buffer + i , 4);
+	}
+
 	for(int i = 0; i < (nargs - 1); i++){
 		copyin((const_userptr_t)*(args + i), (char *)(buffer + (4*nargs) + sizeOfLastArgs), rounded(strlen(*(args + i)) + 1));
 		sizeOfLastArgs += rounded(strlen(*(args + i)) + 1);
@@ -595,7 +607,7 @@ int execv(const char *program, char **args, int32_t *retval){
 	(void)args;
 	(void)retval;
 	/* Open the file. */
-	result = vfs_open((char*)program, O_RDONLY, 0, &v);
+	result = vfs_open((char*)name, O_RDONLY, 0, &v);
 	if (result) {
 		return result;
 	}
