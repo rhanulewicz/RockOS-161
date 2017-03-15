@@ -94,6 +94,7 @@ off_t lseek(int fd, off_t pos, int whence, int32_t *retval){
 	
 
 	if(fd < 0 || fd > 63 || curproc->fileTable[fd] == NULL){
+
 		*retval = 0;
 		return (ssize_t)EBADF;
 	}
@@ -110,18 +111,30 @@ off_t lseek(int fd, off_t pos, int whence, int32_t *retval){
 	VOP_STAT(file->llfile, statBox);
 
 	if((int)statBox->st_rdev){
-		*retval = 0;
+		*retval = -1;
 		return (ssize_t)ESPIPE;
 	}
 
 	if(whence == SEEK_SET){
+		if(pos < 0){
+			*retval = -1;
+			return EINVAL;
+		}
 		file->offset = pos;
 	}
 	else if(whence == SEEK_CUR){
+		if((file->offset) + (pos) < 0){
+			*retval = -1;
+			return EINVAL;
+		}
 		file->offset = (file->offset) + (pos);
 
 	}
 	else if(whence == SEEK_END){
+		if((statBox->st_size + pos) < 0){
+			*retval = -1;
+			return EINVAL;
+		}
 		file->offset = (statBox->st_size + pos);
 	}
 	else{
@@ -130,6 +143,7 @@ off_t lseek(int fd, off_t pos, int whence, int32_t *retval){
 		return EINVAL;
 	}
 	*retval = file->offset; 
+
 	return (off_t)0;
 }
 
@@ -186,16 +200,22 @@ ssize_t open(char *filename, int flags, int32_t *retval){
 
 ssize_t write(int filehandle, const void *buf, size_t size, int32_t *retval){
 	
+	
+	if(buf == NULL){
+		*retval = 0;
+		return EFAULT;
+	}
+
 	//TODO THIS ERROR HANDLING BREAKS FORKBOMB
-	// char* ptr = kmalloc(sizeof(char));
-	// int err = copyin((const_userptr_t)buf, ptr, 4);
-	// if(err){
-	// 	*retval = (int32_t)0;
-	// 	return EFAULT;
+	//void* ptr = kmalloc(sizeof(char));
+	//int err = copyin((const_userptr_t)buf, (userptr_t)ptr, 4);
+	if(buf == (void*)0x80000000 || buf == (void*)0x40000000){
+		kprintf("%p\n", buf);
+		*retval = (int32_t)0;
+		return EFAULT;
 
-	// }
-
-
+	}
+	
 	if(filehandle < 0 || filehandle > 63){
 		*retval = (int32_t)0;
 		return EBADF;
@@ -331,7 +351,23 @@ ssize_t read(int fd, void *buf, size_t buflen, int32_t *retval){
 
 int dup2(int oldfd, int newfd, int32_t *retval){
 	//If newfd names an already-open file, that file is closed.
-	if(curproc->fileTable[newfd] != NULL){
+	if(oldfd == newfd){
+		*retval = newfd;
+		return 0;
+	}
+	if(oldfd < 0 || oldfd > 63){
+		*retval = (int32_t)0;
+		return EBADF;
+	}
+	if(newfd < 0 || newfd > 63){
+		*retval = (int32_t)0;
+		return EBADF;
+	}
+	if(curproc->fileTable[oldfd] == NULL ){
+		*retval = (int32_t)0;
+		return EBADF;
+	}
+	if(curproc->fileTable[newfd] != NULL ){
 		close(newfd, 0);
 	}
 	/*Clones the file handle identifed by file descriptor oldfd onto the file handle
@@ -457,7 +493,18 @@ void copytf(void *tf, unsigned long ts){
 //We can save on memory if we only have one condition variable
 //But will be more inefficient in terms of the broadcast
 pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
-	(void)options;
+
+	if(options != 0){
+		*retval = -1;
+		return EINVAL;
+	}
+	char* ptr = kmalloc(sizeof(char));
+	int err = copyin((const_userptr_t)status, ptr, 4);
+	if(err && (status != NULL)){
+		*retval = (int32_t)0;
+		return EFAULT;
+
+	}
 	//Fetch the process we are waiting on to drop dead
 	struct proc* procToReap = procTable[pid-1];
 
@@ -466,7 +513,14 @@ pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
 		*retval = -1;
 		return (pid_t)ESRCH;
 	}
-
+	if(procToReap->parentpid != curproc->pid){
+		*retval = -1;
+		return ECHILD;
+	}
+	if(curproc->parentpid == procToReap->parentpid){
+		*retval = -1;
+		return ECHILD;
+	}
 	//If the child has not yet exited, sleep the parent
 	while(procToReap->exitCode == -1){
 		lock_acquire(procToReap->proc_lock);
