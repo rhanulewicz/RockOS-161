@@ -34,6 +34,7 @@
 #include <mips/trapframe.h>
 #include <thread.h>
 #include <current.h>
+#include <signal.h>
 #include <syscall.h>
 #include <uio.h>
 #include <vnode.h>
@@ -46,6 +47,7 @@
 #include <addrspace.h>
 #include <synch.h>
 #include <limits.h>
+#include <kern/wait.h>
 /*
  * System call dispatcher.
  *
@@ -498,7 +500,7 @@ pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
 		*retval = -1;
 		return EINVAL;
 	}
-	char* ptr = kmalloc(sizeof(char));
+	char* ptr = kmalloc(4);
 	int err = copyin((const_userptr_t)status, ptr, 4);
 	if(err && (status != NULL)){
 		*retval = (int32_t)0;
@@ -528,8 +530,14 @@ pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
 	}
 	
 	//Copies the exitcode out to userland through status
-	copyout(&procToReap->exitCode, (userptr_t)status, sizeof(int));
+	if(procToReap->exitCode > 0){
+		int temp = _MKWAIT_CORE(procToReap->exitCode);
+		copyout(&temp, (userptr_t)status, 4);
 
+	}else{
+		copyout(&procToReap->exitCode, (userptr_t)status, 4);
+	}
+	
 	for(int i = 0; i < 64; ++i){
 		procToReap->fileTable[i] = NULL;
 	}
@@ -567,9 +575,7 @@ void getpid(int32_t *retval){
 }
 
 void _exit(int exitcode){
-	
 	curproc->exitCode = exitcode;
-
 
 	if(lock_do_i_hold(curproc->proc_lock)){
 		lock_release(curproc->proc_lock);

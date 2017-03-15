@@ -74,16 +74,12 @@ struct proc {
 
 	struct fileContainer* fileTable[64];
 	int exitCode;
-	int waitingOnMe;
 	int pid;
 	int parentpid;
 	struct proc* parent;
 	//Every process gets a lock BUT
 	//kproc's proc_lock is to be used as a universal lock
 	struct lock *proc_lock;
-
-	struct proc* procTable[2000];
-	int *highestPid;
 
 	
 	/* add more material here as needed */

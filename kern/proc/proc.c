@@ -86,8 +86,6 @@ proc_create(const char *name)
 
 	/* VM fields */
 	proc->p_addrspace = NULL;
-	proc->highestPid = kmalloc(sizeof(int));
-
 	/* VFS fields */
 	proc->p_cwd = NULL;
 
