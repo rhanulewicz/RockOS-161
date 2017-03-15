@@ -493,7 +493,18 @@ void copytf(void *tf, unsigned long ts){
 //We can save on memory if we only have one condition variable
 //But will be more inefficient in terms of the broadcast
 pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
-	(void)options;
+
+	if(options != 0){
+		*retval = -1;
+		return EINVAL;
+	}
+	char* ptr = kmalloc(sizeof(char));
+	int err = copyin((const_userptr_t)status, ptr, 4);
+	if(err && (status != NULL)){
+		*retval = (int32_t)0;
+		return EFAULT;
+
+	}
 	//Fetch the process we are waiting on to drop dead
 	struct proc* procToReap = procTable[pid-1];
 
@@ -502,7 +513,14 @@ pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
 		*retval = -1;
 		return (pid_t)ESRCH;
 	}
-
+	if(procToReap->parentpid != curproc->pid){
+		*retval = -1;
+		return ECHILD;
+	}
+	if(curproc->parentpid == procToReap->parentpid){
+		*retval = -1;
+		return ECHILD;
+	}
 	//If the child has not yet exited, sleep the parent
 	while(procToReap->exitCode == -1){
 		lock_acquire(procToReap->proc_lock);
