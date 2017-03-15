@@ -29,6 +29,8 @@
 
 #ifndef _SYSCALL_H_
 #define _SYSCALL_H_
+#define _exit(x) sys_exit((x),false)
+#define sig_exit(x) sys_exit((x),true)
 
 
 #include <cdefs.h> /* for __DEAD */
@@ -67,7 +69,7 @@ ssize_t read(int fd, void *buf, size_t buflen, int32_t *retval);
 off_t lseek(int fd, off_t pos, int whence, int32_t *retval);
 pid_t fork(struct trapframe *tf, int32_t *retval);
 pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval);
-void _exit(int exitcode);
+void sys_exit(int exitcode,bool signaled);
 int execv(const char *program, char **args, int32_t *retval);
 int sys_reboot(int code);
 int sys___time(userptr_t user_seconds, userptr_t user_nanoseconds);

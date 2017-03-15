@@ -530,12 +530,13 @@ pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
 	}
 	
 	//Copies the exitcode out to userland through status
-	if(procToReap->exitCode > 0){
+	if(procToReap->signal){
 		int temp = _MKWAIT_CORE(procToReap->exitCode);
 		copyout(&temp, (userptr_t)status, 4);
 
 	}else{
-		copyout(&procToReap->exitCode, (userptr_t)status, 4);
+		int temp = _MKWAIT_EXIT(procToReap->exitCode);
+		copyout(&temp, (userptr_t)status, 4);
 	}
 	
 	for(int i = 0; i < 64; ++i){
@@ -574,9 +575,9 @@ void getpid(int32_t *retval){
 
 }
 
-void _exit(int exitcode){
+void sys_exit(int exitcode,bool signaled){
 	curproc->exitCode = exitcode;
-
+	curproc->signal = signaled;
 	if(lock_do_i_hold(curproc->proc_lock)){
 		lock_release(curproc->proc_lock);
 	}
@@ -600,19 +601,27 @@ int execv(const char *program, char **args, int32_t *retval){
 	(void)args;
 	(void)retval;
 
-	//temp pointer for program name	
+
+	if(program == NULL  ||args == NULL || (void*)args == (void*)0x80000000 || (void*)args == (void*)0x40000000 || (void*)program == (void*)0x80000000 || (void*)program == (void*)0x40000000 || strlen(program) == 0){
+		*retval = ENOENT;
+		_exit(107);
+	}
 	
 	int totalSize = 0;
-	// kprintf(program);
-
-	// char* padding = '\0';
+=
 	char * name = kmalloc(strlen(program)+1);
-	copyin((const_userptr_t)program, name , rounded(strlen(program)+1));
+	int err = copyin((const_userptr_t)program, name , rounded(strlen(program)+1));
+	if(err != 0){
+		_exit(107);
+	}
 
 	int nargs = 0;
 	int sizeOfLastArgs = 0;
 
-for(int i = 0; i < __ARG_MAX/8; i++){
+	for(int i = 0; i < __ARG_MAX/8; i++){
+		if(*(args+i) == (void *)0x40000000){
+			_exit(107);
+		}
 		if(*(args+i) == NULL){
 			nargs++;
 			break;
@@ -621,39 +630,30 @@ for(int i = 0; i < __ARG_MAX/8; i++){
 	}
 	
 	for(int i = 0; i < (nargs - 1); i++){
-		// copyin((const_userptr_t)*(args + i), (char *)(buffer + (4*nargs) + sizeOfLastArgs), rounded(strlen(*(args + i)) + 1));
 		totalSize += rounded(strlen(*(args + i)) + 1);
 	}
 
 	void * buffer = kmalloc((4*nargs) + totalSize);
 	memset(buffer, '\0', (4*nargs) + totalSize);
-	//  copyin((const_userptr_t)*args, (char *)(buffer + 8) , 8);
-	//  copyin((const_userptr_t)*(args + 1), (char *)(buffer + 16), 4);
-	// kprintf("%s\n",(char*) buffer+8);
-	// kprintf("%s\n",(char*) buffer+16);
+
 	for(int i = 0; i < __ARG_MAX/8; i++){
 		if(*(args+i) == NULL){
-			copyin((const_userptr_t)args, buffer + i , 4);
+			int err = copyin((const_userptr_t)args, buffer + i , 4);
+			if(err){
+				_exit(107);
+			}
 			break;
 		}
 		copyin((const_userptr_t)args, buffer + i , 4);
 	}
 
 	for(int i = 0; i < (nargs - 1); i++){
-		copyin((const_userptr_t)*(args + i), (char *)(buffer + (4*nargs) + sizeOfLastArgs), rounded(strlen(*(args + i)) + 1));
+		int err = copyin((const_userptr_t)*(args + i), (char *)(buffer + (4*nargs) + sizeOfLastArgs), rounded(strlen(*(args + i)) + 1));
+		if(err){
+			_exit(107);
+		}
 		sizeOfLastArgs += rounded(strlen(*(args + i)) + 1);
 	}
-		// kprintf("%s\n", (char*)(buffer + 8));
-	// kprintf("%s\n",(char*) buffer+8);
-	// kprintf("%s\n",(char*) buffer+16);
-
-	// panic("stop");
-
-	// kprintf(*(char **)buffer);
-	// kprintf("\n%p\n", args);
-	// kprintf("\n%p\n", *(void **)buffer);
-
-	// kprintf("\n");
 
 
 	as_deactivate();
@@ -713,23 +713,6 @@ for(int i = 0; i < __ARG_MAX/8; i++){
 	//housekeeping
 	stackptr -= (4 * nargs);
 
-	//copies out data
-	// copyout((char*)(buffer + 12), (userptr_t)(stackptr + 12), 12);
-	// copyout((char*)(buffer + 24), (userptr_t)(stackptr + 24), 8);
-	// copyout((char*)(buffer + 32), (userptr_t)(stackptr + 32), 4);
-
-	// //updates pointers
-	// *(char **)stackptr =  (char*)(stackptr +12);
-	// *(char **)(stackptr + 4) =  (char*)(stackptr +24);
-	// *(char **)(stackptr + 8) =  (char*)(stackptr +32);
-	
-
-	// kprintf("%p\n",*(char**)stackptr);
-	// kprintf("%s\n",*(char**)stackptr);
-	// kprintf("%p\n",*(char**)(stackptr +4));
-	// kprintf("%s\n",*(char**)(stackptr +4));
-	// kprintf("%p\n",*(char**)(stackptr +8));
-	// kprintf("%s\n",*(char**)(stackptr +8));
 
 	//reset size
 	sizeOfLastArgs = 4*nargs;
@@ -747,7 +730,7 @@ for(int i = 0; i < __ARG_MAX/8; i++){
 	/* Warp to user mode. */
 	enter_new_process(nargs/*argc*/, (userptr_t)stackptr/*userspace addr of argv*/,
 			  NULL /*userspace addr of environment*/,
-			  stackptr, entrypoint);
+	stackptr, entrypoint);
 
 	/* enter_new_process does not return. */
 	panic("enter_new_process returned\n");

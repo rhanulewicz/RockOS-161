@@ -38,12 +38,11 @@
 int
 main(void)
 {
-		const char* args[20];
 		const char* buf[20];
-		
-		args[0] = "testbin/argtest\0";
-		args[1] = "hello\0";
-		args[2] = "bye\0";
+		char *args[3];
+	args[0] = (char *)"foo";
+	args[1] = (char *)0x40000000;
+	args[2] = NULL;
 		buf[0] = "testbin/argtest";
 		execv(*buf,  (char**)args);
 

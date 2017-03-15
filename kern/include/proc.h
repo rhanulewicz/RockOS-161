@@ -76,6 +76,7 @@ struct proc {
 	int exitCode;
 	int pid;
 	int parentpid;
+	bool signal;
 	struct proc* parent;
 	//Every process gets a lock BUT
 	//kproc's proc_lock is to be used as a universal lock
