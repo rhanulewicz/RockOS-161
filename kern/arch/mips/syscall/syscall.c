@@ -312,10 +312,18 @@ ssize_t read(int fd, void *buf, size_t buflen, int32_t *retval){
 
 	lock_acquire(file->lock);
 	struct stat *statBox = kmalloc(sizeof(*statBox));
-	VOP_STAT(file->llfile, statBox);
+	if(file->llfile != NULL && file->llfile->vn_ops != NULL && statBox != NULL){
+		VOP_STAT(file->llfile, statBox);
 
 	if (file->offset > statBox->st_size && !(int)statBox->st_rdev){
+			lock_release(file->lock);
 		*retval = 0;
+		return 0;
+	}
+		
+	}else{
+			lock_release(file->lock);
+		*retval = -1;
 		return 0;
 	}
 
@@ -608,7 +616,7 @@ int execv(const char *program, char **args, int32_t *retval){
 	}
 	
 	int totalSize = 0;
-=
+
 	char * name = kmalloc(strlen(program)+1);
 	int err = copyin((const_userptr_t)program, name , rounded(strlen(program)+1));
 	if(err != 0){
