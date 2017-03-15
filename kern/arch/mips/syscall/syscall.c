@@ -94,6 +94,7 @@ off_t lseek(int fd, off_t pos, int whence, int32_t *retval){
 	
 
 	if(fd < 0 || fd > 63 || curproc->fileTable[fd] == NULL){
+
 		*retval = 0;
 		return (ssize_t)EBADF;
 	}
@@ -110,7 +111,7 @@ off_t lseek(int fd, off_t pos, int whence, int32_t *retval){
 	VOP_STAT(file->llfile, statBox);
 
 	if((int)statBox->st_rdev){
-		*retval = 0;
+		*retval = -1;
 		return (ssize_t)ESPIPE;
 	}
 
@@ -122,6 +123,7 @@ off_t lseek(int fd, off_t pos, int whence, int32_t *retval){
 
 	}
 	else if(whence == SEEK_END){
+
 		file->offset = (statBox->st_size + pos);
 	}
 	else{
@@ -130,6 +132,7 @@ off_t lseek(int fd, off_t pos, int whence, int32_t *retval){
 		return EINVAL;
 	}
 	*retval = file->offset; 
+
 	return (off_t)0;
 }
 
@@ -337,7 +340,23 @@ ssize_t read(int fd, void *buf, size_t buflen, int32_t *retval){
 
 int dup2(int oldfd, int newfd, int32_t *retval){
 	//If newfd names an already-open file, that file is closed.
-	if(curproc->fileTable[newfd] != NULL){
+	if(oldfd == newfd){
+		*retval = newfd;
+		return 0;
+	}
+	if(oldfd < 0 || oldfd > 63){
+		*retval = (int32_t)0;
+		return EBADF;
+	}
+	if(newfd < 0 || newfd > 63){
+		*retval = (int32_t)0;
+		return EBADF;
+	}
+	if(curproc->fileTable[oldfd] == NULL ){
+		*retval = (int32_t)0;
+		return EBADF;
+	}
+	if(curproc->fileTable[newfd] != NULL ){
 		close(newfd, 0);
 	}
 	/*Clones the file handle identifed by file descriptor oldfd onto the file handle
