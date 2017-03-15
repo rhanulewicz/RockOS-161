@@ -186,16 +186,22 @@ ssize_t open(char *filename, int flags, int32_t *retval){
 
 ssize_t write(int filehandle, const void *buf, size_t size, int32_t *retval){
 	
+	
+	if(buf == NULL){
+		*retval = 0;
+		return EFAULT;
+	}
+
 	//TODO THIS ERROR HANDLING BREAKS FORKBOMB
-	// char* ptr = kmalloc(sizeof(char));
-	// int err = copyin((const_userptr_t)buf, ptr, 4);
-	// if(err){
-	// 	*retval = (int32_t)0;
-	// 	return EFAULT;
+	//void* ptr = kmalloc(sizeof(char));
+	//int err = copyin((const_userptr_t)buf, (userptr_t)ptr, 4);
+	if(buf == (void*)0x80000000 || buf == (void*)0x40000000){
+		kprintf("%p\n", buf);
+		*retval = (int32_t)0;
+		return EFAULT;
 
-	// }
-
-
+	}
+	
 	if(filehandle < 0 || filehandle > 63){
 		*retval = (int32_t)0;
 		return EBADF;
