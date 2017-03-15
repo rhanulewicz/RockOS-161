@@ -116,14 +116,25 @@ off_t lseek(int fd, off_t pos, int whence, int32_t *retval){
 	}
 
 	if(whence == SEEK_SET){
+		if(pos < 0){
+			*retval = -1;
+			return EINVAL;
+		}
 		file->offset = pos;
 	}
 	else if(whence == SEEK_CUR){
+		if((file->offset) + (pos) < 0){
+			*retval = -1;
+			return EINVAL;
+		}
 		file->offset = (file->offset) + (pos);
 
 	}
 	else if(whence == SEEK_END){
-
+		if((statBox->st_size + pos) < 0){
+			*retval = -1;
+			return EINVAL;
+		}
 		file->offset = (statBox->st_size + pos);
 	}
 	else{
