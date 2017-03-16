@@ -170,7 +170,9 @@ ssize_t open(char *filename, int flags, int32_t *retval){
 	trash = kmalloc(sizeof(struct vnode));
 	file = kmalloc(sizeof(struct fileContainer));
 	file->lock = lock_create("mememachine");
+	
 	lock_acquire(file->lock);
+	
 	file->refCount = kmalloc(sizeof(int));
 	*file->refCount = 1;
 	char* filestar = filename;
@@ -209,8 +211,13 @@ ssize_t write(int filehandle, const void *buf, size_t size, int32_t *retval){
 	}
 
 	//TODO THIS ERROR HANDLING BREAKS FORKBOMB
-	//void* ptr = kmalloc(sizeof(char));
-	//int err = copyin((const_userptr_t)buf, (userptr_t)ptr, 4);
+	// void* ptr = kmalloc(sizeof(char));
+	// int err = copyin((const_userptr_t)buf, (userptr_t)ptr, 4);
+	// if(err){
+	// 	*retval = (int32_t)0;
+	// 	return EFAULT;
+
+	// }
 	if(buf == (void*)0x80000000 || buf == (void*)0x40000000){
 		kprintf("%p\n", buf);
 		*retval = (int32_t)0;
@@ -310,23 +317,23 @@ ssize_t read(int fd, void *buf, size_t buflen, int32_t *retval){
 	}
 
 
-	lock_acquire(file->lock);
 	struct stat *statBox = kmalloc(sizeof(*statBox));
 	if(file->llfile != NULL && file->llfile->vn_ops != NULL && statBox != NULL){
 		VOP_STAT(file->llfile, statBox);
 
 	if (file->offset > statBox->st_size && !(int)statBox->st_rdev){
-			lock_release(file->lock);
+		//lock_release(file->lock);
 		*retval = 0;
 		return 0;
 	}
 		
 	}else{
-			lock_release(file->lock);
+		//lock_release(file->lock);
 		*retval = -1;
 		return 0;
 	}
 
+	lock_acquire(file->lock);
 	//Remember to give the user the size variable back (copyout, look at sys__time)
 	//Builds all info we need to read
 	struct uio thing;
@@ -412,7 +419,7 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 	}
 
 	//Initialize pointer to a new file table for the new proces
-
+	
 	// Copy curproc's file table to new process
 	for(int i = 0; i < 64; i++){
 		if(curproc->fileTable[i] != NULL){
@@ -604,21 +611,31 @@ int rounded(int a){
 }
 
 int execv(const char *program, char **args, int32_t *retval){
-
-	(void)program;
-	(void)args;
-	(void)retval;
-
+	
+	void *fakeptr = kmalloc(4);
+	int err1 = copyin((const_userptr_t)program, fakeptr, 4);
+	if (err1){
+		return err1;
+	}
+	int err2 = copyin((const_userptr_t)args, fakeptr, 4);
+	if (err2){
+		return err2;
+	}
+	int err3 = copyin((const_userptr_t)*args, fakeptr, 4);
+	if (err3){
+		return err3;
+	}
 
 	if(program == NULL  ||args == NULL || (void*)args == (void*)0x80000000 || (void*)args == (void*)0x40000000 || (void*)program == (void*)0x80000000 || (void*)program == (void*)0x40000000 || strlen(program) == 0){
 		*retval = ENOENT;
 		_exit(107);
 	}
-	
-	int totalSize = 0;
 
+	int totalSize = 0;
+	
 	char * name = kmalloc(strlen(program)+1);
 	int err = copyin((const_userptr_t)program, name , rounded(strlen(program)+1));
+	
 	if(err != 0){
 		_exit(107);
 	}
@@ -640,10 +657,10 @@ int execv(const char *program, char **args, int32_t *retval){
 	for(int i = 0; i < (nargs - 1); i++){
 		totalSize += rounded(strlen(*(args + i)) + 1);
 	}
-
+	
 	void * buffer = kmalloc((4*nargs) + totalSize);
 	memset(buffer, '\0', (4*nargs) + totalSize);
-
+	
 	for(int i = 0; i < __ARG_MAX/8; i++){
 		if(*(args+i) == NULL){
 			int err = copyin((const_userptr_t)args, buffer + i , 4);
@@ -654,7 +671,7 @@ int execv(const char *program, char **args, int32_t *retval){
 		}
 		copyin((const_userptr_t)args, buffer + i , 4);
 	}
-
+	
 	for(int i = 0; i < (nargs - 1); i++){
 		int err = copyin((const_userptr_t)*(args + i), (char *)(buffer + (4*nargs) + sizeOfLastArgs), rounded(strlen(*(args + i)) + 1));
 		if(err){
@@ -662,7 +679,7 @@ int execv(const char *program, char **args, int32_t *retval){
 		}
 		sizeOfLastArgs += rounded(strlen(*(args + i)) + 1);
 	}
-
+	
 
 	as_deactivate();
 	// struct addrspace *old = proc_setas(NULL);
