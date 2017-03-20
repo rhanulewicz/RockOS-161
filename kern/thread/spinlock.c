@@ -77,7 +77,6 @@ void
 spinlock_acquire(struct spinlock *splk)
 {
 	struct cpu *mycpu;
-
 	splraise(IPL_NONE, IPL_HIGH);
 
 	/* this must work before curcpu initialization */
@@ -93,8 +92,8 @@ spinlock_acquire(struct spinlock *splk)
 	else {
 		mycpu = NULL;
 	}
-
 	while (1) {
+
 
 		/*
 		 * Do test-test-and-set, that is, read first before
@@ -115,7 +114,6 @@ spinlock_acquire(struct spinlock *splk)
 
 		break;
 	}
-
 	membar_store_any();
 	splk->splk_holder = mycpu;
 

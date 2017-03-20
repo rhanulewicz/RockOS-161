@@ -5,7 +5,7 @@
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
- * 1. Redistributions of source code must retain the above copyright
+ * 1. Redistributions of source code must retain the above copyrightn
  *    notice, this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
@@ -103,23 +103,25 @@ off_t lseek(int fd, off_t pos, int whence, int32_t *retval){
 	
 	struct fileContainer *file = curproc->fileTable[fd];
 	struct stat *statBox = kmalloc(sizeof(*statBox));
-
 	//fd is not a valid file descriptor
 	if(file == NULL){
 		*retval = -1;
+		kfree(statBox);
 		return EBADF;
 	}
 	//Gets us the size of the file, stores it in statBox->st_size
 	VOP_STAT(file->llfile, statBox);
-
 	if((int)statBox->st_rdev){
 		*retval = -1;
+		kfree(statBox);
+
 		return (ssize_t)ESPIPE;
 	}
 
 	if(whence == SEEK_SET){
 		if(pos < 0){
 			*retval = -1;
+			kfree(statBox);
 			return EINVAL;
 		}
 		file->offset = pos;
@@ -127,6 +129,7 @@ off_t lseek(int fd, off_t pos, int whence, int32_t *retval){
 	else if(whence == SEEK_CUR){
 		if((file->offset) + (pos) < 0){
 			*retval = -1;
+			kfree(statBox);
 			return EINVAL;
 		}
 		file->offset = (file->offset) + (pos);
@@ -135,6 +138,7 @@ off_t lseek(int fd, off_t pos, int whence, int32_t *retval){
 	else if(whence == SEEK_END){
 		if((statBox->st_size + pos) < 0){
 			*retval = -1;
+			kfree(statBox);
 			return EINVAL;
 		}
 		file->offset = (statBox->st_size + pos);
@@ -142,33 +146,37 @@ off_t lseek(int fd, off_t pos, int whence, int32_t *retval){
 	else{
 		//whence is invalid
 		*retval = -1;
+		kfree(statBox);
 		return EINVAL;
 	}
 	*retval = file->offset; 
-
+	//For some reason, kfree here breaks fileonlytest and I can't tell why
+	//kfree(statBox);
 	return (off_t)0;
 }
 
 ssize_t open(char *filename, int flags, int32_t *retval){
 	//Build our fileContainer
-	//kprintf("Flags %d\n", flags);
 	if(flags != 22 && flags != 21 && flags != O_RDONLY && flags != O_WRONLY && flags != O_RDWR && flags != O_CREAT && flags != O_EXCL && flags != O_TRUNC && flags != O_APPEND){
 		*retval = (int32_t)0;
 		return EINVAL;
 	}
-	//If there's an issue with this error, it's because I fucking guessed the 0x410000 lower bounds
-	//kprintf("Addr: %p", filename);
 	char* ptr = kmalloc(sizeof(char));
 	int err = copyin((const_userptr_t)filename, ptr, 4);
 	if(err){
 		*retval = (int32_t)0;
+		kfree(ptr);
 		return EFAULT;
-
 	}
-	struct fileContainer *file;
-	struct vnode *trash;
-	trash = kmalloc(sizeof(struct vnode));
-	file = kmalloc(sizeof(struct fileContainer));
+	kfree(ptr);
+
+	struct fileContainer *file = kmalloc(sizeof(*file));
+	struct vnode *vn = kmalloc(sizeof(*vn));
+
+	//vn = kmalloc(sizeof(struct vnode));
+	//spinlock_init(&vn->vn_countlock);
+	//vn->vn_refcount = 1;
+	//file = kmalloc(sizeof(struct fileContainer));
 	file->lock = lock_create("mememachine");
 	
 	lock_acquire(file->lock);
@@ -180,8 +188,9 @@ ssize_t open(char *filename, int flags, int32_t *retval){
 	file->offset = 0;
 	//Generate our vnode
 
-	vfs_open(filestar, flags, 0, &trash);
-		file->llfile = trash;
+	vfs_open(filestar, flags, 0, &vn);
+
+	file->llfile = vn;
 	
 	//Places our file in the first empty slot in curproc's fileTable
 	//The user gets back the index at which it was placed (file descriptor)
@@ -210,7 +219,7 @@ ssize_t write(int filehandle, const void *buf, size_t size, int32_t *retval){
 		return EFAULT;
 	}
 
-	//TODO THIS ERROR HANDLING BREAKS FORKBOMB
+	//THIS ERROR HANDLING BREAKS FORKBOMB FOR SOME REASON
 	// void* ptr = kmalloc(sizeof(char));
 	// int err = copyin((const_userptr_t)buf, (userptr_t)ptr, 4);
 	// if(err){
@@ -219,7 +228,6 @@ ssize_t write(int filehandle, const void *buf, size_t size, int32_t *retval){
 
 	// }
 	if(buf == (void*)0x80000000 || buf == (void*)0x40000000){
-		kprintf("%p\n", buf);
 		*retval = (int32_t)0;
 		return EFAULT;
 
@@ -232,15 +240,11 @@ ssize_t write(int filehandle, const void *buf, size_t size, int32_t *retval){
 	
 	struct fileContainer *file = curproc->fileTable[filehandle];
 
+	//fd is not a valid file descriptor, or was not opened for writing.	
 	if (file == NULL || file->permflag == O_RDONLY || file->permflag == 4){
 		*retval = (int32_t)0;
 		return EBADF;
 	}
-	//kprintf("flag %d", file->permflag);
-	
-	// kprintf("%p\n", curproc->fileTable[filehandle]);
-	//fd is not a valid file descriptor, or was not opened for writing.
-
 	
 
 	KASSERT(file->lock != NULL);
@@ -267,7 +271,6 @@ ssize_t write(int filehandle, const void *buf, size_t size, int32_t *retval){
 
 	*retval = (int32_t)size;
 	KASSERT(file->lock != NULL);
-	//kprintf("hello mama\n");
 	lock_release(file->lock);
 	return (ssize_t)0;
 }
@@ -283,7 +286,15 @@ ssize_t close(int fd, int32_t *retval){
 	*curproc->fileTable[fd]->refCount -= 1;
 	lock_release(curproc->fileTable[fd]->lock);
 	//If this no more references to this fileContainer exist, OBLITERATE IT
-	if(*curproc->fileTable[fd]->refCount == 545){
+	
+	if(*curproc->fileTable[fd]->refCount == 100){
+		/*	
+			Something super fucky is going on here in vfs_close(). I don't think we are creating 
+			the vnode correctly. At first, a refcount > 0 assertion will fail. So I manually 
+			initialied the vnode's refoucnt in open(). Then, this gives us a 'null ops pointer' 
+			panic. I have no idea how to service that one. Something must be wrong with how we 
+			are creating the vnode to begin with.
+		*/
 		vfs_close(curproc->fileTable[fd]->llfile);
 		// kfree(curproc->fileTable[fd]);
 	}
@@ -298,35 +309,49 @@ ssize_t close(int fd, int32_t *retval){
 }
 
 ssize_t read(int fd, void *buf, size_t buflen, int32_t *retval){
-	//Fetch our fileContainer
+	
 	char* ptr = kmalloc(sizeof(char));
 	int err = copyin((const_userptr_t)buf, ptr, 4);
 	if(err){
 		*retval = (int32_t)0;
+		kfree(ptr);
 		return EFAULT;
 
 	}
+	kfree(ptr);
+
 	if(fd < 0 || fd > 63){
 		*retval = (int32_t)0;
 		return EBADF;
 	}
+	
+	//Fetch our fileContainer
 	struct fileContainer *file = curproc->fileTable[fd];
 	//fd is not a valid file descriptor, or was not opened for reading.
 	if (file == NULL || file->permflag == O_WRONLY){
 		return EBADF;
 	}
 
+	/*
+		For some reason, I'm not allowed to kfree statBox or else argtest breaks....????
+		Similar issue, unable to kfree at the end of lseek() as well. Dont know why.
+	*/
 
 	struct stat *statBox = kmalloc(sizeof(*statBox));
+
+	/*
+		The need for this check probably also comes from our creating the vnode incorrectly,
+		as mentioned in a comment in close()
+	*/
 	if(file->llfile != NULL && file->llfile->vn_ops != NULL && statBox != NULL){
 		VOP_STAT(file->llfile, statBox);
 
-	if (file->offset > statBox->st_size && !(int)statBox->st_rdev){
-		//lock_release(file->lock);
-		*retval = 0;
-		return 0;
-	}
-		
+		if (file->offset > statBox->st_size && !(int)statBox->st_rdev){
+			//lock_release(file->lock);
+			*retval = 0;
+			return 0;
+		}
+			
 	}else{
 		//lock_release(file->lock);
 		*retval = -1;
@@ -362,7 +387,6 @@ ssize_t read(int fd, void *buf, size_t buflen, int32_t *retval){
 	*retval = (int32_t)amountRead;
 	
 	lock_release(file->lock);
-
 	return (ssize_t)0;
 }
 
@@ -396,11 +420,6 @@ int dup2(int oldfd, int newfd, int32_t *retval){
 	return 0;
 }
 
-/*REMEMBER CHILDREN
-THE PROCESS TABLE BELONGS TO KPROC
-THE HIGHEST PID BELONGS TO KPROC
-THE MASTER LOCK BELONGS TO KPROC
-YOUR SOUL BELONGS TO KPROC*/
 pid_t fork(struct trapframe *tf, int32_t *retval){
 
 	//Initialize pointer to new process
@@ -485,10 +504,6 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 
 void copytf(void *tf, unsigned long ts){
 	(void)ts;
-	// if(curproc->pid == 0){
-	// 	thread_exit();
-	// 	return;
-	// }
 	//Activitates new address space
 	as_activate();
 	// lock_acquire(curproc->proc_lock);
@@ -506,9 +521,6 @@ void copytf(void *tf, unsigned long ts){
 	mips_usermode(&ctf);
 }
 
-//IF WE HAVE MEMORY PROBLEMS, LOOKY HERE
-//We can save on memory if we only have one condition variable
-//But will be more inefficient in terms of the broadcast
 pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
 
 	if(options != 0){
@@ -543,6 +555,7 @@ pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
 		lock_acquire(procToReap->proc_lock);
 		lock_release(procToReap->proc_lock);
 	}
+	lock_acquire(procToReap->proc_lock);
 	
 	//Copies the exitcode out to userland through status
 	if(procToReap->signal){
@@ -554,18 +567,27 @@ pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
 		copyout(&temp, (userptr_t)status, 4);
 	}
 	
+	//For some reason I cannot kfree the refCount, close the vnode, etc
+	//proc_destroy also doesn't work...
+	//What else needs to be done here?
 	for(int i = 0; i < 64; ++i){
 		procToReap->fileTable[i] = NULL;
+		kfree(procToReap->fileTable[i]);
 	}
+	lock_release(procToReap->proc_lock);
+	
 	lock_destroy(procToReap->proc_lock);
 
-	*retval = procToReap->pid;
 	procTable[procToReap->pid - 1] = NULL;
+	
+	*retval = procToReap->pid;
+	
 	struct addrspace *as;
 	as = procToReap->p_addrspace;
 	procToReap->p_addrspace = NULL;
 	as_destroy(as);
-	// proc_destroy(procToReap);
+
+	//proc_destroy(procToReap);
 
 	// spinlock_cleanup(&procToReap->p_lock);
 
@@ -610,6 +632,7 @@ int rounded(int a){
 	return rounded(a+1);
 }
 
+//Unlear on what can be safely kfree'd in here
 int execv(const char *program, char **args, int32_t *retval){
 	
 	void *fakeptr = kmalloc(4);
@@ -728,7 +751,6 @@ int execv(const char *program, char **args, int32_t *retval){
 
 	// + 12 will be the size of programname
 	stackptr -= ((4*nargs) + sizeOfLastArgs);
-	// kprintf("%p\n", (void *)stackptr);
 	sizeOfLastArgs = 0; 
 
 	for(int i = 0; i < nargs; ++i){

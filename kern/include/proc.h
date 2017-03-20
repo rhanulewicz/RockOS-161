@@ -77,9 +77,6 @@ struct proc {
 	int pid;
 	int parentpid;
 	bool signal;
-	struct proc* parent;
-	//Every process gets a lock BUT
-	//kproc's proc_lock is to be used as a universal lock
 	struct lock *proc_lock;
 
 	
@@ -123,8 +120,6 @@ struct fileContainer{
 	int *refCount;
 	struct lock* lock;
 };
-
-void cloneFileContainer(struct fileContainer*, struct fileContainer*);
 
 
 #endif /* _PROC_H_ */

@@ -332,11 +332,3 @@ proc_setas(struct addrspace *newas)
 	spinlock_release(&proc->p_lock);
 	return oldas;
 }
-
-void cloneFileContainer(struct fileContainer* fc, struct fileContainer* nfc){
-
-	nfc->llfile = fc->llfile;
-	nfc->offset = fc->offset;
-	nfc->permflag = fc->permflag;
-
-}
