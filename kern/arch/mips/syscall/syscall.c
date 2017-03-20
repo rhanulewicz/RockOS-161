@@ -5,7 +5,7 @@
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
- * 1. Redistributions of source code must retain the above copyrightn
+ * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
@@ -161,6 +161,7 @@ ssize_t open(char *filename, int flags, int32_t *retval){
 		*retval = (int32_t)0;
 		return EINVAL;
 	}
+
 	char* ptr = kmalloc(sizeof(char));
 	int err = copyin((const_userptr_t)filename, ptr, 4);
 	if(err){
@@ -172,13 +173,18 @@ ssize_t open(char *filename, int flags, int32_t *retval){
 
 	struct fileContainer *file = kmalloc(sizeof(*file));
 	struct vnode *vn = kmalloc(sizeof(*vn));
-
-	//vn = kmalloc(sizeof(struct vnode));
+	
+	//SOLUTIONS I TRIED BUT FAILED:
+	//USING VNODE_INIT - NO IDEA HOW TO USE IT
+	// const struct vnode_ops *idkops = kmalloc(sizeof(*idkops));
+	// struct fs *idkfs = kmalloc(sizeof(idkfs));
+	// void* idkfsdata = kmalloc(sizeof(*idkfsdata));
+	// vnode_init(vn,idkops, idkfs, idkfsdata);
+	//MANUAL INITIALIZATION - DOESNT WORK
 	//spinlock_init(&vn->vn_countlock);
 	//vn->vn_refcount = 1;
-	//file = kmalloc(sizeof(struct fileContainer));
+
 	file->lock = lock_create("mememachine");
-	
 	lock_acquire(file->lock);
 	
 	file->refCount = kmalloc(sizeof(int));
@@ -186,10 +192,13 @@ ssize_t open(char *filename, int flags, int32_t *retval){
 	char* filestar = filename;
 	file->permflag = flags;
 	file->offset = 0;
+	
 	//Generate our vnode
-
 	vfs_open(filestar, flags, 0, &vn);
 
+	//This doesn't seem to help much but it feels like I'm supposed to do it
+	VOP_INCREF(vn);
+	
 	file->llfile = vn;
 	
 	//Places our file in the first empty slot in curproc's fileTable
@@ -285,18 +294,29 @@ ssize_t close(int fd, int32_t *retval){
 	lock_acquire(curproc->fileTable[fd]->lock);
 	*curproc->fileTable[fd]->refCount -= 1;
 	lock_release(curproc->fileTable[fd]->lock);
+
 	//If this no more references to this fileContainer exist, OBLITERATE IT
-	
+	//BROKEN - Temporarily set to 100 to prevent this from tripping
 	if(*curproc->fileTable[fd]->refCount == 100){
 		/*	
 			Something super fucky is going on here in vfs_close(). I don't think we are creating 
 			the vnode correctly. At first, a refcount > 0 assertion will fail. So I manually 
-			initialied the vnode's refoucnt in open(). Then, this gives us a 'null ops pointer' 
-			panic. I have no idea how to service that one. Something must be wrong with how we 
-			are creating the vnode to begin with.
+			initialied the vnode's refcount in open(). Then, this gives us a 'null ops pointer' 
+			panic. So I tried VOP_INCREF in open() instead, but then the refcount assertion 
+			fails again. Then I tried both together, and we're back to null ops pointer. 
+			I have no idea how to service this. Something must be wrong with how we are 
+			creating the vnode to begin with.
 		*/
+
+		//THIS PRINTS -2147268639 WHAT THE FUCK
+		//kprintf("vf ref: %d\n", curproc->fileTable[fd]->llfile->vn_refcount);
+
+		//Niether of these work, both return similar errors, tried with one on one off.
+		VOP_DECREF(curproc->fileTable[fd]->llfile);
 		vfs_close(curproc->fileTable[fd]->llfile);
-		// kfree(curproc->fileTable[fd]);
+
+		//Do I have to do any more work when freeing the filecontainer?
+		kfree(curproc->fileTable[fd]);
 	}
 	//Empty its space in the table.
 	curproc->fileTable[fd] = NULL;
