@@ -32,6 +32,7 @@ https://discourse.ops-class.org/t/on-to-asst3-1/468
 [ASST 3 RECITATION 1 NOTES]
 
 Slides: https://drive.google.com/file/d/0B2KANO6SyBWlaFY3M2hwTEhCVkE/view
+Video: https://www.youtube.com/watch?v=tNzwSD-smiM
 
 ASST3 Overview
 	ASST3 is divided into three incremental parts
@@ -185,16 +186,12 @@ ASST3.1 REVIEW
 		User process sees the memory as contiguous address space.
 		The operating system manages address spaces and the assignemnt of real memory to virtual memory.
 		Memory Management Unit (MMU) uses the Translation Lookaside Buffer (TLB) to translate virtual addresses to physical addresses
-		Virtual Memory benefits include:
-			User program doesn't need to worry about managing a shared memory space.
-			It provides memory isolation which leads to increased security.
-			It is able to conceptually use more memory than might be physically availible.
 
 ASST3.1 OVERVIEW
-	Reconfigure os161 for ASST3 -- remove DumbVM
+	1) Reconfigure os161 for ASST3 -- remove DumbVM
 		"Your kernel wont boot. There is going to be some arithmetic involved in getting it up and running. Talk to course staff. They have shortcuts." - Carl
 
-	Design one data structure, the coremap
+	2) Design one data structure, the coremap
 		The first step in implementing physical memory management for your VM
 		A coremap is a data structure that keeps track of the state of all physical page frames
 		Number of entries in the coremap is going to be fixed, and must be accessed quickly
@@ -203,7 +200,7 @@ ASST3.1 OVERVIEW
 			
 		All you need to keep track of now is whether a particular physcial frame is allocated and the size of each allocation request
 
-	Write code to initialize data structure
+	3) Write code to initialize data structure
 		When to initialize the coremap data structure:
 			Study the order of initialization functions (bootstrap functions) in kern/main/main.c
 		Scenario 1: in vm_bootstrap() function
@@ -212,10 +209,10 @@ ASST3.1 OVERVIEW
 			It's very early on, but THIS IS THE ONLY WAY. Talk to staff. They have shortcuts.
 		"We can't just declare a global array. We also can't use kmalloc. We will have to manually create this data structure ourselves"
 
-	(Re)write two functions: alloc_kpages() and free_kpages()
+	4) (Re)write two functions: alloc_kpages() and free_kpages()
 		These functions are called by kmalloc() and kfree() respectively
 
-	Pass five tests: km1-km5
+	5) Pass five tests: km1-km5
 		These tests are run from the kernel menu
 
 "That's assignment 3.1. Design the data strcuture that represents physical memrory, initialize the coremap, write a couple function to support kmalloc and kfree. Look at DumbVM to see how its done right now but its not a good design going forward."
