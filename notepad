@@ -217,3 +217,17 @@ ASST3.1 OVERVIEW
 
 "That's assignment 3.1. Design the data strcuture that represents physical memrory, initialize the coremap, write a couple function to support kmalloc and kfree. Look at DumbVM to see how its done right now but its not a good design going forward."
 
+[CODE OBSERVATIONS]
+
+ram.c contains functions to help with initializing the VM system, such as ram_getsize() and ram_getfirstfree(). 
+
+kern/arch/mips/include/vm.h contains VM system definitions, such as PAGE_SIZE (= 4096) and MIPS_KSEG0 (= 0x80000000)
+
+As well as this awesome macro: PADDR_TO_KVADDR(paddr) ((paddr)+MIPS_KSEG0)
+(used in DUMBVM alloc_kpages())
+
+We need to build the data structure sometime before proc_bootstrap, before the first kmalloc. Either in ram_bootstrap or create our own function.
+
+I put some notes in the code stubs to take a guess at what needs to be done. Nothing can really be done right now without the coremap data structure.
+
+Curiosity: All of the as_ functions got ripped out with DumbVM, breaking everything even if we get booting. I'm guessing we implement these again at some point? Don't worry about it now.
