@@ -48,11 +48,18 @@
 #include <current.h>
 #include <addrspace.h>
 #include <vnode.h>
+#include <syscall.h>
+#include <synch.h>
 
 /*
  * The process for the kernel; this holds all the kernel-only threads.
  */
 struct proc *kproc;
+
+void first_proc(){
+	
+	return;
+}
 
 /*
  * Create a proc structure.
@@ -62,7 +69,7 @@ struct proc *
 proc_create(const char *name)
 {
 	struct proc *proc;
-
+	
 	proc = kmalloc(sizeof(*proc));
 	if (proc == NULL) {
 		return NULL;
@@ -72,13 +79,13 @@ proc_create(const char *name)
 		kfree(proc);
 		return NULL;
 	}
+	// *proc->highestPid = 0;
 
 	proc->p_numthreads = 0;
 	spinlock_init(&proc->p_lock);
 
 	/* VM fields */
 	proc->p_addrspace = NULL;
-
 	/* VFS fields */
 	proc->p_cwd = NULL;
 
@@ -177,11 +184,18 @@ proc_destroy(struct proc *proc)
  */
 void
 proc_bootstrap(void)
-{
+{	
+
 	kproc = proc_create("[kernel]");
+	highPid = 3;
+	kproc->pid = 1;
+	procLock = lock_create("proclock");
 	if (kproc == NULL) {
 		panic("proc_create for kproc failed\n");
 	}
+	kproc->pid = 1;
+	procLock = lock_create("new lock");
+	highPid = 3;
 }
 
 /*

@@ -113,6 +113,8 @@ cmd_progthread(void *ptr, unsigned long nargs)
  * array and strings, until you do this a race condition exists
  * between that code and the menu input code.
  */
+
+
 static
 int
 common_prog(int nargs, char **args)
@@ -122,17 +124,51 @@ common_prog(int nargs, char **args)
 	unsigned tc;
 
 	/* Create a process for the new program to run in. */
+	
 	proc = proc_create_runprogram(args[0] /* name */);
+	
 	if (proc == NULL) {
 		return ENOMEM;
 	}
+	
+	struct fileContainer *stdout;
+	struct fileContainer *placehold1 = kmalloc(sizeof(struct fileContainer));
+	struct fileContainer *placehold2 = kmalloc(sizeof(struct fileContainer));
+
+	stdout = kmalloc(sizeof(struct fileContainer));
+	stdout->lock = lock_create("stdoutlock");
+	stdout->offset = 0;
+	stdout->permflag = 1;
+	stdout->refCount = kmalloc(sizeof(int));
+	*stdout->refCount = 1;
+	*placehold1 = *stdout;
+	*placehold2 = *stdout;
+	placehold1->permflag = 0;
+
+	char bar [] = "con:";
+	char foo [] = "con:";
+	char foobar [] = "con:";
+	vfs_open(bar, 0, 0, &placehold1->llfile); 
+	vfs_open(foo, 1, 0, &stdout->llfile); 
+	vfs_open(foobar, 1, 0, &placehold2->llfile); 
+
+	proc->fileTable[0] = placehold1;
+	proc->fileTable[1] = stdout;
+	proc->fileTable[2] = placehold2;
+
+	proc->pid = 2;
 
 	tc = thread_count;
+
+	
+	// lock_acquire(kproc->proc_lock);
+	proc->proc_lock = lock_create("proclock");
 
 	result = thread_fork(args[0] /* thread name */,
 			proc /* new process */,
 			cmd_progthread /* thread function */,
 			args /* thread arg */, nargs /* thread arg */);
+
 	if (result) {
 		kprintf("thread_fork failed: %s\n", strerror(result));
 		proc_destroy(proc);
@@ -143,9 +179,14 @@ common_prog(int nargs, char **args)
 	 * The new process will be destroyed when the program exits...
 	 * once you write the code for handling that.
 	 */
-
+	int retval;
+	waitpid(proc->pid, NULL, 0, &retval);
+	
 	// Wait for all threads to finish cleanup, otherwise khu be a bit behind,
 	// especially once swapping is enabled.
+	
+	//PUT THIS BACK WHEN DONE
+	(void)tc;
 	thread_wait_for_count(tc);
 
 	return 0;
@@ -184,7 +225,6 @@ cmd_shell(int nargs, char **args)
 	}
 
 	args[0] = (char *)_PATH_SHELL;
-
 	return common_prog(nargs, args);
 }
 
@@ -593,6 +633,8 @@ static const char *testmenu[] = {
 	"[lt1]  Lock test 1           (1)    ",
 	"[lt2]  Lock test 2           (1*)   ",
 	"[lt3]  Lock test 3           (1*)   ",
+	"[lt4]  Lock test 4           (1*)   ",
+	"[lt5]  Lock test 5           (1*)   ",
 	"[cvt1] CV test 1             (1)    ",
 	"[cvt2] CV test 2             (1)    ",
 	"[cvt3] CV test 3             (1*)   ",
@@ -743,6 +785,8 @@ static struct {
 	{ "lt1",	locktest },
 	{ "lt2",	locktest2 },
 	{ "lt3",	locktest3 },
+	{ "lt4", 	locktest4 },
+	{ "lt5", 	locktest5 },
 	{ "cvt1",	cvtest },
 	{ "cvt2",	cvtest2 },
 	{ "cvt3",	cvtest3 },

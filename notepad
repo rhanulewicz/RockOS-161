@@ -1,0 +1,219 @@
+[FROM THE ASST3 DESCRIPTION: https://www.ops-class.org/asst/3/]
+
+We might want to heed these warnings. We definitely felt this a bit in ASST2 and especially now during our cleanup process:
+
+"As a final piece of advice, ASST2 and ASST3 begin to produce code bases that are large, complex, and potentially very difficult to debug. You do not want to introduce bugs into your kernel because they will be very hard to remove. Our advice—​slow down, design, think, design again, discuss with your partner, and slow down again. Then write some code."
+
+"Note that because you are designing a much larger and more independent OS module, a good design is ever more important for ASST3 than it was for ASST2-"
+
+
+Be able to answer:
+    What will your page tables look like?
+
+    What should you put in each page table entry (PTE)?
+
+    What will your coremap (or reverse page table) look like?
+
+    In what order can TLB faults and page faults occur? For example, can a page fault occur without causing a TLB fault?
+
+    What is your strategy for splitting the assignment into smaller pieces that can be developed and tested separately? You are strongly encouraged to add new user and kernel tests as needed.
+
+
+Important website material for getting started on ASST3.1: 	
+	5.1. Setup	
+	5.2. Tracking Kernel Page Allocations
+	6.1. Coremap	
+	
+
+MORE CLARIFICATION IN CARL'S MASTER FORUM POST: 
+https://discourse.ops-class.org/t/on-to-asst3-1/468
+
+
+[ASST 3 RECITATION 1 NOTES]
+
+Slides: https://drive.google.com/file/d/0B2KANO6SyBWlaFY3M2hwTEhCVkE/view
+Video: https://www.youtube.com/watch?v=tNzwSD-smiM
+
+ASST3 Overview
+	ASST3 is divided into three incremental parts
+		3.1 - Physical Memory Management (Coremap)				DUE 4/7
+			Scroll down to 'ASST3.1 OVERVIEW' for more info
+		3.2 - Address Space and TLB Management (User Paging)	DUE 4/21
+		3.3 - Swapping											DUE 5/5
+
+VM Interfaces
+	Virtual Memory Management (RELEVANT TO ASST3.1)
+		Defined in: kern/include/vm.h
+		Dumb implementations of these functions in DUMBVM. They are intentionally bad.
+		Interfaces:
+			vm_bootstrap(): 
+				Function to initialize VM Subsystem data structures.
+				Problem: Dependency issues in subsystem boot order. 
+				"This isn't actually a bootstrap." - Carl
+			
+			alloc_kpages(): NEED TO WRITE FOR ASST3.1
+				Allocates n coniguous physical pages (Called by kmalloc)
+				"Your implementation should call a working getppages routine that checks your coremap for the status of free pages and returns appropriately" - Carl
+
+			free_kpages(): NEED TO WRITE FOR ASST3.1
+				Free pages starting at a physical address argument (Called by kfree)
+				Problem: Need to know how many pages to free
+
+			vm_tlbshootdown(): 
+				Remove an entry from another CPU's TLB address mapping.
+				"Forget about this until you get to swapping" - Carl
+
+			vm_fault(): 
+				Routing to handle pagefaults.
+				"Very important. Gets called every time there is a page fault. You need to do a lot of implementation and optimization in this"
+				"If the user refers to a virtual address, the TLB checks to see if there's an entry, if there is not, it does a page fault and this routine is immediately called"
+				"Says 'memory manager, there's a page fault what do you want to do?', and you need to tell it what to do. That's the essence of ASST3.2"
+
+	Address Space Management (RELEVANT TO 3.2)
+		Defined in: kern/include/addrspace.h
+		"You don't have to grasp all this right now. These are more applicable to ASST3.2" - Carl
+		Interfaces:
+			as_create(): 
+				Create a new empty address space
+			as_destroy(): 
+				Destroy an existing address space
+			as_copy(): 
+				Create a copy of an address space
+			as_activate(): 
+				Make current process's address space the one currently seen by the processor
+			as_deactivate(): 
+				Remove the current process's address space so it isn't seen by the processor
+				"activate and deactivate update the TLB for a context switch" - Carl
+			as_define_stack(): 
+				setup the stack segment in the address space and return the initial stack pointer for the new process
+			as_define_region(): 
+				setup a memory segment within the address space
+			as_prepare_load(): 
+				called before loading a segement from disk into the address space
+			as_complete_load(): 
+				called after loading a segement from disk into the address space
+		Usage example: kern/syscall/loadelf.c
+
+	User Memory Management
+		void * sbrk(intptr_t amount)
+			A syscall to set process break (allocate memory)
+			The "break" is the end address of a process's heap region
+			In OS/161, the initial "break" must be page-aligned, and sbrk only need support values of 'amount' that result in page-aligned "break" addresses. Other values of 'amount' may be rejected.
+			Check OS/161 man pages for more details: man/syscall/sbrk.html
+
+DumbVM
+	Implemented in: kern/arch/mips/vm/dumbvm.c
+	Some notes on DumbVM:
+		Don't copy dumbvm.c and try to improve it.
+		DumbVM is not a good design reference.
+		However, you can compare DumbVM to what a VM system is supposed to do.
+
+	Physical Memory Management in DumbVM (RELEVANT TO 3.1)
+		alloc_kpages() / free_kpages()
+		Also check: kern/arch/mips/vm/ram.c
+			ram_bootstrap()
+			ram_stealmem()
+				"Steals memory by just pushing the 'firstpaddr' pointer until you hit the end of memory and crash"
+				"This is why dumbvm sucks" - Carl
+		"The kernel is located in physical address 0 and up, which is mapped to virtual addresses 80000000 and up." - Carl
+
+		Limitations of Physical Memory Management in DumbVM:
+			Doesnt free allocated pages
+			No reclaiming/recycling of pages
+			Keepes stealing RAM until it runs out of pages
+
+		What a VM Subsystem is SUPPOSED to provide:
+			Coremap: A data structure that keeps track of information on all physiical pages frames
+			The ability to reclaim/recycle physical pages
+			"Your page table tracks information on virtual pages, your coremap tracks information on physcial pages (reverse page table!)" - Carl
+
+	User Address Space in DumbVM
+		DumbVM uses the "base and bound" approach to memory segmentation
+
+		Limitations of the User Address Space in DumbVM:
+			Fixed (3) number of segments, including the stack
+				If the other two segements are used for test and data then there is no room for a heap
+			Fixed size of stack: Under dumbvm, user stack is always 72k
+
+		What a VM Subsystem is SUPPOSED to provide:
+			Variable number of segements
+				"5 or 6 should keep you safe" - Carl
+			Variable sized segments (ie stack and heap)
+
+	Address Translation in DumbVM
+		Check vm_fault() function in DumbVM
+			paddr = (faultaddress - vbase) + pbase
+
+		Limitations of Address Translation in DumbVM:
+			Each segment of contiguous virtual memory maps to a corresponding block of continiguous physical memory
+				However, it is easy to implement: physical addresses ca be calculated quickly and there is no need to track individual pages
+
+		What a VM Subsystem is SUPPOSED to provide:
+			Flexible memory remapping: Scattered physical page frames can be mapped into contiguous virtual memory blocks
+				However, need to track individual pages and locate metadata about them (ie PTEs) quickly
+
+	Page Allocation in DumbVM
+		Limitations of Page Allocation in DumbVM:
+			Static allocation: All physical memory is allocated and fixed at program launch
+				Suffers from internal fragementation
+
+		What a VM Subsystem is SUPPOSED to provide:
+			Dynamic allocation: Physical page frames are allocated on demand
+				Allows dynamic growth of stack
+				Supports sparse memory segments and data structures
+				"Don't allocate your memory until you actually need it" -  Carl
+	
+	Swapping in DumbVM
+		DumbVM doesn't support swapping
+			Panic when running out of memory
+
+		What a VM Subsystem is SUPPOSED to provide:
+			Swap out pages when no free physical pages are availible
+
+Design Document
+	What will your data structures look like?
+		Coremap and physical memory metadata
+		Address space and virtual memory metadeta
+		Page table and PTEs
+	What information should each of your data structures have?
+	How will you handle TLB faults and page faults?
+	Do you need to provide synchronization? Where?
+	If yes, then what synchronization primitives do you need to use?
+
+ASST3.1 REVIEW
+	Virtual Memory (VM) Subsystem
+		Memory management technique that maps virtual addresses used by a user process into physical addresses in computer memory.
+		User process sees the memory as contiguous address space.
+		The operating system manages address spaces and the assignemnt of real memory to virtual memory.
+		Memory Management Unit (MMU) uses the Translation Lookaside Buffer (TLB) to translate virtual addresses to physical addresses
+
+ASST3.1 OVERVIEW
+	1) Reconfigure os161 for ASST3 -- remove DumbVM
+		"Your kernel wont boot. There is going to be some arithmetic involved in getting it up and running. Talk to course staff. They have shortcuts." - Carl
+
+	2) Design one data structure, the coremap
+		The first step in implementing physical memory management for your VM
+		A coremap is a data structure that keeps track of the state of all physical page frames
+		Number of entries in the coremap is going to be fixed, and must be accessed quickly
+			"Just a simple array should be fine, possibly in combination with something else" - Carl
+			How much physical memory will we have? That is defined in our sys161.conf file. Tests will be configuring your kernel with varying amounts.
+			
+		All you need to keep track of now is whether a particular physcial frame is allocated and the size of each allocation request
+
+	3) Write code to initialize data structure
+		When to initialize the coremap data structure:
+			Study the order of initialization functions (bootstrap functions) in kern/main/main.c
+		Scenario 1: in vm_bootstrap() function
+			Seems intuitive. But... "that won't work. Look in main.c. There will be a dependency issue with proc_bootstrap() because it needs kmalloc. Put it somewhere before proc_bootstrap(), either in ram_bootstrap() or make your own function" - Carl
+		Scenario 2: Before the first kmalloc() call
+			It's very early on, but THIS IS THE ONLY WAY. Talk to staff. They have shortcuts.
+		"We can't just declare a global array. We also can't use kmalloc. We will have to manually create this data structure ourselves"
+
+	4) (Re)write two functions: alloc_kpages() and free_kpages()
+		These functions are called by kmalloc() and kfree() respectively
+
+	5) Pass five tests: km1-km5
+		These tests are run from the kernel menu
+
+"That's assignment 3.1. Design the data strcuture that represents physical memrory, initialize the coremap, write a couple function to support kmalloc and kfree. Look at DumbVM to see how its done right now but its not a good design going forward."
+

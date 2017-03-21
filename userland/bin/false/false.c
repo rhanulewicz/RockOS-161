@@ -29,6 +29,7 @@
 
 #include <unistd.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 /*
  * false - fail.
@@ -38,8 +39,23 @@
  */
 
 int
-main(void)
+main(int argc, char *argv[])
 {
-	/* Just exit with a failure code. */
-	exit(1);
+	//int i = 0;
+	// while(i < 5){
+	// 	fork();
+	// 	++i;
+	// }
+
+	(void) argc;
+	(void) argv;
+	printf("%d\n",argc);
+	printf("%p\n",argv[0]);
+	printf("%p\n",argv[1]);
+	printf("%p\n",argv[2]);
+	printf("%s\n",argv[0]);
+	printf("%s\n",argv[1]);
+	printf("%s\n",argv[2]);
+	// /* Just exit with a failure code. */
+	// exit(1);
 }

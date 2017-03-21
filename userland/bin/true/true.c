@@ -29,6 +29,7 @@
 
 #include <unistd.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 /*
  * true - succeed.
@@ -37,6 +38,15 @@
 int
 main(void)
 {
-	/* Just exit with success. */
-	exit(0);
+		const char* buf[20];
+		char *args[3];
+	args[0] = (char *)"foo";
+	args[1] = (char *)0x40000000;
+	args[2] = NULL;
+		buf[0] = "testbin/argtest";
+		execv(*buf,  (char**)args);
+
+	
+	return 0;
+	
 }

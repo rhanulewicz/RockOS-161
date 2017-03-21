@@ -161,6 +161,7 @@ main(int argc, char *argv[])
 	tprintf("Seed: %d  Count: %d\n", seed, count);
 
 	srandom(seed);
+	
 	trycalls(an, dofork, count);
 
 	success(TEST161_SUCCESS, SECRET, "/testbin/randcall");

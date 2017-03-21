@@ -99,6 +99,7 @@ vnode_decref(struct vnode *vn)
 
 	KASSERT(vn != NULL);
 
+	//If you get a suspicious hang, it's probably here.
 	spinlock_acquire(&vn->vn_countlock);
 
 	KASSERT(vn->vn_refcount > 0);

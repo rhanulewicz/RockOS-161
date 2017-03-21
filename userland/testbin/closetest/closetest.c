@@ -55,6 +55,7 @@ main(int argc, char **argv)
 	int ret, fd = -1;
 	// Try to open a file and then close it
 	fd = open("/bin/true", O_RDONLY);
+
 	if(fd < 0) {
 		err(-1, "Open syscall failed");
 	}
@@ -69,10 +70,10 @@ main(int argc, char **argv)
 
 	// Can we close 0?
 	ret = close(0);
+
 	if(ret) {
 		err(1, "Failed to close STDIN\n");
 	}
-
 
 	success(TEST161_SUCCESS, SECRET, "/testbin/closetest");
 	return 0;

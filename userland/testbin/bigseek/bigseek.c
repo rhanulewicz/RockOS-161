@@ -131,6 +131,7 @@ check_slogan(int fd, unsigned which)
 			wrongcount++;
 		}
 	}
+	//We fail this check (Checking the other thing we wrote)
 	if (wrongcount > 0) {
 		errx(1, "%u bytes of trash in file", wrongcount);
 	}

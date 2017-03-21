@@ -29,9 +29,18 @@
 
 #ifndef _SYSCALL_H_
 #define _SYSCALL_H_
+#define _exit(x) sys_exit((x),false)
+#define sig_exit(x) sys_exit((x),true)
 
 
 #include <cdefs.h> /* for __DEAD */
+
+extern struct proc* procTable[2000];
+extern struct lock* procLock;
+extern int highPid;
+
+
+
 struct trapframe; /* from <machine/trapframe.h> */
 
 /*
@@ -44,9 +53,6 @@ void syscall(struct trapframe *tf);
  * Support functions.
  */
 
-/* Helper for fork(). You write this. */
-void enter_forked_process(struct trapframe *tf);
-
 /* Enter user mode. Does not return. */
 __DEAD void enter_new_process(int argc, userptr_t argv, userptr_t env,
 		       vaddr_t stackptr, vaddr_t entrypoint);
@@ -56,7 +62,20 @@ __DEAD void enter_new_process(int argc, userptr_t argv, userptr_t env,
  * Prototypes for IN-KERNEL entry points for system call implementations.
  */
 
+ssize_t write(int filehandle, const void *buf, size_t size, int32_t *retval);
+ssize_t open(char *filename, int flags,  int32_t *retval);
+ssize_t close(int fd, int32_t *retval);
+ssize_t read(int fd, void *buf, size_t buflen, int32_t *retval);
+off_t lseek(int fd, off_t pos, int whence, int32_t *retval);
+pid_t fork(struct trapframe *tf, int32_t *retval);
+pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval);
+void sys_exit(int exitcode,bool signaled);
+int execv(const char *program, char **args, int32_t *retval);
 int sys_reboot(int code);
 int sys___time(userptr_t user_seconds, userptr_t user_nanoseconds);
+void copytf(void *tf, unsigned long);
+void getpid(int32_t *retval);
+int dup2(int oldfd, int newfd, int32_t *retval);
+int rounded(int a);
 
 #endif /* _SYSCALL_H_ */

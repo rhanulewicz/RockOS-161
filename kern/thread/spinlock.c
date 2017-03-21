@@ -61,6 +61,7 @@ spinlock_init(struct spinlock *splk)
 void
 spinlock_cleanup(struct spinlock *splk)
 {
+
 	KASSERT(splk->splk_holder == NULL);
 	KASSERT(spinlock_data_get(&splk->splk_lock) == 0);
 }
@@ -76,7 +77,6 @@ void
 spinlock_acquire(struct spinlock *splk)
 {
 	struct cpu *mycpu;
-
 	splraise(IPL_NONE, IPL_HIGH);
 
 	/* this must work before curcpu initialization */
@@ -92,8 +92,9 @@ spinlock_acquire(struct spinlock *splk)
 	else {
 		mycpu = NULL;
 	}
-
 	while (1) {
+
+
 		/*
 		 * Do test-test-and-set, that is, read first before
 		 * doing test-and-set, to reduce bus contention.
@@ -110,9 +111,9 @@ spinlock_acquire(struct spinlock *splk)
 		if (spinlock_data_testandset(&splk->splk_lock) != 0) {
 			continue;
 		}
+
 		break;
 	}
-
 	membar_store_any();
 	splk->splk_holder = mycpu;
 

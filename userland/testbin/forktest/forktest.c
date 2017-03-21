@@ -74,7 +74,9 @@ int
 dofork(void)
 {
 	int pid;
+
 	pid = fork();
+	// tprintf("pid %d", pid);
 	if (pid < 0) {
 		warn("fork");
 	}
@@ -182,23 +184,32 @@ test(int nowait)
 	 * unique filename per instance of forktest.
 	 * So...
 	 */
+	
 	snprintf(filename, 32, "%s-%d.bin", FORKTEST_FILENAME_BASE, getpid());
+
 	int fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC);
 	if(fd < 3) {
 		// 0, 1, 2 are stdin, stdout, stderr
+		tprintf("err!\n");
 		err(1, "Failed to open file to write data into\n");
 	}
 
 	pid0 = dofork();
+
+
 	nprintf(".");
 	write(fd, "A", 1);
+
 	depth++;
 	if (depth != 1) {
 		warnx("depth %d, should be 1", depth);
 	}
+
 	check();
 
 	pid1 = dofork();
+
+
 	nprintf(".");
 	write(fd, "B", 1);
 	depth++;
@@ -206,8 +217,9 @@ test(int nowait)
 		warnx("depth %d, should be 2", depth);
 	}
 	check();
-
+	
 	pid2 = dofork();
+
 	nprintf(".");
 	write(fd, "C", 1);
 	depth++;
@@ -215,8 +227,9 @@ test(int nowait)
 		warnx("depth %d, should be 3", depth);
 	}
 	check();
-
+	
 	pid3 = dofork();
+
 	nprintf(".");
 	write(fd, "D", 1);
 	depth++;
@@ -224,7 +237,7 @@ test(int nowait)
 		warnx("depth %d, should be 4", depth);
 	}
 	check();
-
+	
 	/*
 	 * These must be called in reverse order to avoid waiting
 	 * improperly.
@@ -237,11 +250,13 @@ test(int nowait)
 	nprintf(".");
 	dowait(nowait, pid0);
 	nprintf(".");
-
+	
 	// Check if file contents are correct
 	// lseek may not be implemented..so close and reopen
 	close(fd);
 	fd = open(filename, O_RDONLY);
+	printf("open \n");
+
 	if(fd < 3) {
 		err(1, "Failed to open file for verification\n");
 	}
@@ -260,6 +275,7 @@ test(int nowait)
 		err(1, "Did not get expected number of characters\n");
 	}
 	nprintf(".");
+
 	// Check if number of instances of each character is correct
 	// 2As; 4Bs; 8Cs; 16Ds
 	for(char_idx = 0; char_idx < 4; char_idx++) {
