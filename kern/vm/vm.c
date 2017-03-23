@@ -32,7 +32,6 @@ getppages(unsigned long npages){
 
 	(void)npages;
 
-
 	/*My guess as to what this should do: search through the linked list (coremap) until we
 	find n contiguous free pages. Then return the starting paddr of that chunk.*/
 
@@ -63,7 +62,7 @@ vaddr_t alloc_kpages(unsigned npages){
 		// return PADDR_TO_KVADDR(pa);
 
 	//Allocates n coniguous physical pages 
-	
+
 	/*Should call a working getppages routine that checks your coremap 
 	for the status of free pages and returns appropriately*/
 
@@ -75,6 +74,7 @@ vaddr_t alloc_kpages(unsigned npages){
 
 void free_kpages(vaddr_t addr){
 	(void)addr;
+
 	return;
 }
 
