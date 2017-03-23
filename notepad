@@ -231,3 +231,16 @@ We need to build the data structure sometime before proc_bootstrap, before the f
 I put some notes in the code stubs to take a guess at what needs to be done. Nothing can really be done right now without the coremap data structure.
 
 Curiosity: All of the as_ functions got ripped out with DumbVM, breaking everything even if we get booting. I'm guessing we implement these again at some point? Don't worry about it now.
+
+[BRIJESH HOURS]
+Coremap must contain the pages for the kernel and the coremap itself. Round up to nearest page.
+
+Brijesh recommended the linklist for the TLB, not the coremap...sorry Dave, but we'll save that for later. Array for coremap.
+
+We can use ram_stealmem to "steal" the memory that needs to be used for the coremap
+
+Coremap is going to have totalmem/pagesize indices. The starting address after the kernel is allocated will be where we allocate the coremap. Remember to round that starting address up to the nearest 4k page. The amount of memory used by the coremap is entrysize*(totalmem/pagesize)
+
+There is a pointer/variable/function somewhere (hint from edwin) that points to the final address of the kernel, which is the first address of our memory workspace, which we will use as the first address of our coremap array.
+
+Since kmalloc cannot be used, the coremap will have to be written to memory directly by manually doing the array math (example: array[1] = array_address + entrysize, and so on and so on). How do we do this in code though? 
