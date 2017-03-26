@@ -26,7 +26,7 @@ getppages(unsigned long npages){
 		//THE OLD (DUMBVM) WAY:
 	// 	paddr_t addr;
 
-		spinlock_acquire(&stealmem_lock);
+	spinlock_acquire(&stealmem_lock);
 
 	// 	addr = ram_stealmem(npages);
 
@@ -44,20 +44,19 @@ getppages(unsigned long npages){
 	for(int i = 0; i < numberOfEntries; i++){
 		if(contiguousFound == npages){
 			for(int j = startOfCurBlock; (unsigned long)j < startOfCurBlock + npages; j++){
-				*(int *)(get_corePage(j)) = 1;
-				*(int *)(get_corePage(j) + 4) = startOfCurBlock;
-				*(int*)(get_corePage(j) + 8) = npages;
+				get_corePage(j)->allocated = 1;
+				get_corePage(j)->firstpage = startOfCurBlock;
+				get_corePage(j)->npages = npages;
 				
 			}
 			used += 4096 * npages;
-			paddr_t temp = (*(paddr_t *)(get_corePage(startOfCurBlock)+12));
+			paddr_t temp = get_corePage(startOfCurBlock)->block - 0x80000000;
 			spinlock_release(&stealmem_lock);
 			return temp; 
 			
 		}
-		if((*(int*)(get_corePage(i))) == 1){
+		if(get_corePage(i)->allocated == 1){
 			contiguousFound = 0;
-			// i += get_corePage(i)->npages;
 			startOfCurBlock = i + 1;
 			continue;
 		}
@@ -65,7 +64,6 @@ getppages(unsigned long npages){
 
 
 	 }
-	// (*(paddr_t *)(get_corePage(pagesAlloced)+12)) = addr;
 
 	//Move firstpaddr accordingly. 
 
@@ -74,7 +72,7 @@ getppages(unsigned long npages){
 
 	/*If they do have to be contiguous, or if we design them that way for now, 
 	we could interate the coremap again searching for the first free page. No biggie.*/
-	 		spinlock_release(&stealmem_lock);
+	spinlock_release(&stealmem_lock);
 	return (paddr_t)0;
 
 }
@@ -105,15 +103,15 @@ vaddr_t alloc_kpages(unsigned npages){
 
 void free_kpages(vaddr_t addr){
 	spinlock_acquire(&stealmem_lock);
-	paddr_t base = *(int*)(get_corePage(0) + 12) + 0x80000000;
+	vaddr_t base = get_corePage(0)->block;
 	int page = (addr - base)/4096;
-	int basePage =  *(int*)(get_corePage(page) + 4);
-	int npages = *(int*)(get_corePage(basePage) + 8);
+	int basePage =  get_corePage(page)->firstpage;
+	int npages = get_corePage(basePage)->npages;
 
 	for(int i = basePage; i < basePage + npages; ++i){
-		*(int *)(get_corePage(i)) = 0;
-		*(int *)(get_corePage(i) + 4) = -1;
-		*(int*)(get_corePage(i) + 8) = 0;
+		get_corePage(i)->allocated = 0;
+		get_corePage(i)->firstpage = -1;
+		get_corePage(i)->npages = 0;
 	}
 	used -= (npages * 4096);
 	spinlock_release(&stealmem_lock);
