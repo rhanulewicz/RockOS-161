@@ -10,7 +10,7 @@
 #include <addrspace.h>
 #include <vm.h>
 
-// static struct spinlock stealmem_lock = SPINLOCK_INITIALIZER;
+static struct spinlock stealmem_lock = SPINLOCK_INITIALIZER;
 
 // static unsigned long pagesAlloced = 0;
 static unsigned int used =  0;
@@ -26,11 +26,11 @@ getppages(unsigned long npages){
 		//THE OLD (DUMBVM) WAY:
 	// 	paddr_t addr;
 
-	// 	spinlock_acquire(&stealmem_lock);
+		spinlock_acquire(&stealmem_lock);
 
 	// 	addr = ram_stealmem(npages);
 
-	// 	spinlock_release(&stealmem_lock);
+
 
 	// (void)npages;
 
@@ -51,6 +51,7 @@ getppages(unsigned long npages){
 			}
 			used += 4096 * npages;
 			paddr_t temp = (*(paddr_t *)(get_corePage(startOfCurBlock)+12));
+			spinlock_release(&stealmem_lock);
 			return temp; 
 			
 		}
@@ -73,7 +74,7 @@ getppages(unsigned long npages){
 
 	/*If they do have to be contiguous, or if we design them that way for now, 
 	we could interate the coremap again searching for the first free page. No biggie.*/
-
+	 		spinlock_release(&stealmem_lock);
 	return (paddr_t)0;
 
 }
@@ -103,7 +104,7 @@ vaddr_t alloc_kpages(unsigned npages){
 }
 
 void free_kpages(vaddr_t addr){
-	(void)addr;
+	spinlock_acquire(&stealmem_lock);
 	paddr_t base = *(int*)(get_corePage(0) + 12) + 0x80000000;
 	int page = (addr - base)/4096;
 	int basePage =  *(int*)(get_corePage(page) + 4);
@@ -115,6 +116,7 @@ void free_kpages(vaddr_t addr){
 		*(int*)(get_corePage(i) + 8) = 0;
 	}
 	used -= (npages * 4096);
+	spinlock_release(&stealmem_lock);
 	return;
 }
 
