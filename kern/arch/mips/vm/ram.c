@@ -35,9 +35,9 @@
 
 vaddr_t firstfree;   /* first free virtual address; set by start.S */
 
-static paddr_t firstpaddr;  /* address of first free physical page */
-static paddr_t lastpaddr;   /* one past end of last free physical page */
-
+static paddr_t firstpaddr;  	/* address of first free physical page */
+static paddr_t lastpaddr;   	/* one past end of last free physical page */
+static paddr_t coremapStart;	/* The starting address of the coremap */
 /*
  * Called very early in system boot to figure out how much physical
  * RAM is available.
@@ -71,6 +71,49 @@ ram_bootstrap(void)
 
 	kprintf("%uk physical memory available\n",
 		(lastpaddr-firstpaddr)/1024);
+}
+
+
+void coremap_bootstrap(void){
+	paddr_t ramsize = ram_getsize();
+	//PAGE_SIZE defined in arch/mips/include/vm.h
+	int numberOfEntries = (int)ramsize/PAGE_SIZE;
+	int structSize = sizeof(struct corePage);
+	int coremapSize = numberOfEntries * structSize;
+
+	coremapStart = firstpaddr;
+	void* buildPointer = (void*)firstpaddr;
+	for(int i = 0; i < numberOfEntries; i++){
+		struct corePage* newPage = PADDR_TO_KVADDR(buildPointer);
+		newPage->allocated = false;
+		newPage->firstPage = NULL;
+		newPage->npages = 0;
+
+		buildPointer += (structSize * i);
+	}
+	
+
+	ram_stealmem(needed_pages(coremapSize));
+	
+	return;
+	
+
+
+}
+
+struct corePage* get_corePage(int index){
+	int structSize = sizeof(struct corePage);
+
+	return (void*)(PADDR_TO_KVADDR(coremapStart) + (index * structSize));
+}
+
+/*
+ * Returns the number of pages necessary to allocate a given amount of bytes.
+ * Rounds up to nearest page. Example: bytes = 4096 returns 1. bytes = 2048 also returns 1.
+ */
+unsigned long needed_pages(int bytes){
+	KASSERT(bytes > 0);
+	return 1 + ((bytes - 1) / PAGE_SIZE);
 }
 
 /*

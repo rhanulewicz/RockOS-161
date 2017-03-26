@@ -21,19 +21,44 @@ paddr_t
 getppages(unsigned long npages){
 	
 		//THE OLD (DUMBVM) WAY:
-		// paddr_t addr;
+	// 	paddr_t addr;
 
-		// spinlock_acquire(&stealmem_lock);
+	// 	spinlock_acquire(&stealmem_lock);
 
-		// addr = ram_stealmem(npages);
+	// 	addr = ram_stealmem(npages);
 
-		// spinlock_release(&stealmem_lock);
-		// return addr;
+	// 	spinlock_release(&stealmem_lock);
 
-	(void)npages;
+	// (void)npages;
 
-	/*My guess as to what this should do: search through the linked list (coremap) until we
+	/*My guess as to what this should do: search through the array (coremap) until we
 	find n contiguous free pages. Then return the starting paddr of that chunk.*/
+	paddr_t ramsize = ram_getsize();
+	//PAGE_SIZE defined in arch/mips/include/vm.h
+	int numberOfEntries = (int)ramsize/PAGE_SIZE;
+	int startOfCurBlock = 0;
+	unsigned long contiguousFound = 0;
+	for(int i = 0; i < numberOfEntries; i++){
+		if(contiguousFound == npages){
+			for(int j = startOfCurBlock; (unsigned long)j < startOfCurBlock + npages; j++){
+				get_corePage(j)->allocated = true;
+				get_corePage(j)->firstPage = get_corePage(startOfCurBlock);
+				get_corePage(j)->npages = npages;
+			}
+			//return addr;
+			//return (paddr_t)get_corePage(startOfCurBlock); 
+			return 0x80000000 + 20000;
+		}
+		if(get_corePage(i)->allocated == true){
+			contiguousFound = 0;
+			i += get_corePage(i)->npages;
+			startOfCurBlock = i;
+			continue;
+		}
+		contiguousFound++;
+
+
+	 }
 
 	//Move firstpaddr accordingly. 
 
@@ -60,15 +85,14 @@ vaddr_t alloc_kpages(unsigned npages){
 		// 	return 0;
 		// }
 		// return PADDR_TO_KVADDR(pa);
-
 	//Allocates n coniguous physical pages 
 
 	/*Should call a working getppages routine that checks your coremap 
 	for the status of free pages and returns appropriately*/
 
-	paddr_t placeholder = getppages(npages);
+	paddr_t startOfNewBlock = getppages(npages);
 
-	return PADDR_TO_KVADDR(placeholder);
+	return PADDR_TO_KVADDR(startOfNewBlock);
 
 }
 

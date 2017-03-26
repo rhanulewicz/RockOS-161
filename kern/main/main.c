@@ -108,6 +108,7 @@ boot(void)
 
 	/* Early initialization. */
 	ram_bootstrap();
+	coremap_bootstrap();
 	proc_bootstrap();
 	thread_bootstrap();
 	hardclock_bootstrap();
@@ -138,6 +139,7 @@ boot(void)
 	/*
 	 * Make sure various things aren't screwed up.
 	 */
+	//KASSERT(get_corePage(0)->allocated == false);
 	COMPILE_ASSERT(sizeof(userptr_t) == sizeof(char *));
 	COMPILE_ASSERT(sizeof(*(userptr_t)0) == sizeof(char));
 }
