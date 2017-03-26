@@ -69,7 +69,7 @@ void coremap_bootstrap(void);
 
 unsigned long needed_pages(int bytes);
 
-struct corePage* get_corePage(int index);
+void * get_corePage(int index);
 
 struct corePage{
 	bool allocated;

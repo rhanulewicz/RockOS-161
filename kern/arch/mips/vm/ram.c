@@ -86,12 +86,26 @@ void coremap_bootstrap(void){
 	ram_stealmem(needed_pages(coremapSize));
 	for(unsigned int i = 0; i < (unsigned int )numberOfEntries; i++){
 		
-		((struct corePage *)buildPointer)->allocated = false;
-		((struct corePage *)buildPointer)->firstPage = NULL;
-		((struct corePage *)buildPointer)->npages = 0;
-		((struct corePage *)buildPointer)->block = (paddr_t)(firstpaddr + (i * 4096));
+		int * assigned = PADDR_TO_KVADDR(buildPointer);
+		*assigned = 0;
 
-		buildPointer += (structSize * i);
+		buildPointer += 4;
+
+		int * firstpage = PADDR_TO_KVADDR(buildPointer);
+		*firstpage = -1;
+
+		buildPointer += 4;
+
+		int * pagecount = PADDR_TO_KVADDR(buildPointer);
+		*pagecount = 0;
+
+		buildPointer += 4;
+
+		paddr_t * block = PADDR_TO_KVADDR(buildPointer);
+		*block = (firstpaddr + (i * 0x1000));
+
+		buildPointer += 4;
+
 	}
 
 
@@ -101,10 +115,10 @@ void coremap_bootstrap(void){
 
 }
 
-struct corePage* get_corePage(int index){
+void * get_corePage(int index){
 	int structSize = sizeof(struct corePage);
 
-	return (void*)(coremapStart + (index * structSize));
+	return (void*)(PADDR_TO_KVADDR(coremapStart) + (index * structSize));
 }
 
 /*

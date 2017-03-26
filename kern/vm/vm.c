@@ -10,7 +10,9 @@
 #include <addrspace.h>
 #include <vm.h>
 
-static struct spinlock stealmem_lock = SPINLOCK_INITIALIZER;
+// static struct spinlock stealmem_lock = SPINLOCK_INITIALIZER;
+
+// static unsigned long pagesAlloced = 0;
 
 void vm_bootstrap(){
 	return;
@@ -21,45 +23,46 @@ paddr_t
 getppages(unsigned long npages){
 	
 		//THE OLD (DUMBVM) WAY:
-		paddr_t addr;
+	// 	paddr_t addr;
 
-		spinlock_acquire(&stealmem_lock);
+	// 	spinlock_acquire(&stealmem_lock);
 
-		addr = ram_stealmem(npages);
+	// 	addr = ram_stealmem(npages);
 
-		spinlock_release(&stealmem_lock);
+	// 	spinlock_release(&stealmem_lock);
 
-	(void)npages;
+	// (void)npages;
 
 	/*My guess as to what this should do: search through the array (coremap) until we
 	find n contiguous free pages. Then return the starting paddr of that chunk.*/
 	paddr_t ramsize = ram_getsize();
-	//PAGE_SIZE defined in arch/mips/include/vm.h
+	// PAGE_SIZE defined in arch/mips/include/vm.h
 	int numberOfEntries = (int)ramsize/PAGE_SIZE;
 	int startOfCurBlock = 0;
 	unsigned long contiguousFound = 0;
 	for(int i = 0; i < numberOfEntries; i++){
 		if(contiguousFound == npages){
 			for(int j = startOfCurBlock; (unsigned long)j < startOfCurBlock + npages; j++){
-				get_corePage(j)->allocated = true;
-				get_corePage(j)->firstPage = get_corePage(startOfCurBlock);
-				get_corePage(j)->npages = npages;
+				*(int *)(get_corePage(j)) = 1;
+				*(int *)(get_corePage(j) + 4) = startOfCurBlock;
+				*(int*)(get_corePage(j) + 8) = npages;
+				
 			}
-			return addr;
-			// return (paddr_t)get_corePage(startOfCurBlock)->block; 
+			 paddr_t temp = (*(paddr_t *)(get_corePage(startOfCurBlock)+12));
+			return temp; 
 			
 		}
-		if(get_corePage(i)->allocated == true){
+		if((*(int*)(get_corePage(i))) == 1){
 			contiguousFound = 0;
-			i += get_corePage(i)->npages;
-			i++;
-			startOfCurBlock = i;
+			// i += get_corePage(i)->npages;
+			startOfCurBlock = i + 1;
 			continue;
 		}
 		contiguousFound++;
 
 
 	 }
+	// (*(paddr_t *)(get_corePage(pagesAlloced)+12)) = addr;
 
 	//Move firstpaddr accordingly. 
 
@@ -69,7 +72,7 @@ getppages(unsigned long npages){
 	/*If they do have to be contiguous, or if we design them that way for now, 
 	we could interate the coremap again searching for the first free page. No biggie.*/
 
-	return (paddr_t)addr;
+	return (paddr_t)0;
 
 }
 
