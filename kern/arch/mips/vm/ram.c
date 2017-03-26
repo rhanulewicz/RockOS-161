@@ -38,6 +38,7 @@ vaddr_t firstfree;   /* first free virtual address; set by start.S */
 static paddr_t firstpaddr;  	/* address of first free physical page */
 static paddr_t lastpaddr;   	/* one past end of last free physical page */
 static paddr_t coremapStart;	/* The starting address of the coremap */
+
 /*
  * Called very early in system boot to figure out how much physical
  * RAM is available.

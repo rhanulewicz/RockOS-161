@@ -13,6 +13,7 @@
 // static struct spinlock stealmem_lock = SPINLOCK_INITIALIZER;
 
 // static unsigned long pagesAlloced = 0;
+static unsigned int used =  0;
 
 void vm_bootstrap(){
 	return;
@@ -48,7 +49,8 @@ getppages(unsigned long npages){
 				*(int*)(get_corePage(j) + 8) = npages;
 				
 			}
-			 paddr_t temp = (*(paddr_t *)(get_corePage(startOfCurBlock)+12));
+			used += 4096 * npages;
+			paddr_t temp = (*(paddr_t *)(get_corePage(startOfCurBlock)+12));
 			return temp; 
 			
 		}
@@ -102,7 +104,17 @@ vaddr_t alloc_kpages(unsigned npages){
 
 void free_kpages(vaddr_t addr){
 	(void)addr;
+	paddr_t base = *(int*)(get_corePage(0) + 12) + 0x80000000;
+	int page = (addr - base)/4096;
+	int basePage =  *(int*)(get_corePage(page) + 4);
+	int npages = *(int*)(get_corePage(basePage) + 8);
 
+	for(int i = basePage; i < basePage + npages; ++i){
+		*(int *)(get_corePage(i)) = 0;
+		*(int *)(get_corePage(i) + 4) = -1;
+		*(int*)(get_corePage(i) + 8) = 0;
+	}
+	used -= (npages * 4096);
 	return;
 }
 
@@ -114,7 +126,7 @@ void free_kpages(vaddr_t addr){
 unsigned int coremap_used_bytes(void){
 	//Should we traverse the linked list each time we want this value? Could be too slow.
 	//Maybe we should keep a running total somewhere.
-	return 0;
+	return used;
 }
 
 /* TLB shootdown handling called from interprocessor_interrupt */
