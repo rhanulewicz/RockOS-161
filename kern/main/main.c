@@ -146,6 +146,7 @@ boot(void)
 		kprintf("%p\n", (void *)PADDR_TO_KVADDR((*(paddr_t*)(get_corePage(i)+12))));
 		kprintf("%d\n", (*(int*)(get_corePage(i))));
 	}
+	kprintf("%d\n",coremap_used_bytes());
 	COMPILE_ASSERT(sizeof(userptr_t) == sizeof(char *));
 	COMPILE_ASSERT(sizeof(*(userptr_t)0) == sizeof(char));
 }

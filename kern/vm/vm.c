@@ -128,7 +128,7 @@ void free_kpages(vaddr_t addr){
 unsigned int coremap_used_bytes(void){
 	//Should we traverse the linked list each time we want this value? Could be too slow.
 	//Maybe we should keep a running total somewhere.
-	return used;
+	return used + get_Sizes();
 }
 
 /* TLB shootdown handling called from interprocessor_interrupt */

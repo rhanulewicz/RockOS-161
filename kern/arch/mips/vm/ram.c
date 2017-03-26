@@ -38,7 +38,7 @@ vaddr_t firstfree;   /* first free virtual address; set by start.S */
 static paddr_t firstpaddr;  	/* address of first free physical page */
 static paddr_t lastpaddr;   	/* one past end of last free physical page */
 static paddr_t coremapStart;	/* The starting address of the coremap */
-
+static int sizes = 0;
 /*
  * Called very early in system boot to figure out how much physical
  * RAM is available.
@@ -82,6 +82,8 @@ void coremap_bootstrap(void){
 	int structSize = sizeof(struct corePage);
 	int coremapSize = numberOfEntries * structSize;
 
+	sizes  = coremapStart + coremapSize;
+
 	coremapStart = firstpaddr;
 	void* buildPointer = (void*)firstpaddr;
 	ram_stealmem(needed_pages(coremapSize));
@@ -120,6 +122,10 @@ void * get_corePage(int index){
 	int structSize = sizeof(struct corePage);
 
 	return (void*)(PADDR_TO_KVADDR(coremapStart) + (index * structSize));
+}
+
+int get_Sizes(){
+	return sizes;
 }
 
 /*
