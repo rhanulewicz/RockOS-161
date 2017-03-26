@@ -139,6 +139,7 @@ boot(void)
 	/*
 	 * Make sure various things aren't screwed up.
 	 */
+	// kprintf("%p\n", get_corePage((get_corePage(0)->npages)-2));
 	//KASSERT(get_corePage(0)->allocated == false);
 	COMPILE_ASSERT(sizeof(userptr_t) == sizeof(char *));
 	COMPILE_ASSERT(sizeof(*(userptr_t)0) == sizeof(char));

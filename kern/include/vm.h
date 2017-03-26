@@ -74,6 +74,7 @@ struct corePage* get_corePage(int index);
 struct corePage{
 	bool allocated;
 	struct corePage* firstPage;
+	paddr_t block;
 	int npages;
 };
 

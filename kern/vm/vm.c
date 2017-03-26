@@ -10,7 +10,7 @@
 #include <addrspace.h>
 #include <vm.h>
 
-//static struct spinlock stealmem_lock = SPINLOCK_INITIALIZER;
+static struct spinlock stealmem_lock = SPINLOCK_INITIALIZER;
 
 void vm_bootstrap(){
 	return;
@@ -21,15 +21,15 @@ paddr_t
 getppages(unsigned long npages){
 	
 		//THE OLD (DUMBVM) WAY:
-	// 	paddr_t addr;
+		paddr_t addr;
 
-	// 	spinlock_acquire(&stealmem_lock);
+		spinlock_acquire(&stealmem_lock);
 
-	// 	addr = ram_stealmem(npages);
+		addr = ram_stealmem(npages);
 
-	// 	spinlock_release(&stealmem_lock);
+		spinlock_release(&stealmem_lock);
 
-	// (void)npages;
+	(void)npages;
 
 	/*My guess as to what this should do: search through the array (coremap) until we
 	find n contiguous free pages. Then return the starting paddr of that chunk.*/
@@ -45,13 +45,14 @@ getppages(unsigned long npages){
 				get_corePage(j)->firstPage = get_corePage(startOfCurBlock);
 				get_corePage(j)->npages = npages;
 			}
-			//return addr;
-			//return (paddr_t)get_corePage(startOfCurBlock); 
-			return 0x80000000 + 20000;
+			return addr;
+			// return (paddr_t)get_corePage(startOfCurBlock)->block; 
+			
 		}
 		if(get_corePage(i)->allocated == true){
 			contiguousFound = 0;
 			i += get_corePage(i)->npages;
+			i++;
 			startOfCurBlock = i;
 			continue;
 		}
@@ -68,7 +69,7 @@ getppages(unsigned long npages){
 	/*If they do have to be contiguous, or if we design them that way for now, 
 	we could interate the coremap again searching for the first free page. No biggie.*/
 
-	return (paddr_t)0;
+	return (paddr_t)addr;
 
 }
 
