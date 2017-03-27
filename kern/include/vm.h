@@ -71,7 +71,7 @@ unsigned long needed_pages(int bytes);
 
 struct corePage* get_corePage(int index);
 
-int get_Sizes(void);
+//int get_Sizes(void);
 
 struct corePage{
 	int allocated;

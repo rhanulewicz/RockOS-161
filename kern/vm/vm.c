@@ -50,9 +50,9 @@ getppages(unsigned long npages){
 				
 			}
 			used += 4096 * npages;
-			paddr_t temp = get_corePage(startOfCurBlock)->block - 0x80000000;
+			paddr_t addr = get_corePage(startOfCurBlock)->block - 0x80000000;
 			spinlock_release(&stealmem_lock);
-			return temp; 
+			return addr; 
 			
 		}
 		if(get_corePage(i)->allocated == 1){
@@ -80,7 +80,7 @@ getppages(unsigned long npages){
 
 /* Allocate/free kernel heap pages (called by kmalloc/kfree) */
 vaddr_t alloc_kpages(unsigned npages){
-	
+		kprintf("inalloc\n");
 		//THE OLD (DUMBVM) WAY
 		// paddr_t pa;
 
@@ -96,12 +96,13 @@ vaddr_t alloc_kpages(unsigned npages){
 	for the status of free pages and returns appropriately*/
 
 	paddr_t startOfNewBlock = getppages(npages);
-
+	kprintf("on our way out with %p\n", (void*)PADDR_TO_KVADDR(startOfNewBlock));
 	return PADDR_TO_KVADDR(startOfNewBlock);
 
 }
 
 void free_kpages(vaddr_t addr){
+	kprintf("infree\n");
 	spinlock_acquire(&stealmem_lock);
 	vaddr_t base = get_corePage(0)->block;
 	int page = (addr - base)/4096;
@@ -126,7 +127,7 @@ void free_kpages(vaddr_t addr){
 unsigned int coremap_used_bytes(void){
 	//Should we traverse the linked list each time we want this value? Could be too slow.
 	//Maybe we should keep a running total somewhere.
-	return used + get_Sizes();
+	return used;
 }
 
 /* TLB shootdown handling called from interprocessor_interrupt */

@@ -141,10 +141,10 @@ boot(void)
 	 */
 	// kprintf("%d\n", *(int *)get_corePage(0));
 	// KASSERT(*(int *)get_corePage(0) == true);
-	free_kpages(0x80033000);
-	for(int i = 0; i < 20; ++i){
+	//free_kpages(0x80033000);
+	for(int i = 0; i < 256; ++i){
 		kprintf("%p\n", (void*)get_corePage(i)->block);
-		kprintf("%d\n", get_corePage(i)->allocated);
+		kprintf("%d\n", get_corePage(i)->firstpage);
 	}
 	kprintf("%d\n",coremap_used_bytes());
 	COMPILE_ASSERT(sizeof(userptr_t) == sizeof(char *));
