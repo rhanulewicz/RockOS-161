@@ -97,7 +97,7 @@ void coremap_bootstrap(void){
 		newPage->allocated = 0;
 		newPage->firstpage = -1;
 		newPage->npages = 0;
-		newPage->block = (PADDR_TO_KVADDR(firstpaddr) + (i * 0x1000));
+		newPage->block = (0x80000000 + (i * 0x1000));
 		buildPointer += structSize;	
 
 	}

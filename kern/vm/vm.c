@@ -12,7 +12,7 @@
 
 static struct spinlock stealmem_lock = SPINLOCK_INITIALIZER;
 
-// static unsigned long pagesAlloced = 0;
+static unsigned long pagesAlloced = 0;
 static unsigned int used =  0;
 
 void vm_bootstrap(){
@@ -50,6 +50,7 @@ getppages(unsigned long npages){
 				
 			}
 			used += 4096 * npages;
+			pagesAlloced += npages;
 			paddr_t addr = get_corePage(startOfCurBlock)->block - 0x80000000;
 			spinlock_release(&stealmem_lock);
 			return addr; 
@@ -62,8 +63,8 @@ getppages(unsigned long npages){
 		}
 		contiguousFound++;
 
-
 	 }
+
 
 	//Move firstpaddr accordingly. 
 
@@ -80,7 +81,7 @@ getppages(unsigned long npages){
 
 /* Allocate/free kernel heap pages (called by kmalloc/kfree) */
 vaddr_t alloc_kpages(unsigned npages){
-		kprintf("inalloc\n");
+		//kprintf("inalloc\n");
 		//THE OLD (DUMBVM) WAY
 		// paddr_t pa;
 
@@ -96,13 +97,16 @@ vaddr_t alloc_kpages(unsigned npages){
 	for the status of free pages and returns appropriately*/
 
 	paddr_t startOfNewBlock = getppages(npages);
-	kprintf("on our way out with %p\n", (void*)PADDR_TO_KVADDR(startOfNewBlock));
+	if (startOfNewBlock==0) {
+			return 0;
+		}
+	//kprintf("on our way out with %p\n", (void*)PADDR_TO_KVADDR(startOfNewBlock));
 	return PADDR_TO_KVADDR(startOfNewBlock);
 
 }
 
 void free_kpages(vaddr_t addr){
-	kprintf("infree\n");
+	//kprintf("infree\n");
 	spinlock_acquire(&stealmem_lock);
 	vaddr_t base = get_corePage(0)->block;
 	int page = (addr - base)/4096;
