@@ -102,18 +102,16 @@ off_t lseek(int fd, off_t pos, int whence, int32_t *retval){
 	}
 	
 	struct fileContainer *file = curproc->fileTable[fd];
-	struct stat *statBox = kmalloc(sizeof(*statBox));
+	struct stat statBox;
 	//fd is not a valid file descriptor
 	if(file == NULL){
 		*retval = -1;
-		kfree(statBox);
 		return EBADF;
 	}
 	//Gets us the size of the file, stores it in statBox->st_size
-	VOP_STAT(file->llfile, statBox);
-	if((int)statBox->st_rdev){
+	VOP_STAT(file->llfile, &statBox);
+	if((int)(&statBox)->st_rdev){
 		*retval = -1;
-		kfree(statBox);
 
 		return (ssize_t)ESPIPE;
 	}
@@ -121,7 +119,6 @@ off_t lseek(int fd, off_t pos, int whence, int32_t *retval){
 	if(whence == SEEK_SET){
 		if(pos < 0){
 			*retval = -1;
-			kfree(statBox);
 			return EINVAL;
 		}
 		file->offset = pos;
@@ -129,29 +126,25 @@ off_t lseek(int fd, off_t pos, int whence, int32_t *retval){
 	else if(whence == SEEK_CUR){
 		if((file->offset) + (pos) < 0){
 			*retval = -1;
-			kfree(statBox);
 			return EINVAL;
 		}
 		file->offset = (file->offset) + (pos);
 
 	}
 	else if(whence == SEEK_END){
-		if((statBox->st_size + pos) < 0){
+		if(((&statBox)->st_size + pos) < 0){
 			*retval = -1;
-			kfree(statBox);
 			return EINVAL;
 		}
-		file->offset = (statBox->st_size + pos);
+		file->offset = ((&statBox)->st_size + pos);
 	}
 	else{
 		//whence is invalid
 		*retval = -1;
-		kfree(statBox);
 		return EINVAL;
 	}
 	*retval = file->offset; 
 	//For some reason, kfree here breaks fileonlytest and I can't tell why
-	//kfree(statBox);
 	return (off_t)0;
 }
 
@@ -197,7 +190,6 @@ ssize_t open(char *filename, int flags, int32_t *retval){
 	vfs_open(filestar, flags, 0, &vn);
 
 	//This doesn't seem to help much but it feels like I'm supposed to do it
-	VOP_INCREF(vn);
 	
 	file->llfile = vn;
 	
@@ -290,6 +282,7 @@ ssize_t close(int fd, int32_t *retval){
 		*retval = 0;
 		return (ssize_t)EBADF;
 	}
+	kprintf("%d for fd %d \n",*curproc->fileTable[fd]->refCount, fd);
 	//Decrement the reference count on the fileContainer being closed
 	lock_acquire(curproc->fileTable[fd]->lock);
 	*curproc->fileTable[fd]->refCount -= 1;
@@ -297,7 +290,7 @@ ssize_t close(int fd, int32_t *retval){
 
 	//If this no more references to this fileContainer exist, OBLITERATE IT
 	//BROKEN - Temporarily set to 100 to prevent this from tripping
-	if(*curproc->fileTable[fd]->refCount == 100){
+	if(*curproc->fileTable[fd]->refCount == 0){
 		/*	
 			Something super fucky is going on here in vfs_close(). I don't think we are creating 
 			the vnode correctly. At first, a refcount > 0 assertion will fail. So I manually 
@@ -312,11 +305,12 @@ ssize_t close(int fd, int32_t *retval){
 		//kprintf("vf ref: %d\n", curproc->fileTable[fd]->llfile->vn_refcount);
 
 		//Niether of these work, both return similar errors, tried with one on one off.
-		VOP_DECREF(curproc->fileTable[fd]->llfile);
-		vfs_close(curproc->fileTable[fd]->llfile);
+		// kprintf("here\n");
+		// vfs_close(curproc->fileTable[fd]->llfile);
+		// kprintf("past\n");
 
 		//Do I have to do any more work when freeing the filecontainer?
-		kfree(curproc->fileTable[fd]);
+		// kfree(curproc->fileTable[fd]);
 	}
 	//Empty its space in the table.
 	curproc->fileTable[fd] = NULL;
@@ -357,16 +351,16 @@ ssize_t read(int fd, void *buf, size_t buflen, int32_t *retval){
 		Similar issue, unable to kfree at the end of lseek() as well. Dont know why.
 	*/
 
-	struct stat *statBox = kmalloc(sizeof(*statBox));
+	struct stat statBox;
 
 	/*
 		The need for this check probably also comes from our creating the vnode incorrectly,
 		as mentioned in a comment in close()
 	*/
-	if(file->llfile != NULL && file->llfile->vn_ops != NULL && statBox != NULL){
-		VOP_STAT(file->llfile, statBox);
+	if(file->llfile != NULL && file->llfile->vn_ops != NULL){
+		VOP_STAT(file->llfile, &statBox);
 
-		if (file->offset > statBox->st_size && !(int)statBox->st_rdev){
+		if (file->offset > (&statBox)->st_size && !(int)(&statBox)->st_rdev){
 			//lock_release(file->lock);
 			*retval = 0;
 			return 0;
@@ -477,8 +471,7 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 		return 0;
 	}
 	newProc->p_cwd = curproc->p_cwd;
-	// VOP_INCREF(newProc->p_cwd);
-	newProc->p_numthreads = curproc->p_numthreads;
+	newProc->p_numthreads = 0;
 	newProc->p_name = curproc->p_name;
 	
 	/*Search for first empty place in process table starting at highestpid, 
@@ -526,7 +519,7 @@ void copytf(void *tf, unsigned long ts){
 	(void)ts;
 	//Activitates new address space
 	as_activate();
-	// lock_acquire(curproc->proc_lock);
+	lock_acquire(curproc->proc_lock);
 	//Copies parent trapframe (ptf) to child trapframe (ctf)
 	struct trapframe ctf = *(struct trapframe *)tf;
 	kfree(tf);
@@ -590,10 +583,7 @@ pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
 	//For some reason I cannot kfree the refCount, close the vnode, etc
 	//proc_destroy also doesn't work...
 	//What else needs to be done here?
-	for(int i = 0; i < 64; ++i){
-		procToReap->fileTable[i] = NULL;
-		kfree(procToReap->fileTable[i]);
-	}
+
 	lock_release(procToReap->proc_lock);
 	
 	lock_destroy(procToReap->proc_lock);
@@ -602,12 +592,12 @@ pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
 	
 	*retval = procToReap->pid;
 	
-	struct addrspace *as;
-	as = procToReap->p_addrspace;
-	procToReap->p_addrspace = NULL;
-	as_destroy(as);
+	// struct addrspace *as;
+	// as = procToReap->p_addrspace;
+	// procToReap->p_addrspace = NULL;
+	// as_destroy(as);
 
-	//proc_destroy(procToReap);
+	// proc_destroy(procToReap);
 
 	// spinlock_cleanup(&procToReap->p_lock);
 
@@ -635,6 +625,12 @@ void getpid(int32_t *retval){
 void sys_exit(int exitcode,bool signaled){
 	curproc->exitCode = exitcode;
 	curproc->signal = signaled;
+	for(int i = 0; i < 64; ++i){
+		int ret = 0;
+		if(!(curproc->fileTable[i] == NULL)){
+			close(i,&ret);
+		}
+	}
 	if(lock_do_i_hold(curproc->proc_lock)){
 		lock_release(curproc->proc_lock);
 	}
@@ -792,7 +788,7 @@ int execv(const char *program, char **args, int32_t *retval){
 	}
 	nargs--;
 	*(char **)(stackptr + (4*(nargs))) =  NULL;
-
+	kfree(buffer);
 
 	/* Warp to user mode. */
 	enter_new_process(nargs/*argc*/, (userptr_t)stackptr/*userspace addr of argv*/,
