@@ -103,22 +103,26 @@ off_t lseek(int fd, off_t pos, int whence, int32_t *retval){
 	
 	struct fileContainer *file = curproc->fileTable[fd];
 	struct stat statBox;
+
 	//fd is not a valid file descriptor
 	if(file == NULL){
 		*retval = -1;
 		return EBADF;
 	}
+	lock_acquire(file->lock);
 	//Gets us the size of the file, stores it in statBox->st_size
 	VOP_STAT(file->llfile, &statBox);
 	if((int)(&statBox)->st_rdev){
 		*retval = -1;
-
+		lock_release(file->lock);
 		return (ssize_t)ESPIPE;
 	}
 
 	if(whence == SEEK_SET){
 		if(pos < 0){
 			*retval = -1;
+			lock_release(file->lock);
+
 			return EINVAL;
 		}
 		file->offset = pos;
@@ -126,6 +130,8 @@ off_t lseek(int fd, off_t pos, int whence, int32_t *retval){
 	else if(whence == SEEK_CUR){
 		if((file->offset) + (pos) < 0){
 			*retval = -1;
+			lock_release(file->lock);
+
 			return EINVAL;
 		}
 		file->offset = (file->offset) + (pos);
@@ -134,6 +140,8 @@ off_t lseek(int fd, off_t pos, int whence, int32_t *retval){
 	else if(whence == SEEK_END){
 		if(((&statBox)->st_size + pos) < 0){
 			*retval = -1;
+			lock_release(file->lock);
+
 			return EINVAL;
 		}
 		file->offset = ((&statBox)->st_size + pos);
@@ -141,10 +149,14 @@ off_t lseek(int fd, off_t pos, int whence, int32_t *retval){
 	else{
 		//whence is invalid
 		*retval = -1;
+		lock_release(file->lock);
+
 		return EINVAL;
 	}
 	*retval = file->offset; 
 	//For some reason, kfree here breaks fileonlytest and I can't tell why
+	lock_release(file->lock);
+
 	return (off_t)0;
 }
 
@@ -155,14 +167,12 @@ ssize_t open(char *filename, int flags, int32_t *retval){
 		return EINVAL;
 	}
 
-	char* ptr = kmalloc(sizeof(char));
-	int err = copyin((const_userptr_t)filename, ptr, 4);
+	char* ptr;
+	int err = copyin((const_userptr_t)filename, &ptr, 4);
 	if(err){
 		*retval = (int32_t)0;
-		kfree(ptr);
 		return EFAULT;
 	}
-	kfree(ptr);
 
 	struct fileContainer *file = kmalloc(sizeof(*file));
 	struct vnode *vn = kmalloc(sizeof(*vn));
@@ -187,7 +197,13 @@ ssize_t open(char *filename, int flags, int32_t *retval){
 	file->offset = 0;
 	
 	//Generate our vnode
-	vfs_open(filestar, flags, 0, &vn);
+	err = vfs_open(filestar, flags, 0, &vn);
+	if(err){
+		kfree(file);
+		kfree(vn);
+		*retval = 0;
+		return err;
+	}
 
 	//This doesn't seem to help much but it feels like I'm supposed to do it
 	
@@ -209,6 +225,9 @@ ssize_t open(char *filename, int flags, int32_t *retval){
 		return ENOSPC;
 	}
 	lock_release(file->lock);
+
+		// kprintf("i am pid %d and i am opening file %d\n",curproc->pid, *retval);
+
 	return (ssize_t)0;
 }
 
@@ -265,7 +284,7 @@ ssize_t write(int filehandle, const void *buf, size_t size, int32_t *retval){
 	thing.uio_rw = UIO_WRITE;
 	thing.uio_space = proc_getas();
 	//Does the actual writing
-	//Returns err sometimes
+	// kprintf("i am pid %d and i am writing file %d\n",curproc->pid, filehandle);
 	VOP_WRITE(file->llfile, &thing);
 	//The current seek position of the file is advanced by the number of bytes written.
 	file->offset = file->offset + size;
@@ -282,11 +301,10 @@ ssize_t close(int fd, int32_t *retval){
 		*retval = 0;
 		return (ssize_t)EBADF;
 	}
-	kprintf("%d for fd %d \n",*curproc->fileTable[fd]->refCount, fd);
+	// kprintf("%d for fd %d \n",*curproc->fileTable[fd]->refCount, fd);
 	//Decrement the reference count on the fileContainer being closed
 	lock_acquire(curproc->fileTable[fd]->lock);
 	*curproc->fileTable[fd]->refCount -= 1;
-	lock_release(curproc->fileTable[fd]->lock);
 
 	//If this no more references to this fileContainer exist, OBLITERATE IT
 	//BROKEN - Temporarily set to 100 to prevent this from tripping
@@ -306,33 +324,35 @@ ssize_t close(int fd, int32_t *retval){
 
 		//Niether of these work, both return similar errors, tried with one on one off.
 		// kprintf("here\n");
-		// vfs_close(curproc->fileTable[fd]->llfile);
+		// kprintf("i am pid %d and i am closing file %d\n",curproc->pid, fd);
+		vfs_close(curproc->fileTable[fd]->llfile);
+	lock_release(curproc->fileTable[fd]->lock);
 		// kprintf("past\n");
 
 		//Do I have to do any more work when freeing the filecontainer?
 		// kfree(curproc->fileTable[fd]);
+	}else{
+		lock_release(curproc->fileTable[fd]->lock);
 	}
 	//Empty its space in the table.
 	curproc->fileTable[fd] = NULL;
 	if(retval != NULL){
- 		*retval = (int32_t)0;
+		*retval = (int32_t)0;
 	}
 
-	
+
 	return (ssize_t)0;
 }
 
 ssize_t read(int fd, void *buf, size_t buflen, int32_t *retval){
 	
-	char* ptr = kmalloc(sizeof(char));
-	int err = copyin((const_userptr_t)buf, ptr, 4);
+	char* ptr;
+	int err = copyin((const_userptr_t)buf, &ptr, 4);
 	if(err){
 		*retval = (int32_t)0;
-		kfree(ptr);
 		return EFAULT;
 
 	}
-	kfree(ptr);
 
 	if(fd < 0 || fd > 63){
 		*retval = (int32_t)0;
@@ -365,7 +385,7 @@ ssize_t read(int fd, void *buf, size_t buflen, int32_t *retval){
 			*retval = 0;
 			return 0;
 		}
-			
+
 	}else{
 		//lock_release(file->lock);
 		*retval = -1;
@@ -422,14 +442,18 @@ int dup2(int oldfd, int newfd, int32_t *retval){
 		*retval = (int32_t)0;
 		return EBADF;
 	}
+	lock_acquire(curproc->fileTable[oldfd]->lock);
 	if(curproc->fileTable[newfd] != NULL ){
+		// kprintf("closing in dup2\n");
 		close(newfd, 0);
 	}
 	/*Clones the file handle identifed by file descriptor oldfd onto the file handle
 	 identified by newfd. The two handles refer to the same "open" of the file -- that 
 	 is, they are references to the same object and share the same seek pointer.*/
+	// kprintf("i am pid %d and i am moving file %d , to file %d\n",curproc->pid, oldfd, newfd);
 	curproc->fileTable[newfd] = curproc->fileTable[oldfd];
-
+	*curproc->fileTable[newfd]->refCount += 1;
+	lock_release(curproc->fileTable[oldfd]->lock);
 	*retval = newfd;
 	return 0;
 }
@@ -447,7 +471,7 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 	}
 	newProc->proc_lock = lock_create("proclockelse");
 	if(newProc->proc_lock == NULL){
-				*retval = 0;
+		*retval = 0;
 		return 0;
 	}
 
@@ -460,6 +484,9 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 			newProc->fileTable[i] = curproc->fileTable[i];
 			//All shared files get their reference count incremented
 			*newProc->fileTable[i]->refCount += 1;
+			if(*newProc->fileTable[i]->refCount != *curproc->fileTable[i]->refCount){
+				kprintf("done FUCKED IT\n");
+			}
 			lock_release(curproc->fileTable[i]->lock);
 		}
 	}
@@ -585,8 +612,6 @@ pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
 	//What else needs to be done here?
 
 	lock_release(procToReap->proc_lock);
-	
-	lock_destroy(procToReap->proc_lock);
 
 	procTable[procToReap->pid - 1] = NULL;
 	
@@ -611,7 +636,7 @@ pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
 
 void getpid(int32_t *retval){
 
-  *retval = (int32_t)curproc->pid;
+	*retval = (int32_t)curproc->pid;
 /*  	     ___^___ _
 	 L    __/      [] \
 	LOL===__           \
@@ -651,16 +676,16 @@ int rounded(int a){
 //Unlear on what can be safely kfree'd in here
 int execv(const char *program, char **args, int32_t *retval){
 	
-	void *fakeptr = kmalloc(4);
-	int err1 = copyin((const_userptr_t)program, fakeptr, 4);
+	int fakeptr;
+	int err1 = copyin((const_userptr_t)program, &fakeptr, 4);
 	if (err1){
 		return err1;
 	}
-	int err2 = copyin((const_userptr_t)args, fakeptr, 4);
+	int err2 = copyin((const_userptr_t)args, &fakeptr, 4);
 	if (err2){
 		return err2;
 	}
-	int err3 = copyin((const_userptr_t)*args, fakeptr, 4);
+	int err3 = copyin((const_userptr_t)*args, &fakeptr, 4);
 	if (err3){
 		return err3;
 	}
