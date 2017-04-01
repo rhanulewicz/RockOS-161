@@ -90,6 +90,7 @@ cmd_progthread(void *ptr, unsigned long nargs)
 	KASSERT(strlen(args[0]) < sizeof(progname));
 
 	strcpy(progname, args[0]);
+	//lock_acquire(procTable[2]->proc_lock);
 
 	result = runprogram(progname);
 	if (result) {
@@ -165,15 +166,21 @@ common_prog(int nargs, char **args)
 	proc->fileTable[0] = stdin;
 	proc->fileTable[1] = stdout;
 	proc->fileTable[2] = stderr;
-	kprintf("bad new bears\n");
+	proc->parentpid = 1;
 	proc->pid = 2;
 
 	tc = thread_count;
+	
+	//lock_acquire(proc->proc_lock);
 
 	
 	proc->proc_lock = lock_create("proclock");
-	lock_acquire(proc->proc_lock);
+	lock_acquire(procLock);
+	procTable[1] = proc;
+	lock_release(procLock);
 
+	//lock_acquire(proc->proc_lock);
+	
 
 	result = thread_fork(args[0] /* thread name */,
 			proc /* new process */,
@@ -190,9 +197,12 @@ common_prog(int nargs, char **args)
 	 * The new process will be destroyed when the program exits...
 	 * once you write the code for handling that.
 	 */
-	int retval;
-	waitpid(proc->pid, NULL, 0, &retval);
-	
+	 //int retval;
+	//waitpid(proc->pid, NULL, 0, &retval);
+	// while(procTable[1] != NULL){
+	// 	(void)tc;
+	// }
+	//kprintf("%d\n", retval);
 	// Wait for all threads to finish cleanup, otherwise khu be a bit behind,
 	// especially once swapping is enabled.
 	

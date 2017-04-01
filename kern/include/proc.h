@@ -72,6 +72,7 @@ struct proc {
 	/* VFS */
 	struct vnode *p_cwd;		/* current working directory */
 
+	//OURS//
 	struct fileContainer* fileTable[64];
 	int exitCode;
 	int pid;

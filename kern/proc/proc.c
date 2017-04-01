@@ -65,7 +65,7 @@ void fileContainerDestroy(struct  fileContainer*  doom){
 	if(lock_do_i_hold(doom->lock)){
 		lock_release(doom->lock);
 	}
-	kprintf("killing lock with name %s\n", doom->lock->lk_name);
+	//kprintf("killing lock with name %s\n", doom->lock->lk_name);
 	lock_destroy(doom->lock);
 	kfree(doom->refCount);
 	kfree(doom);
@@ -112,6 +112,7 @@ proc_create(const char *name)
 void
 proc_destroy(struct proc *proc)
 {
+	//kprintf("destroying %d\n",  proc->pid);
 	/*
 	 * You probably want to destroy and null out much of the
 	 * process (particularly the address space) at exit time if
@@ -185,8 +186,10 @@ proc_destroy(struct proc *proc)
 
 	KASSERT(proc->p_numthreads == 0);
 	spinlock_cleanup(&proc->p_lock);
+	lock_destroy(proc->proc_lock);
 	kfree(proc->p_name);
 	kfree(proc);
+	//kprintf("Destroy successful\n");
 }
 
 /*

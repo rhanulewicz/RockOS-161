@@ -368,11 +368,6 @@ ssize_t read(int fd, void *buf, size_t buflen, int32_t *retval){
 		return EBADF;
 	}
 
-	/*
-		For some reason, I'm not allowed to kfree statBox or else argtest breaks....????
-		Similar issue, unable to kfree at the end of lseek() as well. Dont know why.
-	*/
-
 	struct stat statBox;
 
 	/*
@@ -565,14 +560,16 @@ void copytf(void *tf, unsigned long ts){
 }
 
 pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
-	// kprintf("waitpid\n");
+	 //kprintf("waitpid on %d\n", pid);
 	if(options != 0){
+		kprintf("waitpiss1\n");
 		*retval = -1;
 		return EINVAL;
 	}
 	char* ptr = kmalloc(4);
 	int err = copyin((const_userptr_t)status, ptr, 4);
 	if(err && (status != NULL)){
+		kprintf("waitpiss2\n");
 		*retval = (int32_t)0;
 		return EFAULT;
 
@@ -582,24 +579,29 @@ pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
 
 	//ERR: The pid argument named a nonexistent process.
 	if(procToReap == NULL){
+		kprintf("waitpiss3\n");
 		*retval = -1;
 		return (pid_t)ESRCH;
 	}
 	if(procToReap->parentpid != curproc->pid){
+		kprintf("waitpiss4\n");
 		*retval = -1;
 		return ECHILD;
 	}
 	if(curproc->parentpid == procToReap->parentpid){
+		kprintf("waitpiss5\n");
 		*retval = -1;
 		return ECHILD;
 	}
 	//If the child has not yet exited, sleep the parent
 	while(procToReap->exitCode == -1){
+		
 		lock_acquire(procToReap->proc_lock);
 		lock_release(procToReap->proc_lock);
 	}
-	lock_acquire(procToReap->proc_lock);
 	
+	lock_acquire(procToReap->proc_lock);
+	//kprintf("allo\n");
 	//Copies the exitcode out to userland through status
 	if(procToReap->signal){
 		int temp = _MKWAIT_CORE(procToReap->exitCode);
@@ -616,21 +618,17 @@ pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
 
 	lock_release(procToReap->proc_lock);
 
+	lock_acquire(procLock);
 	procTable[procToReap->pid - 1] = NULL;
-	
+	lock_release(procLock);
+
 	*retval = procToReap->pid;
+	//kprintf("before lock destroy\n");
+	//kprintf("after lock destroy\n");
+	proc_destroy(procToReap);
 	
-	// struct addrspace *as;
-	// as = procToReap->p_addrspace;
-	// procToReap->p_addrspace = NULL;
-	// as_destroy(as);
 
-	// proc_destroy(procToReap);
-	// spinlock_cleanup(&procToReap->p_lock);
-
-	// kfree(procToReap->p_name);
-	// kfree(procToReap);
-	// kprintf("outtahere\n");
+	//kprintf("waitpid on %d done\n", pid);
 
 	return (pid_t)0;
 }
@@ -649,9 +647,8 @@ void getpid(int32_t *retval){
 }
 
 void sys_exit(int exitcode,bool signaled){
-	// kprintf("exit pid %d\n", curproc->pid);
-	curproc->exitCode = exitcode;
-	curproc->signal = signaled;
+	 //kprintf("exiting pid %d\n", curproc->pid);
+	
 	for(int i = 0; i < 64; ++i){
 		int ret = 0;
 		if(!(curproc->fileTable[i] == NULL)){
@@ -664,7 +661,9 @@ void sys_exit(int exitcode,bool signaled){
 
 	/* VM fields */
 	// kprintf("laternerd\n");
-
+	//kprintf("Exited pid %d\n", curproc->pid);
+	curproc->exitCode = exitcode;
+	curproc->signal = signaled;
 	thread_exit();
 }
 

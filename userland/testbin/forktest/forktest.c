@@ -255,7 +255,7 @@ test(int nowait)
 	// lseek may not be implemented..so close and reopen
 	close(fd);
 	fd = open(filename, O_RDONLY);
-	printf("open \n");
+	//printf("open \n");
 
 	if(fd < 3) {
 		err(1, "Failed to open file for verification\n");
