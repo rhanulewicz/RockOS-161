@@ -61,6 +61,17 @@ void first_proc(){
 	return;
 }
 
+void fileContainerDestroy(struct  fileContainer*  doom){
+	if(lock_do_i_hold(doom->lock)){
+		lock_release(doom->lock);
+	}
+	kprintf("killing lock with name %s\n", doom->lock->lk_name);
+	lock_destroy(doom->lock);
+	kfree(doom->refCount);
+	kfree(doom);
+}
+
+
 /*
  * Create a proc structure.
  */

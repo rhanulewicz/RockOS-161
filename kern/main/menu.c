@@ -131,38 +131,49 @@ common_prog(int nargs, char **args)
 		return ENOMEM;
 	}
 	
-	struct fileContainer *stdout;
-	struct fileContainer *placehold1 = kmalloc(sizeof(struct fileContainer));
-	struct fileContainer *placehold2 = kmalloc(sizeof(struct fileContainer));
+	struct fileContainer *stdout = kmalloc(sizeof(struct fileContainer));
+	struct fileContainer *stdin = kmalloc(sizeof(struct fileContainer));
+	struct fileContainer *stderr = kmalloc(sizeof(struct fileContainer));
 
-	stdout = kmalloc(sizeof(struct fileContainer));
 	stdout->lock = lock_create("stdoutlock");
 	stdout->offset = 0;
 	stdout->permflag = 1;
 	stdout->refCount = kmalloc(sizeof(int));
 	*stdout->refCount = 1;
-	*placehold1 = *stdout;
-	*placehold2 = *stdout;
-	placehold1->permflag = 0;
+
+
+	*stdin = *stdout;
+	*stderr = *stdout;
+
+	stdin->refCount = kmalloc(sizeof(int));
+	*stdin->refCount = 1;
+	stdin->lock = lock_create("stdinlock");
+	stdin->permflag = 0;
+
+
+	stderr->refCount = kmalloc(sizeof(int));
+	*stderr->refCount = 1;
+	stderr->lock = lock_create("stderrlock");
 
 	char bar [] = "con:";
 	char foo [] = "con:";
 	char foobar [] = "con:";
-	vfs_open(bar, 0, 0, &placehold1->llfile); 
+	vfs_open(bar, 0, 0, &stdin->llfile); 
 	vfs_open(foo, 1, 0, &stdout->llfile); 
-	vfs_open(foobar, 1, 0, &placehold2->llfile); 
+	vfs_open(foobar, 1, 0, &stderr->llfile); 
 
-	proc->fileTable[0] = placehold1;
+	proc->fileTable[0] = stdin;
 	proc->fileTable[1] = stdout;
-	proc->fileTable[2] = placehold2;
-
+	proc->fileTable[2] = stderr;
+	kprintf("bad new bears\n");
 	proc->pid = 2;
 
 	tc = thread_count;
 
 	
-	// lock_acquire(kproc->proc_lock);
 	proc->proc_lock = lock_create("proclock");
+	lock_acquire(proc->proc_lock);
+
 
 	result = thread_fork(args[0] /* thread name */,
 			proc /* new process */,

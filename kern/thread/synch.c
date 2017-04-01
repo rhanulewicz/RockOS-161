@@ -172,7 +172,7 @@ lock_create(const char *name)
 
 void
 lock_destroy(struct lock *lock)
-{
+{	
 	//Make sure lock is valid and isn't being held
 	KASSERT(lock != NULL);
 	KASSERT(lock->taken == false);

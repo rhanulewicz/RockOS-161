@@ -161,6 +161,7 @@ off_t lseek(int fd, off_t pos, int whence, int32_t *retval){
 }
 
 ssize_t open(char *filename, int flags, int32_t *retval){
+		// kprintf("i am pid %d and my stderr addr is  %p before in open\n",curproc->pid, curproc->fileTable[2]->lock);
 	//Build our fileContainer
 	if(flags != 22 && flags != 21 && flags != O_RDONLY && flags != O_WRONLY && flags != O_RDWR && flags != O_CREAT && flags != O_EXCL && flags != O_TRUNC && flags != O_APPEND){
 		*retval = (int32_t)0;
@@ -209,11 +210,12 @@ ssize_t open(char *filename, int flags, int32_t *retval){
 	
 	file->llfile = vn;
 	
-	//Places our file in the first empty slot in curproc's fileTable
+	//Places our file in the first empty slot in curpro's fileTable
 	//The user gets back the index at which it was placed (file descriptor)
 	bool full = true;
 	for(int i = 0; i < 64; i++){
 		if(curproc->fileTable[i]== NULL){
+			// kprintf("%d i\n",i);
 			curproc->fileTable[i] = file;
 			*retval = (int32_t)i;
 			full = false;
@@ -224,29 +226,22 @@ ssize_t open(char *filename, int flags, int32_t *retval){
 		*retval = (int32_t)0;
 		return ENOSPC;
 	}
+		// kprintf("i am pid %d and i am opening file %d\n",curproc->pid, *retval);
+		// 	kprintf("i am pid %d and my stderr addr is  %p and after open\n",curproc->pid, curproc->fileTable[2]->lock);
 	lock_release(file->lock);
 
-		// kprintf("i am pid %d and i am opening file %d\n",curproc->pid, *retval);
 
 	return (ssize_t)0;
 }
 
 ssize_t write(int filehandle, const void *buf, size_t size, int32_t *retval){
 	
-	
 	if(buf == NULL){
 		*retval = 0;
 		return EFAULT;
 	}
 
-	//THIS ERROR HANDLING BREAKS FORKBOMB FOR SOME REASON
-	// void* ptr = kmalloc(sizeof(char));
-	// int err = copyin((const_userptr_t)buf, (userptr_t)ptr, 4);
-	// if(err){
-	// 	*retval = (int32_t)0;
-	// 	return EFAULT;
 
-	// }
 	if(buf == (void*)0x80000000 || buf == (void*)0x40000000){
 		*retval = (int32_t)0;
 		return EFAULT;
@@ -268,6 +263,7 @@ ssize_t write(int filehandle, const void *buf, size_t size, int32_t *retval){
 	
 
 	KASSERT(file->lock != NULL);
+	// kprintf("pid %d is writing to fd %d with lock addr %p\n", curproc->pid, filehandle, curproc->fileTable[2]->lock);
 	lock_acquire(file->lock);
 
 	//Remember to give the user the size variable back (copyout, look at sys__time)
@@ -324,22 +320,28 @@ ssize_t close(int fd, int32_t *retval){
 
 		//Niether of these work, both return similar errors, tried with one on one off.
 		// kprintf("here\n");
-		// kprintf("i am pid %d and i am closing file %d\n",curproc->pid, fd);
+	// 	kprintf("i am pid %d and i am closing file %d\n",curproc->pid, fd);
+	// kprintf("i am pid %d and my stderr addr is  %p before\n",curproc->pid, curproc->fileTable[2]->lock);
+		// if(curproc->pid == 2 && fd == 3){
+		// 	kprintf("%p\n",curproc->fileTable[2]->lock);
+		// 	kprintf("%p\n",curproc->fileTable[3]->lock);
+		// }
 		vfs_close(curproc->fileTable[fd]->llfile);
 	lock_release(curproc->fileTable[fd]->lock);
+	fileContainerDestroy(curproc->fileTable[fd]);
+	// lock_destroy(curproc->fileTable[fd]->lock);
 		// kprintf("past\n");
-
+	// kprintf("i am pid %d and my stderr addr is  %p and after\n",curproc->pid, curproc->fileTable[2]->lock);
 		//Do I have to do any more work when freeing the filecontainer?
-		// kfree(curproc->fileTable[fd]);
 	}else{
 		lock_release(curproc->fileTable[fd]->lock);
 	}
+
 	//Empty its space in the table.
 	curproc->fileTable[fd] = NULL;
 	if(retval != NULL){
 		*retval = (int32_t)0;
 	}
-
 
 	return (ssize_t)0;
 }
@@ -482,10 +484,11 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 		if(curproc->fileTable[i] != NULL){
 			lock_acquire(curproc->fileTable[i]->lock);
 			newProc->fileTable[i] = curproc->fileTable[i];
+			// kprintf("%d \n", *curproc->fileTable[i]->refCount);
 			//All shared files get their reference count incremented
 			*newProc->fileTable[i]->refCount += 1;
-			if(*newProc->fileTable[i]->refCount != *curproc->fileTable[i]->refCount){
-				kprintf("done FUCKED IT\n");
+			if(*newProc->fileTable[i]->refCount != *curproc->fileTable[i]->refCount ||  *newProc->fileTable[i]->refCount < 2){
+				kprintf("done FUCKED IT %d \n", *newProc->fileTable[i]->refCount );
 			}
 			lock_release(curproc->fileTable[i]->lock);
 		}
@@ -515,7 +518,7 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 			break;
 		}
 		//If you make it to the last index, wrap around via highestpid
-		i = (i == 1999)? 0 : i;
+		i = (i == 1999)? 3 : i;
 	}
 
 	lock_release(procLock);
@@ -562,7 +565,7 @@ void copytf(void *tf, unsigned long ts){
 }
 
 pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
-
+	// kprintf("waitpid\n");
 	if(options != 0){
 		*retval = -1;
 		return EINVAL;
@@ -623,14 +626,12 @@ pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
 	// as_destroy(as);
 
 	// proc_destroy(procToReap);
-
 	// spinlock_cleanup(&procToReap->p_lock);
 
 	// kfree(procToReap->p_name);
 	// kfree(procToReap);
+	// kprintf("outtahere\n");
 
-
-	
 	return (pid_t)0;
 }
 
@@ -648,6 +649,7 @@ void getpid(int32_t *retval){
 }
 
 void sys_exit(int exitcode,bool signaled){
+	// kprintf("exit pid %d\n", curproc->pid);
 	curproc->exitCode = exitcode;
 	curproc->signal = signaled;
 	for(int i = 0; i < 64; ++i){
@@ -661,7 +663,7 @@ void sys_exit(int exitcode,bool signaled){
 	}
 
 	/* VM fields */
-
+	// kprintf("laternerd\n");
 
 	thread_exit();
 }

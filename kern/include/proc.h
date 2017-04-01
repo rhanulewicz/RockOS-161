@@ -112,6 +112,7 @@ struct addrspace *proc_setas(struct addrspace *);
 
 
 
+void fileContainerDestroy(struct fileContainer *);
 
 struct fileContainer{
 	struct vnode *llfile;
@@ -120,6 +121,7 @@ struct fileContainer{
 	int *refCount;
 	struct lock* lock;
 };
+
 
 
 #endif /* _PROC_H_ */
