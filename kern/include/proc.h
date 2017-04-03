@@ -79,6 +79,7 @@ struct proc {
 	int parentpid;
 	bool signal;
 	struct lock *proc_lock;
+	bool dead;
 
 	
 	/* add more material here as needed */

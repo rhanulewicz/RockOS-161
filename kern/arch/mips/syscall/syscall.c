@@ -619,12 +619,11 @@ pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
 	lock_release(procToReap->proc_lock);
 
 	lock_acquire(procLock);
-	procTable[procToReap->pid - 1] = NULL;
 
 	*retval = procToReap->pid;
 	//kprintf("before lock destroy\n");
 	//kprintf("after lock destroy\n");
-	proc_destroy(procToReap);
+
 	lock_release(procLock);
 	
 

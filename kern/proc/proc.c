@@ -99,6 +99,7 @@ proc_create(const char *name)
 	proc->p_addrspace = NULL;
 	/* VFS fields */
 	proc->p_cwd = NULL;
+	proc->dead = 0;
 
 	return proc;
 }
@@ -188,7 +189,7 @@ proc_destroy(struct proc *proc)
 	KASSERT(proc->p_numthreads == 0);
 	spinlock_cleanup(&proc->p_lock);
 	// kprintf("Beofre lock destroy\n");
-	lock_destroy(proc->proc_lock);
+	//lock_destroy(proc->proc_lock);
 	kfree(proc->p_name);
 	kfree(proc);
 	// kprintf("Destroy successful\n");
@@ -212,6 +213,7 @@ proc_bootstrap(void)
 	kproc->pid = 1;
 	procLock = lock_create("new lock");
 	highPid = 2;
+	kproc->dead = 0;
 }
 
 /*

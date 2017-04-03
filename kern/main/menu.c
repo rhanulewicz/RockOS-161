@@ -213,12 +213,17 @@ common_prog(int nargs, char **args)
 	 * The new process will be destroyed when the program exits...
 	 * once you write the code for handling that.
 	 */
-	 //int retval;
-	//waitpid(proc->pid, NULL, 0, &retval);
-	// while(procTable[1] != NULL){
-	// 	(void)tc;
-	// }
-	//kprintf("%d\n", retval);
+	 int retval;
+	waitpid(proc->pid, NULL, 0, &retval);
+
+	for(int i = 1; i < 2000; i++){
+		if(procTable[i] != NULL && procTable[i]->dead == 1){
+
+			proc_destroy(procTable[i]);
+			procTable[i] = NULL;
+
+		}	
+	}
 	// Wait for all threads to finish cleanup, otherwise khu be a bit behind,
 	// especially once swapping is enabled.
 	
