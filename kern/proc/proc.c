@@ -112,6 +112,7 @@ proc_create(const char *name)
 void
 proc_destroy(struct proc *proc)
 {
+
 	//kprintf("destroying %d\n",  proc->pid);
 	/*
 	 * You probably want to destroy and null out much of the
@@ -186,10 +187,12 @@ proc_destroy(struct proc *proc)
 
 	KASSERT(proc->p_numthreads == 0);
 	spinlock_cleanup(&proc->p_lock);
+	// kprintf("Beofre lock destroy\n");
 	lock_destroy(proc->proc_lock);
 	kfree(proc->p_name);
 	kfree(proc);
-	//kprintf("Destroy successful\n");
+	// kprintf("Destroy successful\n");
+	
 }
 
 /*
@@ -208,7 +211,7 @@ proc_bootstrap(void)
 	}
 	kproc->pid = 1;
 	procLock = lock_create("new lock");
-	highPid = 3;
+	highPid = 2;
 }
 
 /*

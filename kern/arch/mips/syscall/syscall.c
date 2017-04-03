@@ -508,12 +508,12 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 			newProc->pid = i + 1;
 			highPid = newProc->pid + 1;
 			if (highPid > 2000){
-				highPid = 1;
+				highPid = 2;
 			}
 			break;
 		}
 		//If you make it to the last index, wrap around via highestpid
-		i = (i == 1999)? 3 : i;
+		i = (i == 1999)? 2 : i;
 	}
 
 	lock_release(procLock);
@@ -594,7 +594,7 @@ pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
 		return ECHILD;
 	}
 	//If the child has not yet exited, sleep the parent
-	while(procToReap->exitCode == -1){
+	while(procToReap->p_numthreads > 0){
 		
 		lock_acquire(procToReap->proc_lock);
 		lock_release(procToReap->proc_lock);
@@ -620,12 +620,12 @@ pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
 
 	lock_acquire(procLock);
 	procTable[procToReap->pid - 1] = NULL;
-	lock_release(procLock);
 
 	*retval = procToReap->pid;
 	//kprintf("before lock destroy\n");
 	//kprintf("after lock destroy\n");
 	proc_destroy(procToReap);
+	lock_release(procLock);
 	
 
 	//kprintf("waitpid on %d done\n", pid);

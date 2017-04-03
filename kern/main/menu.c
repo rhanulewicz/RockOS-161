@@ -166,8 +166,24 @@ common_prog(int nargs, char **args)
 	proc->fileTable[0] = stdin;
 	proc->fileTable[1] = stdout;
 	proc->fileTable[2] = stderr;
+
 	proc->parentpid = 1;
-	proc->pid = 2;
+	lock_acquire(procLock);
+	for(int i = highPid - 1; i < 2000; i++){
+		if(procTable[i] == NULL){
+			procTable[i] = proc;
+			proc->pid = i + 1;
+			highPid = proc->pid + 1;
+			if (highPid > 2000){
+				highPid = 2;
+			}
+			break;
+		}
+		//If you make it to the last index, wrap around via highestpid
+		i = (i == 1999)? 2 : i;
+	}
+
+	lock_release(procLock);
 
 	tc = thread_count;
 	
