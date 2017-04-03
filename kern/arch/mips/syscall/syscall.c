@@ -615,7 +615,8 @@ pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
 	//For some reason I cannot kfree the refCount, close the vnode, etc
 	//proc_destroy also doesn't work...
 	//What else needs to be done here?
-
+	kprintf("Marking %d for dead\n", curproc->pid);
+	procToReap->dead = 1;
 	lock_release(procToReap->proc_lock);
 
 	lock_acquire(procLock);
@@ -654,6 +655,7 @@ void sys_exit(int exitcode,bool signaled){
 			close(i,&ret);
 		}
 	}
+
 	if(lock_do_i_hold(curproc->proc_lock)){
 		lock_release(curproc->proc_lock);
 	}

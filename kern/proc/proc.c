@@ -189,7 +189,7 @@ proc_destroy(struct proc *proc)
 	KASSERT(proc->p_numthreads == 0);
 	spinlock_cleanup(&proc->p_lock);
 	// kprintf("Beofre lock destroy\n");
-	//lock_destroy(proc->proc_lock);
+	lock_destroy(proc->proc_lock);
 	kfree(proc->p_name);
 	kfree(proc);
 	// kprintf("Destroy successful\n");
@@ -204,16 +204,18 @@ proc_bootstrap(void)
 {	
 
 	kproc = proc_create("[kernel]");
-	highPid = 3;
-	kproc->pid = 1;
 	procLock = lock_create("proclock");
 	if (kproc == NULL) {
 		panic("proc_create for kproc failed\n");
 	}
 	kproc->pid = 1;
-	procLock = lock_create("new lock");
 	highPid = 2;
 	kproc->dead = 0;
+	for(int i = 0; i < 2000; i++){
+		procTable[i] = NULL;
+	}
+	procTable[0] = kproc;
+
 }
 
 /*

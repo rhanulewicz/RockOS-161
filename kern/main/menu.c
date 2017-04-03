@@ -191,9 +191,6 @@ common_prog(int nargs, char **args)
 
 	
 	proc->proc_lock = lock_create("proclock");
-	lock_acquire(procLock);
-	procTable[1] = proc;
-	lock_release(procLock);
 
 	//lock_acquire(proc->proc_lock);
 	
@@ -216,14 +213,17 @@ common_prog(int nargs, char **args)
 	 int retval;
 	waitpid(proc->pid, NULL, 0, &retval);
 
+	lock_acquire(procLock);
 	for(int i = 1; i < 2000; i++){
 		if(procTable[i] != NULL && procTable[i]->dead == 1){
+			kprintf("Killing %p\n", procTable[i]);
 
 			proc_destroy(procTable[i]);
 			procTable[i] = NULL;
 
 		}	
 	}
+	lock_release(procLock);
 	// Wait for all threads to finish cleanup, otherwise khu be a bit behind,
 	// especially once swapping is enabled.
 	
