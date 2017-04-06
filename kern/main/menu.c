@@ -36,6 +36,7 @@
 #include <uio.h>
 #include <clock.h>
 #include <mainbus.h>
+#include <addrspace.h>
 #include <synch.h>
 #include <thread.h>
 #include <proc.h>
@@ -124,7 +125,7 @@ common_prog(int nargs, char **args)
 	int result;
 	unsigned tc;
 
-	kprintf("size of proc table %d", sizeof(procTable));
+	kprintf("size of proc  %d", sizeof(struct proc));
 
 	/* Create a process for the new program to run in. */
 	
@@ -230,29 +231,24 @@ common_prog(int nargs, char **args)
 		procTable[i]->p_cwd = NULL;
 	}
 
-	/* VM fields */
-	if (procTable[i]->p_addrspace) {
+	// // /* VM fields */
+	// if (procTable[i]->p_addrspace) {
 
-		struct addrspace *as;
+	// 	struct addrspace *as;
 
-		if (procTable[i] == curproc) {
-			as = proc_setas(NULL);
-			as_deactivate();
-		}
-		else {
-			as = procTable[i]->p_addrspace;
-			procTable[i]->p_addrspace = NULL;
-		}
-		as_destroy(as);
-	}
+	
+	// 		as = procTable[i]->p_addrspace;
+	// 		procTable[i]->p_addrspace = NULL;
+	// 	as_destroy(as);
+	// }
 
-	KASSERT(procTable[i]->p_numthreads == 0);
-	spinlock_cleanup(&procTable[i]->p_lock);
-	// kprintf("Beofre lock destroy\n");
-	lock_destroy(procTable[i]->proc_lock);
-	kfree(procTable[i]->p_name);
-	kfree(procTable[i]);
-			procTable[i] = NULL;
+	// KASSERT(procTable[i]->p_numthreads == 0);
+	// spinlock_cleanup(&procTable[i]->p_lock);
+	// // kprintf("Beofre lock destroy\n");
+	// lock_destroy(procTable[i]->proc_lock);
+	// kfree(procTable[i]->p_name);
+	// // kfree(procTable[i]);
+	// 	procTable[i] = NULL;
 
 		}	
 	}
