@@ -124,6 +124,8 @@ common_prog(int nargs, char **args)
 	int result;
 	unsigned tc;
 
+	kprintf("size of proc table %d", sizeof(procTable));
+
 	/* Create a process for the new program to run in. */
 	
 	proc = proc_create_runprogram(args[0] /* name */);
@@ -169,11 +171,14 @@ common_prog(int nargs, char **args)
 
 	proc->parentpid = 1;
 	lock_acquire(procLock);
+		kprintf("address PRINT OUT LOOK HERE: %p\n", procTable[1]);
+		kprintf("highPid in menu is %d\n", highPid);
 	for(int i = highPid - 1; i < 2000; i++){
 		if(procTable[i] == NULL){
 			procTable[i] = proc;
 			proc->pid = i + 1;
-			highPid = proc->pid + 1;
+			highPid++;
+			kprintf("highPid in menu is %d\n", highPid);
 			if (highPid > 2000){
 				highPid = 2;
 			}
@@ -214,11 +219,39 @@ common_prog(int nargs, char **args)
 	waitpid(proc->pid, NULL, 0, &retval);
 
 	lock_acquire(procLock);
-	for(int i = 1; i < 2000; i++){
+	for(int i = 1; i < highPid; i++){
 		if(procTable[i] != NULL && procTable[i]->dead == 1){
-			kprintf("Killing %p\n", procTable[i]);
+			kprintf("Killing %p, at index %d with highPid at %d\n", procTable[i], i, highPid);
+		
+			KASSERT(procTable[i] != NULL);
+			KASSERT(procTable[i] != kproc);
+	if (procTable[i]->p_cwd) {
+		VOP_DECREF(procTable[i]->p_cwd);
+		procTable[i]->p_cwd = NULL;
+	}
 
-			proc_destroy(procTable[i]);
+	/* VM fields */
+	if (procTable[i]->p_addrspace) {
+
+		struct addrspace *as;
+
+		if (procTable[i] == curproc) {
+			as = proc_setas(NULL);
+			as_deactivate();
+		}
+		else {
+			as = procTable[i]->p_addrspace;
+			procTable[i]->p_addrspace = NULL;
+		}
+		as_destroy(as);
+	}
+
+	KASSERT(procTable[i]->p_numthreads == 0);
+	spinlock_cleanup(&procTable[i]->p_lock);
+	// kprintf("Beofre lock destroy\n");
+	lock_destroy(procTable[i]->proc_lock);
+	kfree(procTable[i]->p_name);
+	kfree(procTable[i]);
 			procTable[i] = NULL;
 
 		}	

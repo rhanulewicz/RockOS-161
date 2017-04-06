@@ -506,7 +506,8 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 		if(procTable[i] == NULL){
 			procTable[i] = newProc;
 			newProc->pid = i + 1;
-			highPid = newProc->pid + 1;
+			highPid++;
+			kprintf("highPid is %d \n", highPid);
 			if (highPid > 2000){
 				highPid = 2;
 			}
@@ -615,8 +616,7 @@ pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
 	//For some reason I cannot kfree the refCount, close the vnode, etc
 	//proc_destroy also doesn't work...
 	//What else needs to be done here?
-	kprintf("Marking %d for dead\n", curproc->pid);
-	procToReap->dead = 1;
+
 	lock_release(procToReap->proc_lock);
 
 	lock_acquire(procLock);
@@ -663,6 +663,8 @@ void sys_exit(int exitcode,bool signaled){
 	/* VM fields */
 	// kprintf("laternerd\n");
 	//kprintf("Exited pid %d\n", curproc->pid);
+		kprintf("Marking %d for dead\n", curproc->pid);
+		curproc->dead = 1;
 	curproc->exitCode = exitcode;
 	curproc->signal = signaled;
 	thread_exit();
