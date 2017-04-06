@@ -217,3 +217,96 @@ ASST3.1 OVERVIEW
 
 "That's assignment 3.1. Design the data strcuture that represents physical memrory, initialize the coremap, write a couple function to support kmalloc and kfree. Look at DumbVM to see how its done right now but its not a good design going forward."
 
+[ASST 3 RECITATION 2 NOTES: ASST3.2 BOOTSTRAP]
+
+Write vm_bootstrap
+	Use this to set up the rest (post-coremap) part of your memory system
+
+Write vm_fault
+	Handles all TLB faults
+
+Write as_ routines
+
+Write sbrk
+
+MIPs interpretation of Virtual Memory
+	Every vaddr under 80000000 is mapped to a paddr via tlb
+	Every vaddr from 80000000 to bfffffff maps directly to paddr = vaddr - 80000000 
+	Every vaddr over c0000000 is mapped to a paddr via tlb
+	
+"Let's talk about assignment 3.2"
+	The address_space struct should contain at minimum:
+		Segement (AKA region) information
+			Should have room for multiple possible segements
+		Need to track the start and size of each segment
+	A Page Table structure (the state of virtual memory)
+		Typically, implemeted as either a linked list or a MLPT
+		The Page Table contains Page Table Entries (PTEs)
+			Each PTE contains the state of a virtual page
+			Each PTE maps a virtual page to a physical page (or disk block)
+	In general, KISS. Add additional fields as needed.
+		Note: through 3.2, address spaces are private per process
+
+"Start simple. Start with a reference to a physical address then add stuff as you go along"
+
+"You don't have to worry about synchronization in terms of page tables...until 3.3"
+
+Statically Sized Segments
+	Text(code), Data(initialized local variables), and BSS (uninitialized static variables)
+		These are set up at load time in os161, in load_elf() -> as_define_region()
+	Stack -- set up in as_define_stack()
+	These segements never change in size once set up
+		Not the same as allocating underlying physical pages
+	Additionally, DumbVM also *allocates* physical memory statically: as_prepare_load()
+		Need to change this approach to dynamic allocation
+
+Heap
+	No support for this in os161 out of th box
+	This can change in size while the program is runnning
+	Additionally, memory in the segment can be both dynamically allocated and reclaimed
+
+Virtual memory Decision Tree
+	Is the vaddr in an existing TLB translation entry?
+		If yes, no failt (handled in hardware transparently)
+	If not, is the vaddr in a segment (region)?
+		If not, segmentation fault
+	If so, is the vaddr also in a PTE?
+		Need to search Page Table structure
+		If so, is the virtual page in memory?
+			If so, update the TLB and resume execution
+			If not (Page fault), swap in page from disk
+		If not, create a new PTE and allocate a new physical page (dynamic allocation)
+vm_fault 
+	Current Behavior:
+		faultaddress is the vaddr of the TLB fault
+		First 1/3 of code perforsm basica setup and safety checks
+			DumbVM does not use subpermissions
+		Second 1/3 tries to locate the pgyiscal page corresponding to the virtual page of the fault
+			Uses base and bounds method of translation
+			Returns EFAULT if unsuccessful
+		Last 1/3 takes the virtual page - physical page translation and updates the TLB
+			Uses TLB access routines in machine/include/tlb.h
+	What to do:
+		Need to rewrite: handling of Virtual/Physical Data
+		Given a virtual fault address, determine if it is a potentially valid address
+			Look at memory segment information in your data structures
+		If it is a valid address, locate the virtual page in which it occurs
+			Search page table for PTE
+			May need to allocate a new PTE
+		The PTE should map the virtual page
+
+GETTING STARTED
+	Write your data structures:	
+		struct addrspace, struct PTE, and pagetable
+	Get a single process working -- eq a simple Hello World program
+		Need: as_create(), as_define_region(), as_define_stack(), vm_fault()
+		Reuse: as_activate()
+	Add support for fork() and memory reclamation 00 pass forktest
+		Need: as_copy(), as_destroy()
+		Clean up ALL memory leaks, tested by khu in test161
+	Add support for dynamic memory management AKA heap
+		Need: sbrk()
+	Need to support dynamic memory allocation
+		as_prepare_load() and as_complete_load() are used in DumbVM but may not be needed at all -- used for static allocation
+
+
