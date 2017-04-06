@@ -1262,6 +1262,7 @@ kfree(void *ptr)
 	/*
 	 * Try subpage first; if that fails, assume it's a big allocation.
 	 */
+	//printf("Freeing %p\n", ptr);
 	if (ptr == NULL) {
 		return;
 	} else if (subpage_kfree(ptr)) {

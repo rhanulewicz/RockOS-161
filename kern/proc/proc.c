@@ -81,6 +81,7 @@ proc_create(const char *name)
 {
 	struct proc *proc;
 	
+	
 	proc = kmalloc(sizeof(*proc));
 	if (proc == NULL) {
 		return NULL;
@@ -100,6 +101,9 @@ proc_create(const char *name)
 	/* VFS fields */
 	proc->p_cwd = NULL;
 	proc->dead = 0;
+	for(int i = 0; i < 64; ++i){
+		proc->fileTable[i] = NULL;
+	}
 
 	return proc;
 }
@@ -134,7 +138,7 @@ proc_destroy(struct proc *proc)
 
 	/* VFS fields */
 	if (proc->p_cwd) {
-		VOP_DECREF(proc->p_cwd);
+		// VOP_DECREF(proc->p_cwd);
 		proc->p_cwd = NULL;
 	}
 

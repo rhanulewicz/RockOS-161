@@ -497,7 +497,6 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 	}
 	newProc->p_cwd = curproc->p_cwd;
 	newProc->p_numthreads = 0;
-	newProc->p_name = curproc->p_name;
 	
 	/*Search for first empty place in process table starting at highestpid, 
 	place proc in it using wraparound*/
@@ -619,14 +618,10 @@ pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
 
 	lock_release(procToReap->proc_lock);
 
-	lock_acquire(procLock);
-
 	*retval = procToReap->pid;
 	//kprintf("before lock destroy\n");
 	//kprintf("after lock destroy\n");
 
-	lock_release(procLock);
-	
 
 	//kprintf("waitpid on %d done\n", pid);
 
