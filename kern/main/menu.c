@@ -196,7 +196,6 @@ common_prog(int nargs, char **args)
 	
 	
 	proc->proc_lock = lock_create("proclock");
-	proc->proc_cv = cv_create("proccv");
 	
 
 	result = thread_fork(args[0] /* thread name */,

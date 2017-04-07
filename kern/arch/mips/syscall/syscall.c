@@ -467,7 +467,6 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 
 	}
 	newProc->proc_lock = lock_create("proclockelse");
-	newProc->proc_cv = cv_create("proccvelse");
 	if(newProc->proc_lock == NULL){
 		*retval = 0;
 		return 0;
