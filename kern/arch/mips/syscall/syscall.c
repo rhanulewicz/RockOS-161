@@ -467,6 +467,7 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 
 	}
 	newProc->proc_lock = lock_create("proclockelse");
+	newProc->proc_cv = cv_create("proccvelse");
 	if(newProc->proc_lock == NULL){
 		*retval = 0;
 		return 0;
@@ -652,6 +653,7 @@ void sys_exit(int exitcode,bool signaled){
 	}
 
 	if(lock_do_i_hold(curproc->proc_lock)){
+		kprintf("releasing lock\n");
 		lock_release(curproc->proc_lock);
 	}
 

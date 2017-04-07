@@ -49,6 +49,7 @@
 #include "opt-net.h"
 #include "opt-synchprobs.h"
 #include "opt-automationtest.h"
+#include <current.h>
 
 /*
  * In-kernel menu and command dispatcher.
@@ -91,8 +92,7 @@ cmd_progthread(void *ptr, unsigned long nargs)
 	KASSERT(strlen(args[0]) < sizeof(progname));
 
 	strcpy(progname, args[0]);
-	//lock_acquire(procTable[2]->proc_lock);
-
+	lock_acquire(curproc->proc_lock);
 	result = runprogram(progname);
 	if (result) {
 		kprintf("Running program %s failed: %s\n", args[0],
@@ -194,12 +194,9 @@ common_prog(int nargs, char **args)
 
 	tc = thread_count;
 	
-	//lock_acquire(proc->proc_lock);
-
 	
 	proc->proc_lock = lock_create("proclock");
-
-	//lock_acquire(proc->proc_lock);
+	proc->proc_cv = cv_create("proccv");
 	
 
 	result = thread_fork(args[0] /* thread name */,
@@ -219,7 +216,6 @@ common_prog(int nargs, char **args)
 	 */
 	 int retval;
 	waitpid(proc->pid, NULL, 0, &retval);
-
 	//lock_acquire(procLock);
 	for(int i = 1; i < highPid; i++){
 		if(procTable[i] != NULL && procTable[i]->dead == 1){

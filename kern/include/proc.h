@@ -78,7 +78,8 @@ struct proc {
 	int pid;
 	int parentpid;
 	bool signal;
-	struct lock *proc_lock;
+	struct lock* proc_lock;
+	struct cv* proc_cv;
 	bool dead;
 
 	
