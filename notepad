@@ -198,7 +198,7 @@ ASST3.1 OVERVIEW
 			"Just a simple array should be fine, possibly in combination with something else" - Carl
 			How much physical memory will we have? That is defined in our sys161.conf file. Tests will be configuring your kernel with varying amounts.
 			
-		All you need to keep track of now is whether a particular physcial frame is allocated and the size of each allocation request
+		All you need to keep track of now is whether a particular physical frame is allocated and the size of each allocation request
 
 	3) Write code to initialize data structure
 		When to initialize the coremap data structure:
@@ -391,5 +391,3 @@ GETTING STARTED
 	
 	Need to support dynamic memory allocation
 		as_prepare_load() and as_complete_load() are used in DumbVM but may not be needed at all -- used for static allocation
-
-
