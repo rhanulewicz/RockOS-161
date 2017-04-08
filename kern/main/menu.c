@@ -216,40 +216,6 @@ common_prog(int nargs, char **args)
 	 int retval;
 	waitpid(proc->pid, NULL, 0, &retval);
 	//lock_acquire(procLock);
-	for(int i = 1; i < highPid; i++){
-		if(procTable[i] != NULL && procTable[i]->dead == 1){
-			kprintf("Killing %p, at index %d with highPid at %d\n", procTable[i], i, highPid);
-		
-			KASSERT(procTable[i] != NULL);
-			KASSERT(procTable[i] != kproc);
-			if (procTable[i]->p_cwd) {
-				VOP_DECREF(procTable[i]->p_cwd);
-				procTable[i]->p_cwd = NULL;
-			}
-
-			// /* VM fields */
-			if (procTable[i]->p_addrspace) {
-
-				struct addrspace *as;
-
-			
-					as = procTable[i]->p_addrspace;
-					procTable[i]->p_addrspace = NULL;
-				as_destroy(as);
-			}
-
-			KASSERT(procTable[i]->p_numthreads == 0);
-			spinlock_cleanup(&procTable[i]->p_lock); 	
-			// kprintf("Beofre lock destroy\n");
-			lock_destroy(procTable[i]->proc_lock);
-			KASSERT(procTable[i]->p_name != NULL);
-			kprintf("p name addr %p\n",procTable[i]->p_name);
-			kfree(procTable[i]->p_name);
-			kfree(procTable[i]);
-			procTable[i] = NULL;
-
-		}	
-	}
 	//lock_release(procLock);
 	// Wait for all threads to finish cleanup, otherwise khu be a bit behind,
 	// especially once swapping is enabled.
