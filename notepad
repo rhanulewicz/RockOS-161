@@ -284,6 +284,7 @@ MIPs interpretation of Virtual Memory
 
 	A Page Table structure (the state of virtual memory)
 		Typically, implemeted as either a linked list or a MLPT
+			Note that a 2-level array creates significant memory pressure.
 
 		The Page Table contains Page Table Entries (PTEs)
 			Each PTE contains the state of a virtual page
@@ -310,7 +311,7 @@ Statically Sized Segments
 		Need to change this approach to dynamic allocation
 
 Heap
-	No support for this in os161 out of th box
+	No support for this in os161 out of the box
 
 	This can change in size while the program is runnning
 
@@ -337,16 +338,17 @@ vm_fault
 	Current Behavior:
 		faultaddress is the vaddr of the TLB fault
 
-		First 1/3 of code perforsm basica setup and safety checks
+		First 1/3 of code perforsm basic setup and safety checks
 			DumbVM does not use subpermissions
 		
-		Second 1/3 tries to locate the pgyiscal page corresponding to the virtual page of the fault
+		Second 1/3 tries to locate the phyiscal page corresponding to the virtual page of the fault
 			Uses base and bounds method of translation
 		
 			Returns EFAULT if unsuccessful
 		
 		Last 1/3 takes the virtual page - physical page translation and updates the TLB
 			Uses TLB access routines in machine/include/tlb.h
+			Never evicts TLB translation entries => will eventually crash.
 	
 	What to do:
 		Need to rewrite: handling of Virtual/Physical Data
@@ -359,7 +361,16 @@ vm_fault
 	
 			May need to allocate a new PTE
 	
-		The PTE should map the virtual page
+		The PTE should map the virtual page to a physical page
+			May need to allocate a new physical page
+
+			(for ASST3.3) May need to page-in data from disk
+
+		Need to rewrite: updating of TLB entries
+			Should never panic on running out of free entry slots
+			
+			May need to evict a TLB mapping (not the same as evicting a physical
+			memory page)
 
 GETTING STARTED
 	Write your data structures:	
