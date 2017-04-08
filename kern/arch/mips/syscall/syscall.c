@@ -741,11 +741,13 @@ int execv(const char *program, char **args, int32_t *retval){
 	}
 	
 
-	as_deactivate();
-	// struct addrspace *old = proc_setas(NULL);
-	proc_setas(NULL);
-
 	struct addrspace *as;
+	as = proc_setas(NULL);
+	as_deactivate();
+	as_destroy(as);
+
+	// struct addrspace *old = proc_setas(NULL);
+
 	struct vnode *v;
 	vaddr_t entrypoint, stackptr;
 	int result;
@@ -810,6 +812,7 @@ int execv(const char *program, char **args, int32_t *retval){
 	nargs--;
 	*(char **)(stackptr + (4*(nargs))) =  NULL;
 	kfree(buffer);
+	kfree(name);
 
 	/* Warp to user mode. */
 	enter_new_process(nargs/*argc*/, (userptr_t)stackptr/*userspace addr of argv*/,
