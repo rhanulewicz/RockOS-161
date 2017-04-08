@@ -176,7 +176,6 @@ ssize_t open(char *filename, int flags, int32_t *retval){
 	}
 
 	struct fileContainer *file = kmalloc(sizeof(*file));
-	struct vnode *vn = kmalloc(sizeof(*vn));
 	
 	//SOLUTIONS I TRIED BUT FAILED:
 	//USING VNODE_INIT - NO IDEA HOW TO USE IT
@@ -198,17 +197,15 @@ ssize_t open(char *filename, int flags, int32_t *retval){
 	file->offset = 0;
 	
 	//Generate our vnode
-	err = vfs_open(filestar, flags, 0, &vn);
+	err = vfs_open(filestar, flags, 0, &file->llfile);
 	if(err){
-		kfree(file);
-		kfree(vn);
+		fileContainerDestroy(file);
 		*retval = 0;
 		return err;
 	}
 
 	//This doesn't seem to help much but it feels like I'm supposed to do it
 	
-	file->llfile = vn;
 	
 	//Places our file in the first empty slot in curpro's fileTable
 	//The user gets back the index at which it was placed (file descriptor)
@@ -229,7 +226,6 @@ ssize_t open(char *filename, int flags, int32_t *retval){
 		// kprintf("i am pid %d and i am opening file %d\n",curproc->pid, *retval);
 		// 	kprintf("i am pid %d and my stderr addr is  %p and after open\n",curproc->pid, curproc->fileTable[2]->lock);
 	lock_release(file->lock);
-
 
 	return (ssize_t)0;
 }
@@ -566,8 +562,8 @@ pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
 		*retval = -1;
 		return EINVAL;
 	}
-	char* ptr = kmalloc(4);
-	int err = copyin((const_userptr_t)status, ptr, 4);
+	char* ptr;
+	int err = copyin((const_userptr_t)status, &ptr, 4);
 	if(err && (status != NULL)){
 		kprintf("waitpiss2\n");
 		*retval = (int32_t)0;
@@ -646,7 +642,7 @@ void getpid(int32_t *retval){
 }
 
 void sys_exit(int exitcode,bool signaled){
-	 //kprintf("exiting pid %d\n", curproc->pid);
+	 kprintf("exiting pid %d\n", curproc->pid);
 	
 	for(int i = 0; i < 64; ++i){
 		int ret = 0;

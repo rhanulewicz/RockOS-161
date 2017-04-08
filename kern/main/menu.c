@@ -127,6 +127,7 @@ common_prog(int nargs, char **args)
 
 	kprintf("size of proc  %p", &procTable);
 
+
 	/* Create a process for the new program to run in. */
 	
 	proc = proc_create_runprogram(args[0] /* name */);
