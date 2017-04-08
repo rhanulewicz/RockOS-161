@@ -65,6 +65,7 @@ unsigned int coremap_used_bytes(void);
 /* TLB shootdown handling called from interprocessor_interrupt */
 void vm_tlbshootdown(const struct tlbshootdown *);
 
+void coremap_init(void);
 void coremap_bootstrap(void);
 
 unsigned long needed_pages(int bytes);

@@ -71,6 +71,13 @@ vm_bootstrap(void)
 }
 
 /*
+ * Suppresses undefined reference to 'coremap_bootstrap' when switching back to asst2
+ */
+void coremap_bootstrap(void){
+	return;
+}
+
+/*
  * Check if we're in a context that can sleep. While most of the
  * operations in dumbvm don't in fact sleep, in a real VM system many
  * of them would. In those, assert that sleeping is ok. This helps

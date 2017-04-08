@@ -19,20 +19,19 @@ void vm_bootstrap(){
 	return;
 }
 
+/*
+ * Level of indirection not necessary, but allows us to swap between ASST2 and ASST3 
+ * configurations without breaking
+ */
+void coremap_bootstrap(void){
+	coremap_init();
+}
+
 static
 paddr_t
 getppages(unsigned long npages){
 	
-		//THE OLD (DUMBVM) WAY:
-	// 	paddr_t addr;
-
 	spinlock_acquire(&stealmem_lock);
-
-	// 	addr = ram_stealmem(npages);
-
-
-
-	// (void)npages;
 
 	/*My guess as to what this should do: search through the array (coremap) until we
 	find n contiguous free pages. Then return the starting paddr of that chunk.*/
@@ -65,14 +64,6 @@ getppages(unsigned long npages){
 
 	 }
 
-
-	//Move firstpaddr accordingly. 
-
-	/*If they don't have to be contiguous pages, we could just update firstpaddr to be 
-	wherever our page allocation left off when it finished.*/
-
-	/*If they do have to be contiguous, or if we design them that way for now, 
-	we could interate the coremap again searching for the first free page. No biggie.*/
 	spinlock_release(&stealmem_lock);
 	return (paddr_t)0;
 
@@ -81,17 +72,6 @@ getppages(unsigned long npages){
 
 /* Allocate/free kernel heap pages (called by kmalloc/kfree) */
 vaddr_t alloc_kpages(unsigned npages){
-		//kprintf("inalloc\n");
-		//THE OLD (DUMBVM) WAY
-		// paddr_t pa;
-
-		// //dumbvm_can_sleep();
-		// pa = getppages(npages);
-		// if (pa==0) {
-		// 	return 0;
-		// }
-		// return PADDR_TO_KVADDR(pa);
-	//Allocates n coniguous physical pages 
 
 	/*Should call a working getppages routine that checks your coremap 
 	for the status of free pages and returns appropriately*/
@@ -100,13 +80,11 @@ vaddr_t alloc_kpages(unsigned npages){
 	if (startOfNewBlock==0) {
 			return 0;
 		}
-	//kprintf("on our way out with %p\n", (void*)PADDR_TO_KVADDR(startOfNewBlock));
 	return PADDR_TO_KVADDR(startOfNewBlock);
 
 }
 
 void free_kpages(vaddr_t addr){
-	//kprintf("infree\n");
 	spinlock_acquire(&stealmem_lock);
 	vaddr_t base = get_corePage(0)->block;
 	int page = (addr - base)/4096;
@@ -129,8 +107,6 @@ void free_kpages(vaddr_t addr){
  * to the caller. But it should have been correct at some point in time.
  */
 unsigned int coremap_used_bytes(void){
-	//Should we traverse the linked list each time we want this value? Could be too slow.
-	//Maybe we should keep a running total somewhere.
 	return used;
 }
 

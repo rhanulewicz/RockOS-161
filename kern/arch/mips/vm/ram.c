@@ -75,7 +75,7 @@ ram_bootstrap(void)
 }
 
 
-void coremap_bootstrap(void){
+void coremap_init(void){
 	paddr_t ramsize = ram_getsize();
 	//PAGE_SIZE defined in arch/mips/include/vm.h
 	int numberOfEntries = (int)ramsize/PAGE_SIZE;
@@ -112,10 +112,6 @@ struct corePage* get_corePage(int index){
 
 	return (struct corePage*)(PADDR_TO_KVADDR(coremapStart) + (index * structSize));
 }
-
-// int get_Sizes(){
-// 	return sizes;
-// }
 
 /*
  * Returns the number of pages necessary to allocate a given amount of bytes.
