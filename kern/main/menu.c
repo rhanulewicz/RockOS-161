@@ -125,9 +125,6 @@ common_prog(int nargs, char **args)
 	int result;
 	unsigned tc;
 
-	kprintf("size of proc  %p", &procTable);
-
-
 	/* Create a process for the new program to run in. */
 	
 	proc = proc_create_runprogram(args[0] /* name */);
@@ -174,14 +171,11 @@ common_prog(int nargs, char **args)
 
 	proc->parentpid = 1;
 	lock_acquire(procLock);
-		kprintf("address PRINT OUT LOOK HERE: %p\n", procTable[1]);
-		kprintf("highPid in menu is %d\n", highPid);
 	for(int i = highPid - 1; i < 2000; i++){
 		if(procTable[i] == NULL){
 			procTable[i] = proc;
 			proc->pid = i + 1;
 			highPid++;
-			kprintf("highPid in menu is %d\n", highPid);
 			if (highPid > 2000){
 				highPid = 2;
 			}
@@ -216,8 +210,7 @@ common_prog(int nargs, char **args)
 	 */
 	int retval;
 	waitpid(proc->pid, NULL, 0, &retval);
-	//lock_acquire(procLock);
-	//lock_release(procLock);
+	
 	// Wait for all threads to finish cleanup, otherwise khu be a bit behind,
 	// especially once swapping is enabled.
 	

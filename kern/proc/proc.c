@@ -81,7 +81,6 @@ proc_create(const char *name)
 {
 	struct proc *proc;
 	
-	
 	proc = kmalloc(sizeof(*proc));
 	if (proc == NULL) {
 		return NULL;
@@ -91,7 +90,6 @@ proc_create(const char *name)
 		kfree(proc);
 		return NULL;
 	}
-	// *proc->highestPid = 0;
 
 	proc->p_numthreads = 0;
 	spinlock_init(&proc->p_lock);
@@ -138,7 +136,7 @@ proc_destroy(struct proc *proc)
 
 	/* VFS fields */
 	if (proc->p_cwd) {
-		// VOP_DECREF(proc->p_cwd);
+		VOP_DECREF(proc->p_cwd);
 		proc->p_cwd = NULL;
 	}
 
@@ -192,11 +190,9 @@ proc_destroy(struct proc *proc)
 
 	KASSERT(proc->p_numthreads == 0);
 	spinlock_cleanup(&proc->p_lock);
-	// kprintf("Beofre lock destroy\n");
 	lock_destroy(proc->proc_lock);
 	kfree(proc->p_name);
 	kfree(proc);
-	// kprintf("Destroy successful\n");
 	
 }
 

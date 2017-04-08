@@ -62,20 +62,20 @@ __DEAD void enter_new_process(int argc, userptr_t argv, userptr_t env,
  * Prototypes for IN-KERNEL entry points for system call implementations.
  */
 
-ssize_t write(int filehandle, const void *buf, size_t size, int32_t *retval);
 ssize_t open(char *filename, int flags,  int32_t *retval);
 ssize_t close(int fd, int32_t *retval);
 ssize_t read(int fd, void *buf, size_t buflen, int32_t *retval);
+ssize_t write(int filehandle, const void *buf, size_t size, int32_t *retval);
 off_t lseek(int fd, off_t pos, int whence, int32_t *retval);
+int dup2(int oldfd, int newfd, int32_t *retval);
 pid_t fork(struct trapframe *tf, int32_t *retval);
+void copytf(void *tf, unsigned long);
+void getpid(int32_t *retval);
 pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval);
 void sys_exit(int exitcode,bool signaled);
+int rounded(int a);
 int execv(const char *program, char **args, int32_t *retval);
 int sys_reboot(int code);
 int sys___time(userptr_t user_seconds, userptr_t user_nanoseconds);
-void copytf(void *tf, unsigned long);
-void getpid(int32_t *retval);
-int dup2(int oldfd, int newfd, int32_t *retval);
-int rounded(int a);
 
 #endif /* _SYSCALL_H_ */
