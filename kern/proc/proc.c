@@ -100,7 +100,7 @@ proc_create(const char *name)
 	proc->p_addrspace = NULL;
 	/* VFS fields */
 	proc->p_cwd = NULL;
-	proc->dead = 0;
+	
 	for(int i = 0; i < 64; ++i){
 		proc->fileTable[i] = NULL;
 	}
@@ -214,7 +214,7 @@ proc_bootstrap(void)
 	}
 	kproc->pid = 1;
 	highPid = 2;
-	kproc->dead = 0;
+
 	for(int i = 0; i < 2000; i++){
 		procTable[i] = NULL;
 	}

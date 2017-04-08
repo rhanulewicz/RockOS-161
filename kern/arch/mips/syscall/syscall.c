@@ -615,8 +615,11 @@ pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
 	//For some reason I cannot kfree the refCount, close the vnode, etc
 	//proc_destroy also doesn't work...
 	//What else needs to be done here?
-
 	lock_release(procToReap->proc_lock);
+
+	lock_acquire(procLock);
+	procTable[procToReap->pid - 1] = NULL;
+	lock_release(procLock);
 
 	*retval = procToReap->pid;
 	proc_destroy(procToReap);
@@ -657,11 +660,7 @@ void sys_exit(int exitcode,bool signaled){
 		lock_release(curproc->proc_lock);
 	}
 
-	/* VM fields */
-	// kprintf("laternerd\n");
 	//kprintf("Exited pid %d\n", curproc->pid);
-		kprintf("Marking %d for dead\n", curproc->pid);
-		curproc->dead = 1;
 	curproc->exitCode = exitcode;
 	curproc->signal = signaled;
 	thread_exit();
