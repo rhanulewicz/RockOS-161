@@ -34,7 +34,8 @@
  * Address space structure and operations.
  */
 
-
+#include <spl.h>
+#include <mips/tlb.h>
 #include <vm.h>
 #include "opt-dumbvm.h"
 
@@ -58,6 +59,20 @@ struct addrspace {
         size_t as_npages2;
         paddr_t as_stackpbase;
 #else
+        vaddr_t code_start;
+        vaddr_t code_end;
+
+        vaddr_t data_start;
+        vaddr_t data_end;
+        
+        vaddr_t bss_start;
+        vaddr_t bss_end;
+
+        vaddr_t heap_start;
+        vaddr_t heap_end;
+
+        vaddr_t stackbound;
+
         /* Put stuff here for your VM system */
 #endif
 };

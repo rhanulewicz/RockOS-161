@@ -50,7 +50,7 @@ getppages(unsigned long npages){
 			}
 			used += 4096 * npages;
 			pagesAlloced += npages;
-			paddr_t addr = get_corePage(startOfCurBlock)->block - 0x80000000;
+			paddr_t addr = ppn_to_pblock(startOfCurBlock);
 			spinlock_release(&stealmem_lock);
 			return addr; 
 			
@@ -80,13 +80,14 @@ vaddr_t alloc_kpages(unsigned npages){
 	if (startOfNewBlock==0) {
 			return 0;
 		}
+		
 	return PADDR_TO_KVADDR(startOfNewBlock);
 
 }
 
 void free_kpages(vaddr_t addr){
 	spinlock_acquire(&stealmem_lock);
-	vaddr_t base = get_corePage(0)->block;
+	vaddr_t base = PADDR_TO_KVADDR(ppn_to_pblock(0));
 	int page = (addr - base)/4096;
 	int basePage =  get_corePage(page)->firstpage;
 	int npages = get_corePage(basePage)->npages;

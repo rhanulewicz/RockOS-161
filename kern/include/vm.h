@@ -76,8 +76,11 @@ struct corePage{
 	int allocated;
 	int firstpage;
 	int npages;
-	paddr_t block;
+	//paddr_t block;
 };
 
+paddr_t ppn_to_pblock(unsigned long ppn);
+
+unsigned long paddr_to_ppn(paddr_t paddr);
 
 #endif /* _VM_H_ */

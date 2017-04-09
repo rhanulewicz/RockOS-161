@@ -54,6 +54,11 @@ as_create(void)
 	 * Initialize as needed.
 	 */
 
+	/*
+	 * Init stack here
+	 */
+	
+
 	return as;
 }
 
@@ -90,20 +95,22 @@ as_destroy(struct addrspace *as)
 void
 as_activate(void)
 {
+	int i, spl;
 	struct addrspace *as;
 
 	as = proc_getas();
 	if (as == NULL) {
-		/*
-		 * Kernel thread without an address space; leave the
-		 * prior address space in place.
-		 */
 		return;
 	}
 
-	/*
-	 * Write this.
-	 */
+	/* Disable interrupts on this CPU while frobbing the TLB. */
+	spl = splhigh();
+
+	for (i=0; i<NUM_TLB; i++) {
+		tlb_write(TLBHI_INVALID(i), TLBLO_INVALID(), i);
+	}
+
+	splx(spl);
 }
 
 void

@@ -97,7 +97,7 @@ void coremap_init(void){
 		newPage->allocated = 0;
 		newPage->firstpage = -1;
 		newPage->npages = 0;
-		newPage->block = (0x80000000 + (i * 0x1000));
+		//newPage->block = (0x80000000 + (i * 0x1000));
 		buildPointer += structSize;	
 
 	}
@@ -120,6 +120,22 @@ struct corePage* get_corePage(int index){
 unsigned long needed_pages(int bytes){
 	KASSERT(bytes > 0);
 	return 1 + ((bytes - 1) / PAGE_SIZE);
+}
+
+/*
+ * Returns the starting physical address of a block of memory corresponding to the given
+ * physical page number.
+ */
+paddr_t ppn_to_pblock(unsigned long ppn){
+	return ppn * 0x1000;
+}
+
+/*
+ * Returns the physical page number corresponding to the physical block of memory in which 
+ * the given physical address is located.
+ */
+unsigned long paddr_to_ppn(paddr_t paddr){
+	return (unsigned long)(paddr / 0x1000);
 }
 
 /*

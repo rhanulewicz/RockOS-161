@@ -310,16 +310,16 @@ Statically Sized Segments
 	Additionally, DumbVM also *allocates* physical memory statically: as_prepare_load()
 		Need to change this approach to dynamic allocation
 
-Heap
-	No support for this in os161 out of the box
+	Heap
+		No support for this in os161 out of the box
 
-	This can change in size while the program is runnning
+		This can change in size while the program is runnning
 
-	Additionally, memory in the segment can be both dynamically allocated and reclaimed
+		Additionally, memory in the segment can be both dynamically allocated and reclaimed
 
 Virtual memory Decision Tree
 	Is the vaddr in an existing TLB translation entry?
-		If yes, no failt (handled in hardware transparently)
+		If yes, no fault (handled in hardware transparently)
 
 	If not, is the vaddr in a segment (region)?
 		If not, segmentation fault
@@ -381,7 +381,7 @@ GETTING STARTED
 	
 		Reuse: as_activate()
 	
-	Add support for fork() and memory reclamation 00 pass forktest
+	Add support for fork() and memory reclamation -- pass forktest
 		Need: as_copy(), as_destroy()
 	
 		Clean up ALL memory leaks, tested by khu in test161
@@ -391,3 +391,40 @@ GETTING STARTED
 	
 	Need to support dynamic memory allocation
 		as_prepare_load() and as_complete_load() are used in DumbVM but may not be needed at all -- used for static allocation
+
+Does the process page table abstract out the contiguousness of the coremap?
+Clock LRU? 
+	Brijesh used this. Took him to the finish line.
+Speed of linkedlist
+	Brijesh highly recommends the 4LPT
+Will user processes be starting other user processes?
+	That's what fork does you dummy
+Do we need to worry about orphans now?
+
+Do we decide where the static regions start and end? 
+	as_define_region
+Do we decide where the heap starts and ends? 
+	as_define_region
+Does everything need to be page aligned? 
+	this is kindof implicitly taken care of
+Static stack. No dynamic stack. Brijesh won't tell us how large it needs to be becuase he wants us to suffer
+
+Dont need to deal with offset at all. Just chop it off. VPN is all you need.
+
+==EXPERIMENTAL BULLSHIT BELOW. POSSIBLY WRONG==
+I think we might have to write something like this for allocing inside addrspace:
+
+	curVaddr //Where the allocation is starting in the address space. How to get this?
+	pages = needed_pages(alloc_size);
+	blockStart = alloc_kpages(pages);
+	for(int i = 0; i < pages; i++){
+		struct pte curpte;
+		curpte->vpn = (top 20 bits of curVaddr) + i;
+		curpte->ppn = paddr_to_ppn((blockStart - 0x80000000) + (PAGE_SIZE * i));
+
+If we do 4LPT
+
+PTE[][][][] 4LPT;
+	stores PTE[][]
+		stores PTE[]
+			stores PTE
