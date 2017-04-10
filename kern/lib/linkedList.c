@@ -38,7 +38,7 @@ void add(char * name, LinkedList* list){
 	list->next = LLcreate();
 	list->next->name = name;
 	list->next->prev = list;
-}
+}	
 
 void removeNode(LinkedList* list){
 	if(list->prev){

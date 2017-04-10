@@ -136,9 +136,9 @@ int
 as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 		 int readable, int writeable, int executable)
 {
-	
+
 	/* Align the region. First, the base... */
-	memsize += vaddr & ~(vaddr_t)PAGE_FRAME;calc
+	memsize += vaddr & ~(vaddr_t)PAGE_FRAME;
 	vaddr &= PAGE_FRAME;
 
 	/* ...and now the length. */
