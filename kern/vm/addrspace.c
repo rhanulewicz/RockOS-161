@@ -136,9 +136,13 @@ int
 as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 		 int readable, int writeable, int executable)
 {
-	/*
-	 * Write this.
-	 */
+	
+	/* Align the region. First, the base... */
+	memsize += vaddr & ~(vaddr_t)PAGE_FRAME;calc
+	vaddr &= PAGE_FRAME;
+
+	/* ...and now the length. */
+	memsize = (memsize + PAGE_SIZE - 1) & PAGE_FRAME;
 
 	LinkedList* llcur = as->regions;
 	struct region* reg = kmalloc(sizeof(*reg));
@@ -156,6 +160,7 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 	(void)readable;
 	(void)writeable;
 	(void)executable;
+	kprintf("Defined region: start: %p, end: %p", (void*)reg->start, (void*)reg->end);
 		
 	//What to return???
 	return ENOSYS;
