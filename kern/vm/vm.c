@@ -119,6 +119,8 @@ void vm_tlbshootdown(const struct tlbshootdown * tlbs){
 
 /* Fault handling function called by trap code */
 int vm_fault(int faulttype, vaddr_t faultaddress){
+
+
 	(void)faulttype;
 	(void)faultaddress;
 	return 0;

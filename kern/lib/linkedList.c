@@ -1,12 +1,14 @@
 #include "linkedList.h"
-#include <stdlib.h>
-#include <string.h> 
-#include <stdio.h>
+#include <types.h>
+#include <lib.h>
+// #include <stdlib.h>
+// #include <string.h> 
+// #include <stdio.h>
 
 
-LinkedList* LLcreate(void){
+LinkedList* LLcreate(){
 	LinkedList * newList;
-	newList = malloc(sizeof(LinkedList));
+	newList = kmalloc(sizeof(LinkedList));
 	newList->prev = NULL;
 	newList->curr = newList;
 	newList->next = NULL;
@@ -55,21 +57,21 @@ void LLdestroy(LinkedList* boom){
  	boom->curr = NULL;
  	boom->next = NULL;
 
-	free(boom);
+	kfree(boom);
 	boom = NULL;
 }
 
 
-int main () {
-	LinkedList * list = LLcreate();
-	add((char*)"second", list);
-	add((char*)"third", list->next);
-	add((char*)"fourth", list->next->next);
-	removeNode(list->next->next);
+// int main () {
+// 	LinkedList * list = LLcreate();
+// 	add((char*)"second", list);
+// 	add((char*)"third", list->next);
+// 	add((char*)"fourth", list->next->next);
+// 	removeNode(list->next->next);
 
-	printf("%s\n",list->name);
-	printf("%s\n",list->next->name);
-	printf("%s\n",list->next->next->name);
+// 	printf("%s\n",list->name);
+// 	printf("%s\n",list->next->name);
+// 	printf("%s\n",list->next->next->name);
 
-	return 0;
-} 
+// 	return 0;
+// } 

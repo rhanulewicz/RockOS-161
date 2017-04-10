@@ -38,9 +38,9 @@
 #include <mips/tlb.h>
 #include <vm.h>
 #include "opt-dumbvm.h"
+#include <linkedList.h>
 
 struct vnode;
-
 
 /*
  * Address space - data structure associated with the virtual memory
@@ -48,6 +48,11 @@ struct vnode;
  *
  * You write this.
  */
+
+struct region {
+    vaddr_t start;
+    vaddr_t end;
+};
 
 struct addrspace {
 #if OPT_DUMBVM
@@ -59,22 +64,17 @@ struct addrspace {
         size_t as_npages2;
         paddr_t as_stackpbase;
 #else
-        vaddr_t code_start;
-        vaddr_t code_end;
-
-        vaddr_t data_start;
-        vaddr_t data_end;
         
-        vaddr_t bss_start;
-        vaddr_t bss_end;
-
-        vaddr_t heap_start;
-        vaddr_t heap_end;
-
-        vaddr_t stackbound;
+        LinkedList* regions;
 
         /* Put stuff here for your VM system */
 #endif
+};
+
+
+struct pte {
+    unsigned long vpn;
+    unsigned long ppn;
 };
 
 /*

@@ -53,12 +53,11 @@ as_create(void)
 	/*
 	 * Initialize as needed.
 	 */
+	as->regions = LLcreate();
 
 	/*
 	 * Init stack here
 	 */
-	
-
 	return as;
 }
 
@@ -141,12 +140,24 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 	 * Write this.
 	 */
 
+	LinkedList* llcur = as->regions;
+	struct region* reg = kmalloc(sizeof(*reg));
+	reg->start = vaddr;
+	reg->end = vaddr + memsize;
+	while(llcur->next != NULL){
+		llcur = llcur->next;
+	}
+	llcur->data = reg;
+	llcur->next = LLcreate();
+	//Should we bzero?
 	(void)as;
 	(void)vaddr;
 	(void)memsize;
 	(void)readable;
 	(void)writeable;
 	(void)executable;
+		
+	//What to return???
 	return ENOSYS;
 }
 
@@ -178,12 +189,12 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 	/*
 	 * Write this.
 	 */
-
-	(void)as;
+	
+	//Should we bzero?
 
 	/* Initial user-level stack pointer */
 	*stackptr = USERSTACK;
-
+	(void)as;
 	return 0;
 }
 
