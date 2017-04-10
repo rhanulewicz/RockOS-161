@@ -411,6 +411,19 @@ Static stack. No dynamic stack. Brijesh won't tell us how large it needs to be b
 
 Dont need to deal with offset at all. Just chop it off. VPN is all you need.
 
+If we do 4LPT
+
+PTE[]       : stores PTE
+PTE[][]     : stores PTE[]
+PTE[][][]   : stores PTE[][]
+PTE[][][][] : stores PTE[][][]
+
+0xFFFFFFFF gets chopped down to 0xFFFFF, which is the same as 
+
+11111 11111 11111 11111 in base 2
+
+Each 5-bit chunk of that number is an index in each successive PT.
+
 ==EXPERIMENTAL BULLSHIT BELOW. POSSIBLY WRONG==
 I think we might have to write something like this for allocing inside addrspace:
 
@@ -421,10 +434,3 @@ I think we might have to write something like this for allocing inside addrspace
 		struct pte curpte;
 		curpte->vpn = (top 20 bits of curVaddr) + i;
 		curpte->ppn = paddr_to_ppn((blockStart - 0x80000000) + (PAGE_SIZE * i));
-
-If we do 4LPT
-
-PTE[][][][] 4LPT;
-	stores PTE[][]
-		stores PTE[]
-			stores PTE
