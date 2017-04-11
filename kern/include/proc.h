@@ -37,6 +37,8 @@
  */
 
 #include <spinlock.h>
+#include <vm.h>
+#include <addrspace.h>
 //#include <uio.h>
 
 struct addrspace;
@@ -80,7 +82,8 @@ struct proc {
 	bool signal;
 	struct lock* proc_lock;
 
-	
+	struct addrspace* p_as;
+	LinkedList* pageTable;	
 	/* add more material here as needed */
 };
 

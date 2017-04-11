@@ -120,7 +120,53 @@ void vm_tlbshootdown(const struct tlbshootdown * tlbs){
 /* Fault handling function called by trap code */
 int vm_fault(int faulttype, vaddr_t faultaddress){
 
+	//Check if address is in valid region
+	if(faultaddress == 0x0){
+		return 0;
+	}
+	volatile LinkedList* curreg = curthread->t_proc->p_as->regions;
+	while(1){
+		if(faultaddress >= ((struct region*)(curreg->data))->start && faultaddress <= ((struct region*)(curreg->data))->end){
+			//Found valid region. Must search page table for vpn.
+			LinkedList* curpte = curthread->t_proc->pageTable;
+			while(1){
+				if((faultaddress & PAGE_FRAME) == ((struct pte*)curpte->data)->vpn){
+					//Page is in table. Now check if it's in memory.
+					if(((struct pte*)curpte->data)->inmem){
+						//Verified page in memory. Now we need to load the TLB
+						//I made large and irresponsible assumptions at this line. Debug here when broke.
+						tlb_random((uint32_t)(((struct pte*)curpte->data)->vpn), (uint32_t)(((struct pte*)curpte->data)->vpn));
+						return 0;
+					}
+					//else page fault:  need swapping but that's for 3.3
 
+				}
+				if(curpte->next == NULL){
+					break;
+				}
+				curpte = LLnext(curpte);
+			}
+			//Failed to find page in table. Must allocate new one.
+			struct pte* newPage = kmalloc(sizeof(*newPage));
+			newPage->vpn = faultaddress & PAGE_FRAME;
+			vaddr_t allocAddr = alloc_kpages(1);
+			newPage->ppn = paddr_to_ppn(allocAddr - 0x80000000);
+			newPage->inmem = true;
+
+			LLaddWithDatum((char*)"weast", newPage, curpte);
+
+			tlb_random((uint32_t)newPage->vpn, (uint32_t)newPage->ppn);
+
+			return 0;
+
+		}
+		if(curreg == NULL){
+			break;
+		}
+		curreg = curreg->next;
+	}
+
+	// //Seg fault
 	(void)faulttype;
 	(void)faultaddress;
 	return 0;

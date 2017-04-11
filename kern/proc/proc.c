@@ -103,6 +103,9 @@ proc_create(const char *name)
 		proc->fileTable[i] = NULL;
 	}
 
+	proc->p_as = as_create();
+	proc->pageTable = LLcreate();
+
 	return proc;
 }
 

@@ -396,6 +396,7 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 	KASSERT(as->as_stackpbase != 0);
 
 	*stackptr = USERSTACK;
+	
 	return 0;
 }
 

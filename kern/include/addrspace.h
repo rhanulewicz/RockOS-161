@@ -66,6 +66,7 @@ struct addrspace {
 #else
         
         LinkedList* regions;
+        vaddr_t stackbound;
 
         /* Put stuff here for your VM system */
 #endif
@@ -75,7 +76,9 @@ struct addrspace {
 struct pte {
     unsigned long vpn;
     unsigned long ppn;
+    bool inmem;
 };
+
 
 /*
  * Functions in addrspace.c:

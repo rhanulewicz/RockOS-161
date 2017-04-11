@@ -17,30 +17,30 @@ LinkedList* LLcreate(){
 }
 
 
-LinkedList* Next(LinkedList* list){
+LinkedList* LLnext(LinkedList* list){
 	return list->next;
 }
-char* Curr(LinkedList* list){
+char* LLcurr(LinkedList* list){
 	return list->name;
 }
-LinkedList* Prev(LinkedList* list){
+LinkedList* LLprev(LinkedList* list){
 	return list->prev;
 }
 
 
-void addWithDatum(char * name, void * dataum, LinkedList* list){
+void LLaddWithDatum(char * name, void * dataum, LinkedList* list){
 	list->next = LLcreate();
 	list->next->name = name;
 	list->next->prev = list;
 	list->next->data = dataum;
 }
-void add(char * name, LinkedList* list){
+void LLadd(char * name, LinkedList* list){
 	list->next = LLcreate();
 	list->next->name = name;
 	list->next->prev = list;
 }	
 
-void removeNode(LinkedList* list){
+void LLremoveNode(LinkedList* list){
 	if(list->prev){
 	list->prev->next = list->next;
 	}

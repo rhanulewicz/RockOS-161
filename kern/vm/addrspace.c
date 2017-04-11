@@ -102,7 +102,7 @@ as_activate(void)
 		return;
 	}
 
-	/* Disable interrupts on this CPU while frobbing the TLB. */
+	 //Disable interrupts on this CPU while frobbing the TLB. 
 	spl = splhigh();
 
 	for (i=0; i<NUM_TLB; i++) {
@@ -148,11 +148,16 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 	struct region* reg = kmalloc(sizeof(*reg));
 	reg->start = vaddr;
 	reg->end = vaddr + memsize;
-	while(llcur->next != NULL){
+	if(llcur->name == "First"){
+		llcur->data = reg;
+		return 0;
+	}
+	while(LLnext(llcur)){
 		llcur = llcur->next;
 	}
-	llcur->data = reg;
-	llcur->next = LLcreate();
+
+	LLaddWithDatum((char*)"wumbo", reg, llcur);
+
 	//Should we bzero?
 	(void)as;
 	(void)vaddr;
@@ -160,10 +165,9 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 	(void)readable;
 	(void)writeable;
 	(void)executable;
-	kprintf("Defined region: start: %p, end: %p", (void*)reg->start, (void*)reg->end);
+	//("Defined region: start: %p, end: %p", (void*)reg->start, (void*)reg->end);
 		
-	//What to return???
-	return ENOSYS;
+	return 0;
 }
 
 int
@@ -198,7 +202,9 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 	//Should we bzero?
 
 	/* Initial user-level stack pointer */
+
 	*stackptr = USERSTACK;
+	as->stackbound = *stackptr - 0x100000;
 	(void)as;
 	return 0;
 }
