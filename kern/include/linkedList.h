@@ -21,4 +21,6 @@ void LLadd(char * name, LinkedList* list);
 void LLremoveNode(LinkedList* list);
 
 LinkedList* LLcreate(void);
+LinkedList* LLcreateWithName(char * name);
+
 void LLdestroy(LinkedList* boom);

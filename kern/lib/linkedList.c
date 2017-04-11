@@ -16,6 +16,16 @@ LinkedList* LLcreate(){
 	return newList;
 }
 
+LinkedList* LLcreateWithName(char * name){
+	LinkedList * newList;
+	newList = kmalloc(sizeof(LinkedList));
+	newList->prev = NULL;
+	newList->curr = newList;
+	newList->next = NULL;
+	newList->name = name;
+	return newList;
+}
+
 
 LinkedList* LLnext(LinkedList* list){
 	return list->next;
@@ -29,13 +39,13 @@ LinkedList* LLprev(LinkedList* list){
 
 
 void LLaddWithDatum(char * name, void * dataum, LinkedList* list){
-	list->next = LLcreate();
+	list->next = LLcreateWithName(name);
 	list->next->name = name;
 	list->next->prev = list;
 	list->next->data = dataum;
 }
 void LLadd(char * name, LinkedList* list){
-	list->next = LLcreate();
+	list->next = LLcreateWithName(name);
 	list->next->name = name;
 	list->next->prev = list;
 }	

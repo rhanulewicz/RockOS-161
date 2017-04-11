@@ -136,7 +136,6 @@ int
 as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 		 int readable, int writeable, int executable)
 {
-
 	/* Align the region. First, the base... */
 	memsize += vaddr & ~(vaddr_t)PAGE_FRAME;
 	vaddr &= PAGE_FRAME;
@@ -148,8 +147,9 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 	struct region* reg = kmalloc(sizeof(*reg));
 	reg->start = vaddr;
 	reg->end = vaddr + memsize;
-	if(llcur->name == "First"){
+	if(strcmp(llcur->name, "First") == 0 && !(llcur->data)){
 		llcur->data = reg;
+
 		return 0;
 	}
 	while(LLnext(llcur)){

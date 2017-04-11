@@ -102,7 +102,7 @@ proc_create(const char *name)
 	for(int i = 0; i < 64; ++i){
 		proc->fileTable[i] = NULL;
 	}
-
+	// this is the problem you need to have this point to the fucking proc->p_addrspace the addrs get swapped and you dont account for it becasue load elf is using proc->p_addrspace
 	proc->p_as = as_create();
 	proc->pageTable = LLcreate();
 

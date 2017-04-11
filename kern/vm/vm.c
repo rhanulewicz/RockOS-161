@@ -32,7 +32,7 @@ paddr_t
 getppages(unsigned long npages){
 	
 	spinlock_acquire(&stealmem_lock);
-
+	kprintf("in here\n");
 	/*My guess as to what this should do: search through the array (coremap) until we
 	find n contiguous free pages. Then return the starting paddr of that chunk.*/
 	paddr_t ramsize = ram_getsize();
@@ -121,10 +121,11 @@ void vm_tlbshootdown(const struct tlbshootdown * tlbs){
 int vm_fault(int faulttype, vaddr_t faultaddress){
 
 	//Check if address is in valid region
-	if(faultaddress == 0x0){
-		return 0;
-	}
 	volatile LinkedList* curreg = curthread->t_proc->p_as->regions;
+	if(faultaddress == 0x0 || !(curreg->data)){
+		return -1;
+	}
+	kprintf("pid here: %d",curthread->t_proc->pid);
 	while(1){
 		if(faultaddress >= ((struct region*)(curreg->data))->start && faultaddress <= ((struct region*)(curreg->data))->end){
 			//Found valid region. Must search page table for vpn.
