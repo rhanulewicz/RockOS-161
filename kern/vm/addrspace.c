@@ -211,6 +211,8 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 
 	*stackptr = USERSTACK;
 	as->stackbound = *stackptr - 0x100000;
+
+	as_define_region(as, as->stackbound, 0x100000, 1, 1, 0);
 	(void)as;
 	return 0;
 }

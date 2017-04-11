@@ -123,7 +123,9 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 	//Check if address is in valid region
 	LinkedList* curreg = curthread->t_proc->p_addrspace->regions;
 	while(1){
-		if(faultaddress >= ((struct region*)(curreg->data))->start && faultaddress <= ((struct region*)(curreg->data))->end){
+		vaddr_t regstart = ((struct region*)(curreg->data))->start;
+		vaddr_t regend = ((struct region*)(curreg->data))->end;
+		if(faultaddress >=  regstart && faultaddress <= regend){
 			//Found valid region. Must search page table for vpn.
 	//		kprintf("faultaddr in valid region\n");
 			LinkedList* curpte = curthread->t_proc->pageTable;
@@ -136,7 +138,15 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 						//Verified page in memory. Now we need to load the TLB
 						//I made large and irresponsible assumptions at this line. Debug here when broke.
 						spl = splhigh();
-						tlb_random((uint32_t)(((struct pte*)curpte->data)->vpn), (uint32_t)(((struct pte*)curpte->data)->ppn));
+						uint32_t ehi, elo;
+						ehi = (uint32_t)(((struct pte*)curpte->data)->vpn);
+						elo = (uint32_t)(((struct pte*)curpte->data)->ppn);
+						if(tlb_probe(ehi, elo) >= 0){
+							tlb_write(ehi, elo | TLBLO_DIRTY | TLBLO_VALID, tlb_probe(ehi, elo | TLBLO_DIRTY | TLBLO_VALID));
+							splx(spl);
+							return 0;
+						}
+						tlb_random(ehi, elo | TLBLO_DIRTY | TLBLO_VALID);
 						splx(spl);
 						return 0;
 					}
@@ -154,12 +164,12 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 			struct pte* newPage = kmalloc(sizeof(*newPage));
 			newPage->vpn = faultaddress & PAGE_FRAME;
 			vaddr_t allocAddr = alloc_kpages(1);
-			newPage->ppn = paddr_to_ppn(allocAddr - 0x80000000);
+			newPage->ppn = (allocAddr - 0x80000000) & PAGE_FRAME;
 			newPage->inmem = true;
 
 			LLaddWithDatum((char*)"weast", newPage, curpte);
 			spl = splhigh();
-			tlb_random((uint32_t)newPage->vpn, (uint32_t)newPage->ppn);
+			tlb_random((uint32_t)newPage->vpn, (uint32_t)newPage->ppn | TLBLO_DIRTY | TLBLO_VALID);
 			splx(spl);
 			return 0;
 

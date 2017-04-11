@@ -45,8 +45,10 @@ main(void)
 	// args[2] = NULL;
 	// 	buf[0] = "testbin/argtest";
 	// 	execv(*buf,  (char**)args);
+	int f = 45454646;
+	int G = 5454;
 
-	
-	return 0;
+	tprintf("SHIT WORKS %d\n", f);
+	return f + G;
 	
 }

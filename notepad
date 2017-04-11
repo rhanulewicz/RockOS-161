@@ -302,7 +302,7 @@ Statically Sized Segments
 	Text(code), Data(initialized local variables), and BSS (uninitialized static variables)
 		These are set up at load time in os161, in load_elf() -> as_define_region()
 
-	Stack -- set up in as_define_stack()
+	Stack -- set up in as_define_stack() (Thanks carl)
 
 	These segements never change in size once set up
 		Not the same as allocating underlying physical pages
@@ -434,3 +434,7 @@ I think we might have to write something like this for allocing inside addrspace
 		struct pte curpte;
 		curpte->vpn = (top 20 bits of curVaddr) + i;
 		curpte->ppn = paddr_to_ppn((blockStart - 0x80000000) + (PAGE_SIZE * i));
+
+[ASST 3 RECITATION 3 NOTES: ASST3.2 CONTINUED]
+
+When I allocate a new page, should I load the TLB or let it fault again?
