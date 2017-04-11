@@ -69,7 +69,7 @@ struct proc {
 	unsigned p_numthreads;		/* Number of threads in this process */
 
 	/* VM */
-	struct addrspace *p_addrspace;	/* virtual address space */
+	struct addrspace* p_addrspace;	/* virtual address space */
 
 	/* VFS */
 	struct vnode *p_cwd;		/* current working directory */
@@ -82,7 +82,6 @@ struct proc {
 	bool signal;
 	struct lock* proc_lock;
 
-	struct addrspace* p_as;
 	LinkedList* pageTable;	
 	/* add more material here as needed */
 };

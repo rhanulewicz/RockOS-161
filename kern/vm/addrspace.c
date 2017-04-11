@@ -54,7 +54,10 @@ as_create(void)
 	 * Initialize as needed.
 	 */
 	as->regions = LLcreate();
-
+	struct region* startReg = kmalloc(sizeof(struct region));
+	startReg->start = -1;
+	startReg->end = -1;
+	as->regions->data = startReg;
 	/*
 	 * Init stack here
 	 */
@@ -147,14 +150,17 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 	struct region* reg = kmalloc(sizeof(*reg));
 	reg->start = vaddr;
 	reg->end = vaddr + memsize;
-	if(strcmp(llcur->name, "First") == 0 && !(llcur->data)){
-		llcur->data = reg;
-
-		return 0;
-	}
 	while(LLnext(llcur)){
 		llcur = llcur->next;
 	}
+	/* We'll just leave the first one empty because treating it differently is
+	 * a pain in the ass */
+
+	// if(strcmp(llcur->name, "First") == 0 && !(llcur->data)){
+	// 	llcur->data = reg;
+
+	// 	return 0;
+	// }
 
 	LLaddWithDatum((char*)"wumbo", reg, llcur);
 
@@ -165,7 +171,7 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 	(void)readable;
 	(void)writeable;
 	(void)executable;
-	//("Defined region: start: %p, end: %p", (void*)reg->start, (void*)reg->end);
+	//kprintf("Defined region: start: %p, end: %p", (void*)(((struct region*)(llcur->next->data))->start), (void*)(((struct region*)(llcur->next->data))->end));
 		
 	return 0;
 }

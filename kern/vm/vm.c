@@ -32,7 +32,6 @@ paddr_t
 getppages(unsigned long npages){
 	
 	spinlock_acquire(&stealmem_lock);
-	kprintf("in here\n");
 	/*My guess as to what this should do: search through the array (coremap) until we
 	find n contiguous free pages. Then return the starting paddr of that chunk.*/
 	paddr_t ramsize = ram_getsize();
@@ -121,19 +120,22 @@ void vm_tlbshootdown(const struct tlbshootdown * tlbs){
 int vm_fault(int faulttype, vaddr_t faultaddress){
 
 	//Check if address is in valid region
-	volatile LinkedList* curreg = curthread->t_proc->p_as->regions;
-	if(faultaddress == 0x0 || !(curreg->data)){
-		return -1;
-	}
-	kprintf("pid here: %d",curthread->t_proc->pid);
+	
+	LinkedList* curreg = curthread->t_proc->p_addrspace->regions;
+	// if(faultaddress == 0x0 || !(curreg->data)){
+	// 	return EFAULT;
+	// }
 	while(1){
 		if(faultaddress >= ((struct region*)(curreg->data))->start && faultaddress <= ((struct region*)(curreg->data))->end){
 			//Found valid region. Must search page table for vpn.
+	//		kprintf("faultaddr in valid region\n");
 			LinkedList* curpte = curthread->t_proc->pageTable;
 			while(1){
 				if((faultaddress & PAGE_FRAME) == ((struct pte*)curpte->data)->vpn){
 					//Page is in table. Now check if it's in memory.
+	//				kprintf("faultaddr vpn in table\n");
 					if(((struct pte*)curpte->data)->inmem){
+	//					kprintf("faultaddr in mem, loading tlb\n");
 						//Verified page in memory. Now we need to load the TLB
 						//I made large and irresponsible assumptions at this line. Debug here when broke.
 						tlb_random((uint32_t)(((struct pte*)curpte->data)->vpn), (uint32_t)(((struct pte*)curpte->data)->vpn));
@@ -142,12 +144,14 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 					//else page fault:  need swapping but that's for 3.3
 
 				}
-				if(curpte->next == NULL){
+				if(LLnext(curpte) == NULL){
 					break;
 				}
 				curpte = LLnext(curpte);
 			}
 			//Failed to find page in table. Must allocate new one.
+
+	//		kprintf("faultaddr not in table. Allocing new page.\n");
 			struct pte* newPage = kmalloc(sizeof(*newPage));
 			newPage->vpn = faultaddress & PAGE_FRAME;
 			vaddr_t allocAddr = alloc_kpages(1);
@@ -161,15 +165,15 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 			return 0;
 
 		}
-		if(curreg == NULL){
+		if(LLnext(curreg) == NULL){
 			break;
 		}
-		curreg = curreg->next;
+		curreg = LLnext(curreg);
 	}
-
-	// //Seg fault
+	//kprintf("faultaddr not in valid region\n");
+	//Seg fault
 	(void)faulttype;
 	(void)faultaddress;
-	return 0;
+	return EFAULT;
 }
 
