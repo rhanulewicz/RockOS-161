@@ -127,14 +127,11 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 		vaddr_t regend = ((struct region*)(curreg->data))->end;
 		if(faultaddress >=  regstart && faultaddress <= regend){
 			//Found valid region. Must search page table for vpn.
-	//		kprintf("faultaddr in valid region\n");
-			LinkedList* curpte = curthread->t_proc->pageTable;
+			LinkedList* curpte = curthread->t_proc->p_addrspace->pageTable;
 			while(1){
 				if((faultaddress & PAGE_FRAME) == ((struct pte*)curpte->data)->vpn){
 					//Page is in table. Now check if it's in memory.
-	//				kprintf("faultaddr vpn in table\n");
 					if(((struct pte*)curpte->data)->inmem){
-	//					kprintf("faultaddr in mem, loading tlb\n");
 						//Verified page in memory. Now we need to load the TLB
 						//I made large and irresponsible assumptions at this line. Debug here when broke.
 						spl = splhigh();
@@ -160,7 +157,6 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 			}
 			//Failed to find page in table. Must allocate new one.
 
-	//		kprintf("faultaddr not in table. Allocing new page.\n");
 			struct pte* newPage = kmalloc(sizeof(*newPage));
 			newPage->vpn = faultaddress & PAGE_FRAME;
 			vaddr_t allocAddr = alloc_kpages(1);
@@ -168,7 +164,16 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 			newPage->inmem = true;
 
 			LLaddWithDatum((char*)"weast", newPage, curpte);
+			//Frob TLB
 			spl = splhigh();
+			uint32_t ehi, elo;
+			ehi = (uint32_t)(((struct pte*)curpte->data)->vpn);
+			elo = (uint32_t)(((struct pte*)curpte->data)->ppn);
+			if(tlb_probe(ehi, elo) >= 0){
+				tlb_write(ehi, elo | TLBLO_DIRTY | TLBLO_VALID, tlb_probe(ehi, elo | TLBLO_DIRTY | TLBLO_VALID));
+				splx(spl);
+				return 0;
+			}
 			tlb_random((uint32_t)newPage->vpn, (uint32_t)newPage->ppn | TLBLO_DIRTY | TLBLO_VALID);
 			splx(spl);
 			return 0;
@@ -179,7 +184,6 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 		}
 		curreg = LLnext(curreg);
 	}
-	//kprintf("faultaddr not in valid region\n");
 	//Seg fault
 	(void)faulttype;
 	(void)faultaddress;

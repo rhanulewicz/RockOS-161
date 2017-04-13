@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2013
  *	The President and Fellows of Harvard College.
@@ -82,7 +83,7 @@ struct proc {
 	bool signal;
 	struct lock* proc_lock;
 
-	LinkedList* pageTable;	
+		
 	/* add more material here as needed */
 };
 

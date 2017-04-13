@@ -67,6 +67,7 @@ struct addrspace {
         
         LinkedList* regions;
         vaddr_t stackbound;
+        LinkedList* pageTable;
 
         /* Put stuff here for your VM system */
 #endif

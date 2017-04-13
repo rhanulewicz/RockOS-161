@@ -104,11 +104,7 @@ proc_create(const char *name)
 	}
 	
 	proc->p_addrspace = as_create();
-	proc->pageTable = LLcreate();
-	struct pte* firstPage = kmalloc(sizeof(struct pte));
-	firstPage->vpn = -1;
-	firstPage->ppn = -1;
-	proc->pageTable->data = firstPage;
+	
 
 	return proc;
 }

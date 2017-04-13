@@ -60,6 +60,13 @@ as_create(void)
 	startReg->end = -1;
 	as->regions->data = startReg;
 	as->stackbound = 0;
+	
+	as->pageTable = LLcreate();
+	struct pte* firstPage = kmalloc(sizeof(struct pte));
+	firstPage->vpn = -1;
+	firstPage->ppn = -1;
+	as->pageTable->data = firstPage;
+
 	/*
 	 * Init stack here
 	 */
@@ -79,12 +86,39 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 	LinkedList* copyout = old->regions->next;
 
 	// hey deal with the read write execute;
+	//Copy region definitions
 	while(copyout){
-		as_define_region(newas,(((struct region*)old->regions->data)->start), (((struct region*)old->regions->data)->end) - (((struct region*)old->regions->data)->start), 1,1,1);
+		vaddr_t oldstart = (((struct region*)copyout->data)->start);
+		vaddr_t oldend = (((struct region*)copyout->data)->end);
+		as_define_region(newas, oldstart, (size_t)(oldend - oldstart), 1,1,1);
 		copyout = LLnext(copyout);
 
 	}
-	kprintf("%p\n",curthread->t_stack);
+
+	//Create new page table
+	newas->pageTable = LLcreate();
+	struct pte* firstPage = kmalloc(sizeof(struct pte));
+	firstPage->vpn = -1;
+	firstPage->ppn = -1;
+	newas->pageTable->data = firstPage;
+
+	//For entry in old page table, put entry in new table with matching vpn
+	LinkedList* oldPT = old->pageTable->next;
+	while(1){
+		struct pte* oldpte = ((struct pte*)(oldPT->data)); 
+		struct pte* newpte = kmalloc(sizeof(struct pte));
+		newpte->vpn = oldpte->vpn;
+		//Alloc a new page for that entry, give the pte the ppn corresponding to that page
+		vaddr_t allocAddr = alloc_kpages(1);
+		newpte->ppn = (allocAddr - 0x80000000) & PAGE_FRAME;
+		LLaddWithDatum((char*)"spongebobu", newpte , newas->pageTable);
+		//Copy mem from old page to new page
+		memcpy(PADDR_TO_KVADDR((void*)newpte->ppn), PADDR_TO_KVADDR((const void*)(oldpte->ppn)), PAGE_SIZE);
+		if(LLnext(oldPT) == NULL){
+			break;
+		}
+		oldPT = LLnext(oldPT);
+	}
 	/*
 	 * Write this.
 	 */
