@@ -47,7 +47,7 @@ struct cpu;
 
 
 /* Size of kernel stacks; must be power of 2 */
-#define STACK_SIZE 4096
+#define STACK_SIZE 1048576
 #define MAX_NAME_LENGTH 64
 
 /* Mask for extracting the stack base address of a kernel stack pointer */

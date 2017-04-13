@@ -33,6 +33,7 @@
 #include <addrspace.h>
 #include <vm.h>
 #include <proc.h>
+#include <current.h>
 
 /*
  * Note! If OPT_DUMBVM is set, as is the case until you start the VM
@@ -58,6 +59,7 @@ as_create(void)
 	startReg->start = -1;
 	startReg->end = -1;
 	as->regions->data = startReg;
+	as->stackbound = 0;
 	/*
 	 * Init stack here
 	 */
@@ -73,14 +75,21 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 	if (newas==NULL) {
 		return ENOMEM;
 	}
+	newas->stackbound = old->stackbound;
+	LinkedList* copyout = old->regions->next;
 
+	// hey deal with the read write execute;
+	while(copyout){
+		as_define_region(newas,(((struct region*)old->regions->data)->start), (((struct region*)old->regions->data)->end) - (((struct region*)old->regions->data)->start), 1,1,1);
+		copyout = LLnext(copyout);
+
+	}
+	kprintf("%p\n",curthread->t_stack);
 	/*
 	 * Write this.
 	 */
-
-	(void)old;
-
-	*ret = newas;
+	ret = &newas;
+	(void) ret;
 	return 0;
 }
 
@@ -89,7 +98,9 @@ as_destroy(struct addrspace *as)
 {
 	/*
 	 * Clean up as needed.
+	 * MUST KFREE THE DATA IN SIDE OF LINKED LIST
 	 */
+
 
 	kfree(as);
 }
