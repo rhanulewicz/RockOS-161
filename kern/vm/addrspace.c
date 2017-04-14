@@ -122,7 +122,7 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 	/*
 	 * Write this.
 	 */
-	ret = &newas;
+	*ret = newas;
 	(void) ret;
 	return 0;
 }
@@ -198,14 +198,6 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 	while(LLnext(llcur)){
 		llcur = llcur->next;
 	}
-	/* We'll just leave the first one empty because treating it differently is
-	 * a pain in the ass */
-
-	// if(strcmp(llcur->name, "First") == 0 && !(llcur->data)){
-	// 	llcur->data = reg;
-
-	// 	return 0;
-	// }
 
 	LLaddWithDatum((char*)"wumbo", reg, llcur);
 

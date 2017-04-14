@@ -169,6 +169,7 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 			uint32_t ehi, elo;
 			ehi = (uint32_t)(((struct pte*)curpte->data)->vpn);
 			elo = (uint32_t)(((struct pte*)curpte->data)->ppn);
+
 			if(tlb_probe(ehi, elo) >= 0){
 				tlb_write(ehi, elo | TLBLO_DIRTY | TLBLO_VALID, tlb_probe(ehi, elo | TLBLO_DIRTY | TLBLO_VALID));
 				splx(spl);
@@ -179,9 +180,11 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 			return 0;
 
 		}
+		
 		if(LLnext(curreg) == NULL){
 			break;
 		}
+
 		curreg = LLnext(curreg);
 	}
 	//Seg fault

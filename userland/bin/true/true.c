@@ -45,10 +45,13 @@ main(void)
 	// args[2] = NULL;
 	// 	buf[0] = "testbin/argtest";
 	// 	execv(*buf,  (char**)args);
-	int f = 45454646;
-	int G = 5454;
-
-	tprintf("SHIT WORKS %d\n", f);
-	return f + G;
+	int pid = fork();
+	if(pid == 0){
+		while(1){
+			
+		}
+	}
+	//printf("hi im parent\n");
+	return 0;
 	
 }

@@ -440,6 +440,7 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 	*tfc = *tf;
 	//Fork new process
 	thread_fork(newProc->p_name, newProc, copytf, tfc, 0);
+
 	//Return child's pid to userland
 	*retval = (int32_t)newProc->pid;
 	//Return errno 
@@ -448,6 +449,7 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 
 void copytf(void *tf, unsigned long ts){
 	(void)ts;
+
 	//Activitates new address space
 	as_activate();
 	lock_acquire(curproc->proc_lock);
@@ -462,6 +464,7 @@ void copytf(void *tf, unsigned long ts){
 	ctf.tf_epc += 4;
 	//Ship the child trapframe to usermode. Wave goodbye.
 	curproc->exitCode = -1;
+
 	mips_usermode(&ctf);
 }
 
