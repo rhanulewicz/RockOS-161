@@ -85,11 +85,13 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 	newas->stackbound = old->stackbound;
 	LinkedList* copyout = old->regions->next;
 
+
 	// hey deal with the read write execute;
 	//Copy region definitions
 	while(copyout){
 		vaddr_t oldstart = (((struct region*)copyout->data)->start);
 		vaddr_t oldend = (((struct region*)copyout->data)->end);
+		kprintf("start %p, end %p\n", (void*)oldstart, (void*)oldend);
 		as_define_region(newas, oldstart, (size_t)(oldend - oldstart), 1,1,1);
 		copyout = LLnext(copyout);
 
@@ -104,6 +106,7 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 
 	//For entry in old page table, put entry in new table with matching vpn
 	LinkedList* oldPT = old->pageTable->next;
+	LinkedList* newPT = newas->pageTable;
 	while(1){
 		struct pte* oldpte = ((struct pte*)(oldPT->data)); 
 		struct pte* newpte = kmalloc(sizeof(struct pte));
@@ -111,17 +114,29 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 		//Alloc a new page for that entry, give the pte the ppn corresponding to that page
 		vaddr_t allocAddr = alloc_kpages(1);
 		newpte->ppn = (allocAddr - 0x80000000) & PAGE_FRAME;
-		LLaddWithDatum((char*)"spongebobu", newpte , newas->pageTable);
+
+		LLaddWithDatum((char*)"spongebobu", newpte, newPT);
 		//Copy mem from old page to new page
 		memcpy(PADDR_TO_KVADDR((void*)newpte->ppn), PADDR_TO_KVADDR((const void*)(oldpte->ppn)), PAGE_SIZE);
 		if(LLnext(oldPT) == NULL){
 			break;
 		}
+		newPT = LLnext(newPT);
 		oldPT = LLnext(oldPT);
 	}
-	/*
-	 * Write this.
-	 */
+	/* TESTING CODE */
+	// oldPT = old->pageTable;
+	// newPT = newas->pageTable;
+	// 	kprintf("oldPT:\n");
+	// while(oldPT){
+	// 	kprintf("vpn: %p, ppn: %p\n", (void*)((struct pte*)(oldPT->data))->vpn, (void*)((struct pte*)(oldPT->data))->ppn);
+	// 	oldPT = LLnext(oldPT);	
+	// }
+	// 	kprintf("newPT:\n");
+	// while(newPT){
+	// 	kprintf("vpn: %p, ppn: %p\n", (void*)((struct pte*)(newPT->data))->vpn, (void*)((struct pte*)(newPT->data))->ppn);
+	// 	newPT = LLnext(newPT);
+	// }
 	*ret = newas;
 	(void) ret;
 	return 0;

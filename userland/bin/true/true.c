@@ -47,6 +47,7 @@ main(void)
 	// 	execv(*buf,  (char**)args);
 	int pid = fork();
 	if(pid == 0){
+		printf("I am child\n");
 		while(1){
 			
 		}

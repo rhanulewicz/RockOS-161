@@ -125,7 +125,7 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 	while(1){
 		vaddr_t regstart = ((struct region*)(curreg->data))->start;
 		vaddr_t regend = ((struct region*)(curreg->data))->end;
-		if(faultaddress >=  regstart && faultaddress <= regend){
+		if(faultaddress >= regstart && faultaddress <= regend){
 			//Found valid region. Must search page table for vpn.
 			LinkedList* curpte = curthread->t_proc->p_addrspace->pageTable;
 			while(1){
@@ -180,7 +180,7 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 			return 0;
 
 		}
-		
+
 		if(LLnext(curreg) == NULL){
 			break;
 		}
