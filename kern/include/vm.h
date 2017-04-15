@@ -34,7 +34,7 @@
 /*
  * VM system-related definitions.
  *
- * You'll probably want to add stuff here.
+ * You'll probably want to add stuff here.t* newPT = newas->pageTable;
  */
 
 

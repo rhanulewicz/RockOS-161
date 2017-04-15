@@ -76,6 +76,7 @@ as_create(void)
 int
 as_copy(struct addrspace *old, struct addrspace **ret)
 {
+	//int spl = splhigh();
 	struct addrspace *newas;
 
 	newas = as_create();
@@ -98,24 +99,22 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 	}
 
 	//Create new page table
-	newas->pageTable = LLcreate();
+	LinkedList* newPageTable = LLcreate();
 	struct pte* firstPage = kmalloc(sizeof(struct pte));
 	firstPage->vpn = -1;
 	firstPage->ppn = -1;
-	newas->pageTable->data = firstPage;
+	newPageTable->data = firstPage;
 
 	//For entry in old page table, put entry in new table with matching vpn
 	LinkedList* oldPT = old->pageTable->next;
-	LinkedList* newPT = newas->pageTable;
+	LinkedList* newPT = newPageTable;
 	while(1){
-		struct pte* oldpte = ((struct pte*)(oldPT->data)); 
+		struct pte* oldpte = (struct pte*)oldPT->data; 
 		struct pte* newpte = kmalloc(sizeof(struct pte));
 		newpte->vpn = oldpte->vpn;
 		//Alloc a new page for that entry, give the pte the ppn corresponding to that page
 		vaddr_t allocAddr = alloc_kpages(1);
-
 		newpte->ppn = (allocAddr - 0x80000000);
-		bzero((void*)PADDR_TO_KVADDR(newpte->ppn), PAGE_SIZE);
 		LLaddWithDatum((char*)"spongebobu", newpte, newPT);
 		//Copy mem from old page to new page
 		memcpy((void*)PADDR_TO_KVADDR(newpte->ppn), (const void*)PADDR_TO_KVADDR((oldpte->ppn)), PAGE_SIZE);
@@ -127,7 +126,7 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 	}
 	/* TESTING CODE */
 	oldPT = old->pageTable;
-	newPT = newas->pageTable;
+	newPT = newPageTable;
 		kprintf("oldPT:\n");
 	while(oldPT){
 		kprintf("vpn: %p, ppn: %p\n", (void*)((struct pte*)(oldPT->data))->vpn, (void*)((struct pte*)(oldPT->data))->ppn);
@@ -138,8 +137,10 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 		kprintf("vpn: %p, ppn: %p\n", (void*)((struct pte*)(newPT->data))->vpn, (void*)((struct pte*)(newPT->data))->ppn);
 		newPT = LLnext(newPT);
 	}
+	newas->pageTable = newPageTable;
 	*ret = newas;
 	(void) ret;
+	//splx(spl);
 	return 0;
 }
 
