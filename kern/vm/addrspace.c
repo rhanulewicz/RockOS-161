@@ -92,7 +92,7 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 	while(copyout){
 		vaddr_t oldstart = (((struct region*)copyout->data)->start);
 		vaddr_t oldend = (((struct region*)copyout->data)->end);
-		kprintf("start %p, end %p\n", (void*)oldstart, (void*)oldend);
+		//kprintf("start %p, end %p\n", (void*)oldstart, (void*)oldend);
 		as_define_region(newas, oldstart, (size_t)(oldend - oldstart), 1,1,1);
 		copyout = LLnext(copyout);
 
@@ -114,10 +114,9 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 		newpte->vpn = oldpte->vpn;
 		//Alloc a new page for that entry, give the pte the ppn corresponding to that page
 		vaddr_t allocAddr = alloc_kpages(1);
-		kprintf("%p\n", (void*)allocAddr);
 		newpte->ppn = (allocAddr - 0x80000000);
-		LLaddWithDatum((char*)"spongebobu", newpte, newPT);
 		newpte->inmem = 1;
+		LLaddWithDatum((char*)"spongebobu", newpte, newPT);
 		//Copy mem from old page to new page
 		memcpy((void*)PADDR_TO_KVADDR(newpte->ppn), (const void*)PADDR_TO_KVADDR((oldpte->ppn)), PAGE_SIZE);
 		if(LLnext(oldPT) == NULL){
@@ -127,18 +126,18 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 		oldPT = LLnext(oldPT);
 	}
 	/* TESTING CODE */
-	oldPT = old->pageTable;
-	newPT = newPageTable;
-		kprintf("oldPT:\n");
-	while(oldPT){
-		kprintf("vpn: %p, ppn: %p page name: %s\n", (void*)((struct pte*)(oldPT->data))->vpn, (void*)((struct pte*)(oldPT->data))->ppn, oldPT->name);
-		oldPT = LLnext(oldPT);	
-	}
-		kprintf("newPT:\n");
-	while(newPT){
-		kprintf("vpn: %p, ppn: %p page name: %s\n", (void*)((struct pte*)(newPT->data))->vpn, (void*)((struct pte*)(newPT->data))->ppn, newPT->name);
-		newPT = LLnext(newPT);
-	}
+	// oldPT = old->pageTable;
+	// newPT = newPageTable;
+	// 	kprintf("oldPT:\n");
+	// while(oldPT){
+	// 	kprintf("vpn: %p, ppn: %p page name: %s\n", (void*)((struct pte*)(oldPT->data))->vpn, (void*)((struct pte*)(oldPT->data))->ppn, oldPT->name);
+	// 	oldPT = LLnext(oldPT);	
+	// }
+	// 	kprintf("newPT:\n");
+	// while(newPT){
+	// 	kprintf("vpn: %p, ppn: %p page name: %s\n", (void*)((struct pte*)(newPT->data))->vpn, (void*)((struct pte*)(newPT->data))->ppn, newPT->name);
+	// 	newPT = LLnext(newPT);
+	// }
 	newas->pageTable = newPageTable;
 	*ret = newas;
 	(void) ret;
@@ -154,6 +153,27 @@ as_destroy(struct addrspace *as)
 	 * MUST KFREE THE DATA IN SIDE OF LINKED LIST
 	 */
 
+	/* Free region list */
+	LinkedList* toFree = as->regions;
+	LinkedList* next = NULL;
+	while(toFree){
+		next = toFree->next;
+		kfree((struct region*)toFree->data);
+		LLdestroy(toFree);
+		toFree = next;
+	}
+
+	/* Free page table */
+
+	toFree = as->pageTable;
+
+	while(toFree){
+		next = toFree->next;
+		kfree((struct pte*)toFree->data);
+		LLdestroy(toFree);
+		toFree = next;
+	}
+	
 	kfree(as);
 }
 
