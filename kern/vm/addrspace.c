@@ -126,18 +126,18 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 		oldPT = LLnext(oldPT);
 	}
 	/* TESTING CODE */
-	// oldPT = old->pageTable;
-	// newPT = newas->pageTable;
-	// 	kprintf("oldPT:\n");
-	// while(oldPT){
-	// 	kprintf("vpn: %p, ppn: %p\n", (void*)((struct pte*)(oldPT->data))->vpn, (void*)((struct pte*)(oldPT->data))->ppn);
-	// 	oldPT = LLnext(oldPT);	
-	// }
-	// 	kprintf("newPT:\n");
-	// while(newPT){
-	// 	kprintf("vpn: %p, ppn: %p\n", (void*)((struct pte*)(newPT->data))->vpn, (void*)((struct pte*)(newPT->data))->ppn);
-	// 	newPT = LLnext(newPT);
-	// }
+	oldPT = old->pageTable;
+	newPT = newas->pageTable;
+		kprintf("oldPT:\n");
+	while(oldPT){
+		kprintf("vpn: %p, ppn: %p\n", (void*)((struct pte*)(oldPT->data))->vpn, (void*)((struct pte*)(oldPT->data))->ppn);
+		oldPT = LLnext(oldPT);	
+	}
+		kprintf("newPT:\n");
+	while(newPT){
+		kprintf("vpn: %p, ppn: %p\n", (void*)((struct pte*)(newPT->data))->vpn, (void*)((struct pte*)(newPT->data))->ppn);
+		newPT = LLnext(newPT);
+	}
 	*ret = newas;
 	(void) ret;
 	return 0;

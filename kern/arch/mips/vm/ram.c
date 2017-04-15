@@ -105,8 +105,8 @@ void coremap_init(void){
 		buildPointer += structSize;	
 
 	}
-	alloc_kpages(pagesForKernel);
-	alloc_kpages(pagesForCoremap);
+	alloc_kpages_nozero(pagesForKernel);
+	alloc_kpages_nozero(pagesForCoremap);
 }
 
 

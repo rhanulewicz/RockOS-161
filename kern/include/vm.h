@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2000, 2001, 2002, 2003, 2004, 2005, 2008, 2009
  *	The President and Fellows of Harvard College.
@@ -53,6 +54,7 @@ int vm_fault(int faulttype, vaddr_t faultaddress);
 
 /* Allocate/free kernel heap pages (called by kmalloc/kfree) */
 vaddr_t alloc_kpages(unsigned npages);
+vaddr_t alloc_kpages_nozero(unsigned npages);
 void free_kpages(vaddr_t addr);
 
 /*

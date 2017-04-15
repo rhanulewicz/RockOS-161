@@ -440,9 +440,9 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 	*tfc = *tf;
 	//Fork new process
 	thread_fork(newProc->p_name, newProc, copytf, tfc, 0);
-	while(1){
+	// while(1){
 		
-	}
+	// }
 	//Return child's pid to userland
 	*retval = (int32_t)newProc->pid;
 	//Return errno 

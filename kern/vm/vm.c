@@ -83,14 +83,20 @@ vaddr_t alloc_kpages(unsigned npages){
 			return 0;
 		}
 
-	if(startOfNewBlock >= getFirstPaddr()){
-		bzero((void*)PADDR_TO_KVADDR(startOfNewBlock), npages * PAGE_SIZE);
-
-	}
-		
+	bzero((void*)PADDR_TO_KVADDR(startOfNewBlock), npages * PAGE_SIZE);
 	
 	return PADDR_TO_KVADDR(startOfNewBlock);
 
+}
+
+vaddr_t alloc_kpages_nozero(unsigned npages){
+	paddr_t startOfNewBlock = getppages(npages);
+	
+	if (startOfNewBlock==0) {
+			return 0;
+		}
+
+	return PADDR_TO_KVADDR(startOfNewBlock);
 }
 
 void free_kpages(vaddr_t addr){
@@ -131,7 +137,10 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 	int spl;
 	faultaddress &= PAGE_FRAME;
 	//Check if address is in valid region
-	LinkedList* curreg = curthread->t_proc->p_addrspace->regions;
+	LinkedList* curreg = curthread->t_proc->p_addrspace->regions->next;
+	if(curreg == NULL){
+		return EFAULT;
+	}
 	while(1){
 		vaddr_t regstart = ((struct region*)(curreg->data))->start;
 		vaddr_t regend = ((struct region*)(curreg->data))->end;
