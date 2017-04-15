@@ -45,12 +45,12 @@ main(void)
 	// args[2] = NULL;
 	// 	buf[0] = "testbin/argtest";
 	// 	execv(*buf,  (char**)args);
-	//int pid = fork();
-	printf("I'm here");
-	// if(pid == 0){
-	// 	printf("I am child\n");
-	// }
-	//printf("hi im parent\n");
+	int pid = fork();
+	if(pid == 0){
+		printf("I am child\n");
+		exit(0);
+	}
+	printf("hi im parent\n");
 	return 0;
 	
 }

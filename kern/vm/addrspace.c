@@ -114,8 +114,10 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 		newpte->vpn = oldpte->vpn;
 		//Alloc a new page for that entry, give the pte the ppn corresponding to that page
 		vaddr_t allocAddr = alloc_kpages(1);
+		kprintf("%p\n", (void*)allocAddr);
 		newpte->ppn = (allocAddr - 0x80000000);
 		LLaddWithDatum((char*)"spongebobu", newpte, newPT);
+		newpte->inmem = 1;
 		//Copy mem from old page to new page
 		memcpy((void*)PADDR_TO_KVADDR(newpte->ppn), (const void*)PADDR_TO_KVADDR((oldpte->ppn)), PAGE_SIZE);
 		if(LLnext(oldPT) == NULL){
@@ -129,12 +131,12 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 	newPT = newPageTable;
 		kprintf("oldPT:\n");
 	while(oldPT){
-		kprintf("vpn: %p, ppn: %p\n", (void*)((struct pte*)(oldPT->data))->vpn, (void*)((struct pte*)(oldPT->data))->ppn);
+		kprintf("vpn: %p, ppn: %p page name: %s\n", (void*)((struct pte*)(oldPT->data))->vpn, (void*)((struct pte*)(oldPT->data))->ppn, oldPT->name);
 		oldPT = LLnext(oldPT);	
 	}
 		kprintf("newPT:\n");
 	while(newPT){
-		kprintf("vpn: %p, ppn: %p\n", (void*)((struct pte*)(newPT->data))->vpn, (void*)((struct pte*)(newPT->data))->ppn);
+		kprintf("vpn: %p, ppn: %p page name: %s\n", (void*)((struct pte*)(newPT->data))->vpn, (void*)((struct pte*)(newPT->data))->ppn, newPT->name);
 		newPT = LLnext(newPT);
 	}
 	newas->pageTable = newPageTable;
