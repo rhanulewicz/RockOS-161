@@ -451,7 +451,7 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 
 void copytf(void *tf, unsigned long ts){
 	(void)ts;
-
+	
 	//Activitates new address space
 	as_activate();
 	lock_acquire(curproc->proc_lock);

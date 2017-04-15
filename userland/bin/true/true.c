@@ -48,9 +48,6 @@ main(void)
 	int pid = fork();
 	if(pid == 0){
 		printf("I am child\n");
-		while(1){
-			
-		}
 	}
 	//printf("hi im parent\n");
 	return 0;

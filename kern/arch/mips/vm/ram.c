@@ -43,6 +43,10 @@ static paddr_t coremapStart;	/* The starting address of the coremap */
  * Called very early in system boot to figure out how much physical
  * RAM is available.
  */
+
+paddr_t getFirstPaddr(){
+	return firstpaddr;
+}
 void
 ram_bootstrap(void)
 {
@@ -82,7 +86,7 @@ void coremap_init(void){
 	int structSize = sizeof(struct corePage);
 	int coremapSize = numberOfEntries * structSize;
 	int pagesForKernel = needed_pages(firstpaddr);
-	coremapStart = pagesForKernel * 4096;
+	coremapStart = pagesForKernel * PAGE_SIZE;
 	int pagesForCoremap = needed_pages(coremapSize);
 	
 	//sizes  = (pagesForKernel * 4096) + (pagesForCoremap * 4096);
@@ -101,7 +105,6 @@ void coremap_init(void){
 		buildPointer += structSize;	
 
 	}
-
 	alloc_kpages(pagesForKernel);
 	alloc_kpages(pagesForCoremap);
 }
@@ -127,7 +130,7 @@ unsigned long needed_pages(int bytes){
  * physical page number.
  */
 paddr_t ppn_to_pblock(unsigned long ppn){
-	return ppn * 0x1000;
+	return ppn * PAGE_SIZE;
 }
 
 /*
@@ -135,7 +138,7 @@ paddr_t ppn_to_pblock(unsigned long ppn){
  * the given physical address is located.
  */
 unsigned long paddr_to_ppn(paddr_t paddr){
-	return (unsigned long)(paddr / 0x1000);
+	return (unsigned long)(paddr / PAGE_SIZE);
 }
 
 /*

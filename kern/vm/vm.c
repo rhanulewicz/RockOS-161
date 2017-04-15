@@ -45,12 +45,14 @@ getppages(unsigned long npages){
 				get_corePage(j)->allocated = 1;
 				get_corePage(j)->firstpage = startOfCurBlock;
 				get_corePage(j)->npages = npages;
+
 				
 			}
-			used += 4096 * npages;
+			used += PAGE_SIZE * npages;
 			pagesAlloced += npages;
 			paddr_t addr = ppn_to_pblock(startOfCurBlock);
 			spinlock_release(&stealmem_lock);
+			
 			return addr; 
 			
 		}
@@ -76,10 +78,17 @@ vaddr_t alloc_kpages(unsigned npages){
 	for the status of free pages and returns appropriately*/
 
 	paddr_t startOfNewBlock = getppages(npages);
+	
 	if (startOfNewBlock==0) {
 			return 0;
 		}
+
+	if(startOfNewBlock >= getFirstPaddr()){
+		bzero((void*)PADDR_TO_KVADDR(startOfNewBlock), npages * PAGE_SIZE);
+
+	}
 		
+	
 	return PADDR_TO_KVADDR(startOfNewBlock);
 
 }
@@ -87,7 +96,7 @@ vaddr_t alloc_kpages(unsigned npages){
 void free_kpages(vaddr_t addr){
 	spinlock_acquire(&stealmem_lock);
 	vaddr_t base = PADDR_TO_KVADDR(ppn_to_pblock(0));
-	int page = (addr - base)/4096;
+	int page = (addr - base) / PAGE_SIZE;
 	int basePage =  get_corePage(page)->firstpage;
 	int npages = get_corePage(basePage)->npages;
 
@@ -96,7 +105,7 @@ void free_kpages(vaddr_t addr){
 		get_corePage(i)->firstpage = -1;
 		get_corePage(i)->npages = 0;
 	}
-	used -= (npages * 4096);
+	used -= (npages * PAGE_SIZE);
 	spinlock_release(&stealmem_lock);
 	return;
 }
@@ -120,23 +129,24 @@ void vm_tlbshootdown(const struct tlbshootdown * tlbs){
 int vm_fault(int faulttype, vaddr_t faultaddress){
 
 	int spl;
+	faultaddress &= PAGE_FRAME;
 	//Check if address is in valid region
 	LinkedList* curreg = curthread->t_proc->p_addrspace->regions;
 	while(1){
 		vaddr_t regstart = ((struct region*)(curreg->data))->start;
 		vaddr_t regend = ((struct region*)(curreg->data))->end;
-		if(faultaddress >= regstart && faultaddress <= regend){
+		if(faultaddress >= regstart && faultaddress < regend){
 			//Found valid region. Must search page table for vpn.
 			LinkedList* curpte = curthread->t_proc->p_addrspace->pageTable;
 			while(1){
-				if((faultaddress & PAGE_FRAME) == ((struct pte*)curpte->data)->vpn){
+				if((faultaddress) == ((struct pte*)curpte->data)->vpn){
 					//Page is in table. Now check if it's in memory.
 					if(((struct pte*)curpte->data)->inmem){
 						//Verified page in memory. Now we need to load the TLB
 						//I made large and irresponsible assumptions at this line. Debug here when broke.
 						spl = splhigh();
 						uint32_t ehi, elo;
-						ehi = (uint32_t)(((struct pte*)curpte->data)->vpn);
+						ehi = faultaddress;
 						elo = (uint32_t)(((struct pte*)curpte->data)->ppn);
 						if(tlb_probe(ehi, elo) >= 0){
 							tlb_write(ehi, elo | TLBLO_DIRTY | TLBLO_VALID, tlb_probe(ehi, elo | TLBLO_DIRTY | TLBLO_VALID));
@@ -158,17 +168,18 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 			//Failed to find page in table. Must allocate new one.
 
 			struct pte* newPage = kmalloc(sizeof(*newPage));
-			newPage->vpn = faultaddress & PAGE_FRAME;
+			newPage->vpn = faultaddress;
+			//Change to upages
 			vaddr_t allocAddr = alloc_kpages(1);
-			newPage->ppn = (allocAddr - 0x80000000) & PAGE_FRAME;
+			newPage->ppn = (allocAddr - 0x80000000);
 			newPage->inmem = true;
 
 			LLaddWithDatum((char*)"weast", newPage, curpte);
 			//Frob TLB
 			spl = splhigh();
 			uint32_t ehi, elo;
-			ehi = (uint32_t)(((struct pte*)curpte->data)->vpn);
-			elo = (uint32_t)(((struct pte*)curpte->data)->ppn);
+			ehi = faultaddress;
+			elo = newPage->ppn;
 
 			if(tlb_probe(ehi, elo) >= 0){
 				tlb_write(ehi, elo | TLBLO_DIRTY | TLBLO_VALID, tlb_probe(ehi, elo | TLBLO_DIRTY | TLBLO_VALID));

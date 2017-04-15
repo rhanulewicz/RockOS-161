@@ -113,11 +113,12 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 		newpte->vpn = oldpte->vpn;
 		//Alloc a new page for that entry, give the pte the ppn corresponding to that page
 		vaddr_t allocAddr = alloc_kpages(1);
-		newpte->ppn = (allocAddr - 0x80000000) & PAGE_FRAME;
 
+		newpte->ppn = (allocAddr - 0x80000000);
+		bzero((void*)PADDR_TO_KVADDR(newpte->ppn), PAGE_SIZE);
 		LLaddWithDatum((char*)"spongebobu", newpte, newPT);
 		//Copy mem from old page to new page
-		memcpy(PADDR_TO_KVADDR((void*)newpte->ppn), PADDR_TO_KVADDR((const void*)(oldpte->ppn)), PAGE_SIZE);
+		memcpy((void*)PADDR_TO_KVADDR(newpte->ppn), (const void*)PADDR_TO_KVADDR((oldpte->ppn)), PAGE_SIZE);
 		if(LLnext(oldPT) == NULL){
 			break;
 		}
@@ -149,7 +150,6 @@ as_destroy(struct addrspace *as)
 	 * Clean up as needed.
 	 * MUST KFREE THE DATA IN SIDE OF LINKED LIST
 	 */
-
 
 	kfree(as);
 }
@@ -207,7 +207,7 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 	memsize = (memsize + PAGE_SIZE - 1) & PAGE_FRAME;
 
 	LinkedList* llcur = as->regions;
-	struct region* reg = kmalloc(sizeof(*reg));
+	struct region* reg = kmalloc(sizeof(struct region));
 	reg->start = vaddr;
 	reg->end = vaddr + memsize;
 	while(LLnext(llcur)){
