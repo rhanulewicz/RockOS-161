@@ -24,3 +24,4 @@ LinkedList* LLcreate(void);
 LinkedList* LLcreateWithName(char * name);
 
 void LLdestroy(LinkedList* boom);
+void printLexists(void);

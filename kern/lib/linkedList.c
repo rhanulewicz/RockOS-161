@@ -5,6 +5,9 @@
 // #include <string.h> 
 // #include <stdio.h>
 
+static int lexists = 0;
+//static char* lnamesalive[50];
+//static int index = 0;
 
 LinkedList* LLcreate(){
 	LinkedList * newList;
@@ -13,6 +16,9 @@ LinkedList* LLcreate(){
 	newList->curr = newList;
 	newList->next = NULL;
 	newList->name = (char * )"First";
+	//lnamesalive[index] = (char * )"First";
+	//index++;
+	lexists++;
 	return newList;
 }
 
@@ -63,6 +69,7 @@ void LLremoveNode(LinkedList* list){
 
 
 void LLdestroy(LinkedList* boom){
+	lexists--;
 	boom->prev = NULL;
  	boom->curr = NULL;
  	boom->next = NULL;
@@ -70,6 +77,17 @@ void LLdestroy(LinkedList* boom){
 	kfree(boom);
 	boom = NULL;
 }
+
+void printLexists(){
+
+	// for(int i = 0; i < index; i++){
+
+	// 	kprintf("%s\n", lnamesalive[i]);
+	// }
+	kprintf("lexists : %d\n", lexists);
+
+}
+
 
 
 // int main () {

@@ -240,6 +240,7 @@ proc_create_runprogram(const char *name)
 
 	/* VM fields */
 
+	as_destroy(newproc->p_addrspace);
 	newproc->p_addrspace = NULL;
 
 	/* VFS fields */

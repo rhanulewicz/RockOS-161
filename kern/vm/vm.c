@@ -195,6 +195,7 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 				splx(spl);
 				return 0;
 			}
+			
 			tlb_random((uint32_t)newPage->vpn, (uint32_t)newPage->ppn | TLBLO_DIRTY | TLBLO_VALID);
 			splx(spl);
 			return 0;

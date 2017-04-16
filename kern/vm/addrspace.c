@@ -54,14 +54,14 @@ as_create(void)
 	/*
 	 * Initialize as needed.
 	 */
-	as->regions = LLcreate();
+	as->regions = LLcreateWithName((char *)"as regions");
 	struct region* startReg = kmalloc(sizeof(struct region));
 	startReg->start = -1;
 	startReg->end = -1;
 	as->regions->data = startReg;
 	as->stackbound = 0;
 	
-	as->pageTable = LLcreate();
+	as->pageTable = LLcreateWithName((char *)"as page table");
 	struct pte* firstPage = kmalloc(sizeof(struct pte));
 	firstPage->vpn = -1;
 	firstPage->ppn = -1;
@@ -156,6 +156,7 @@ as_destroy(struct addrspace *as)
 	/* Free region list */
 	LinkedList* toFree = as->regions;
 	LinkedList* next = NULL;
+	
 	while(toFree){
 		next = toFree->next;
 		kfree((struct region*)toFree->data);
@@ -167,14 +168,20 @@ as_destroy(struct addrspace *as)
 
 	toFree = as->pageTable;
 
+	toFree = as->pageTable->next;
+	kfree(as->pageTable->data);
+	LLdestroy(as->pageTable);
 	while(toFree){
 		next = toFree->next;
+		free_kpages(PADDR_TO_KVADDR(((struct pte*)(toFree->data))->ppn));
+
 		kfree((struct pte*)toFree->data);
 		LLdestroy(toFree);
 		toFree = next;
 	}
 	
 	kfree(as);
+	as = NULL;
 }
 
 void
@@ -285,9 +292,9 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 	/* Initial user-level stack pointer */
 
 	*stackptr = USERSTACK;
-	as->stackbound = *stackptr - 0x100000;
+	as->stackbound = *stackptr - 0x400000;
 
-	as_define_region(as, as->stackbound, 0x100000, 1, 1, 0);
+	as_define_region(as, as->stackbound, 0x400000, 1, 1, 0);
 	(void)as;
 	return 0;
 }

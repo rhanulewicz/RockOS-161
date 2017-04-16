@@ -54,7 +54,7 @@ stacktest1()
 {
 	int sparse[NumPages][PageSize];
 	int i, j;
-
+	(void)j;
 	for (i = 0; i < NumPages; i+=4) {
 		// This is a fresh stack frame, so it better be zeroed. Otherwise,
 		// the kernel is leaking information between processes.
