@@ -236,6 +236,10 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 	/* ...and now the length. */
 	memsize = (memsize + PAGE_SIZE - 1) & PAGE_FRAME;
 
+	if(vaddr + memsize != 0x80000000){
+		as->heap_start = vaddr + memsize;
+		//kprintf("new heapstart %p for addrspace %p\n", (void*)as->heap_start, as);
+	}
 	LinkedList* llcur = as->regions;
 	struct region* reg = kmalloc(sizeof(struct region));
 	reg->start = vaddr;
@@ -293,8 +297,8 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 
 	*stackptr = USERSTACK;
 	as->stackbound = *stackptr - 0x400000;
-
 	as_define_region(as, as->stackbound, 0x400000, 1, 1, 0);
+	as_define_region(as, as->heap_start, 0, 1, 1, 0);
 	(void)as;
 	return 0;
 }

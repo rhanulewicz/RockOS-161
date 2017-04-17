@@ -713,6 +713,56 @@ int execv(const char *program, char **args, int32_t *retval){
 	return EINVAL;
 }
 
+void* sbrk(intptr_t amount, int32_t *retval){
+	(void)amount;
+	(void)retval;
+	struct addrspace* curas = curproc->p_addrspace;
+	struct LinkedList* heap = curas->regions; 
+	//Seek to the  region
+	while(((struct region*)heap->data)->start != curas->heap_start){
+		heap = LLnext(heap); 
+	}
+
+	//ERROR if provisional value is not page-aligned
+	if(((((struct region*)heap->data)->end + amount) % PAGE_SIZE) != 0){
+		*retval = -1;
+		return (void*)EINVAL;
+	}
+	*retval = ((struct region*)heap->data)->end;
+
+	/* Heap manipulation */
+
+	//If amount is positive...
+	if(amount >= 0){
+		//ERROR if operation would run the heap into the stack
+		if((((struct region*)heap->data)->end + amount) >= curas->stackbound){
+			*retval = -1;
+			return (void*)ENOMEM;
+		}
+		//Increase the end of the region.
+		((struct region*)heap->data)->end += amount;
+	}
+	//If it's negative...
+	else{
+		//ERROR if operation would make the heapsize negative
+		if((((struct region*)heap->data)->end + amount) < curas->heap_start){
+			*retval = -1;
+			return (void*)EINVAL;
+		}
+		//Decrease the end of the region and de-allocate those pages.
+		vaddr_t oldend = ((struct region*)heap->data)->end;
+		((struct region*)heap->data)->end += amount;
+		LinkedList* pageSweeper = curas->pageTable;
+		while(pageSweeper){
+			if(((struct pte*)pageSweeper->data)->vpn > ((struct region*)heap->data)->end && ((struct pte*)pageSweeper->data)->vpn < oldend){
+				free_kpages(PADDR_TO_KVADDR(((struct pte*)pageSweeper->data)->ppn));
+			}
+			pageSweeper = LLnext(pageSweeper);
+		}
+	}
+	return 0;
+}
+
 void
 syscall(struct trapframe *tf)
 {
@@ -793,6 +843,10 @@ syscall(struct trapframe *tf)
 		case SYS_execv:
 		err = execv((const char*)tf->tf_a0, (char**)tf->tf_a1, &retval);
 		break;
+
+		case SYS_sbrk:
+			err = (int32_t)sbrk((intptr_t)tf->tf_a0, &retval);
+			break;
 		
 		case SYS__exit:
 		err = 0;

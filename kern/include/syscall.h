@@ -75,6 +75,7 @@ pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval);
 void sys_exit(int exitcode,bool signaled);
 int rounded(int a);
 int execv(const char *program, char **args, int32_t *retval);
+void* sbrk(intptr_t amount, int32_t *retval);
 int sys_reboot(int code);
 int sys___time(userptr_t user_seconds, userptr_t user_nanoseconds);
 
