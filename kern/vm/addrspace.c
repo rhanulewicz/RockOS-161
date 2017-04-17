@@ -83,9 +83,8 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 	if (newas==NULL) {
 		return ENOMEM;
 	}
-	newas->stackbound = old->stackbound;
-	LinkedList* copyout = old->regions->next;
 
+	LinkedList* copyout = old->regions->next;
 
 	// hey deal with the read write execute;
 	//Copy region definitions
@@ -138,6 +137,8 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 	// 	kprintf("vpn: %p, ppn: %p page name: %s\n", (void*)((struct pte*)(newPT->data))->vpn, (void*)((struct pte*)(newPT->data))->ppn, newPT->name);
 	// 	newPT = LLnext(newPT);
 	// }
+	newas->stackbound = old->stackbound;
+	newas->heap_start = old->heap_start;
 	newas->pageTable = newPageTable;
 	*ret = newas;
 	(void) ret;
