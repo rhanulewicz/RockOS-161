@@ -12,6 +12,9 @@ static int lexists = 0;
 LinkedList* LLcreate(){
 	LinkedList * newList;
 	newList = kmalloc(sizeof(LinkedList));
+	if(newList == NULL){
+		return NULL;
+	}
 	newList->prev = NULL;
 	newList->curr = newList;
 	newList->next = NULL;
@@ -25,6 +28,9 @@ LinkedList* LLcreate(){
 LinkedList* LLcreateWithName(char * name){
 	LinkedList * newList;
 	newList = kmalloc(sizeof(LinkedList));
+	if(newList == NULL){
+		return NULL;
+	}
 	newList->prev = NULL;
 	newList->curr = newList;
 	newList->next = NULL;
@@ -46,12 +52,18 @@ LinkedList* LLprev(LinkedList* list){
 
 void LLaddWithDatum(char * name, void * dataum, LinkedList* list){
 	list->next = LLcreateWithName(name);
+	if(list->next == NULL){
+		return;
+	}
 	list->next->name = name;
 	list->next->prev = list;
 	list->next->data = dataum;
 }
 void LLadd(char * name, LinkedList* list){
 	list->next = LLcreateWithName(name);
+	if(list->next == NULL){
+		return;
+	}
 	list->next->name = name;
 	list->next->prev = list;
 }	

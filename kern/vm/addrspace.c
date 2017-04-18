@@ -56,6 +56,9 @@ as_create(void)
 	 */
 	as->regions = LLcreateWithName((char *)"as regions");
 	struct region* startReg = kmalloc(sizeof(struct region));
+	if(as->regions == NULL || startReg == NULL){
+		return NULL;
+	}
 	startReg->start = -1;
 	startReg->end = -1;
 	as->regions->data = startReg;
@@ -63,6 +66,9 @@ as_create(void)
 	
 	as->pageTable = LLcreateWithName((char *)"as page table");
 	struct pte* firstPage = kmalloc(sizeof(struct pte));
+		if(as->pageTable == NULL || firstPage == NULL){
+		return NULL;
+	}
 	firstPage->vpn = -1;
 	firstPage->ppn = -1;
 	as->pageTable->data = firstPage;
@@ -113,6 +119,9 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 		newpte->vpn = oldpte->vpn;
 		//Alloc a new page for that entry, give the pte the ppn corresponding to that page
 		vaddr_t allocAddr = alloc_kpages(1);
+		if(allocAddr == 0){
+			return ENOMEM;
+		}
 		newpte->ppn = (allocAddr - 0x80000000);
 		newpte->inmem = 1;
 		LLaddWithDatum((char*)"spongebobu", newpte, newPT);
