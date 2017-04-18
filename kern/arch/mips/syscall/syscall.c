@@ -713,12 +713,13 @@ int execv(const char *program, char **args, int32_t *retval){
 	return EINVAL;
 }
 
+
 void* sbrk(intptr_t amount, int32_t *retval){
 	(void)amount;
 	(void)retval;
 	struct addrspace* curas = curproc->p_addrspace;
 	struct LinkedList* heap = curas->regions; 
-	//Seek to the  region
+	//Seek to the heap region
 	while(((struct region*)heap->data)->start != curas->heap_start){
 		heap = LLnext(heap); 
 	}
@@ -745,7 +746,7 @@ void* sbrk(intptr_t amount, int32_t *retval){
 	//If it's negative...
 	else{
 		//ERROR if operation would make the heapsize negative
-		if((((struct region*)heap->data)->end + amount) < curas->heap_start){
+		if(((long)((struct region*)heap->data)->end + amount) < (long)curas->heap_start){
 			*retval = -1;
 			return (void*)EINVAL;
 		}
@@ -754,11 +755,24 @@ void* sbrk(intptr_t amount, int32_t *retval){
 		((struct region*)heap->data)->end += amount;
 		LinkedList* pageSweeper = curas->pageTable;
 		while(pageSweeper){
-			if(((struct pte*)pageSweeper->data)->vpn > ((struct region*)heap->data)->end && ((struct pte*)pageSweeper->data)->vpn < oldend){
+			bool removePrev = false;
+			if(((struct pte*)pageSweeper->data)->vpn >= ((struct region*)heap->data)->end && ((struct pte*)pageSweeper->data)->vpn < oldend){
 				free_kpages(PADDR_TO_KVADDR(((struct pte*)pageSweeper->data)->ppn));
+				int spl = splhigh();
+				int tlbprobe = tlb_probe(((struct pte*)pageSweeper->data)->vpn, 0);
+				if(tlbprobe >= 0){
+					tlb_write(TLBHI_INVALID(tlbprobe), TLBLO_INVALID(), tlbprobe);
+				}
+				splx(spl);
+
+				removePrev = true;
 			}
+			LinkedList* prev = pageSweeper;
 			pageSweeper = LLnext(pageSweeper);
-		}
+			if(removePrev){
+				LLremoveNode(prev);
+			}
+		}	
 	}
 	return 0;
 }
