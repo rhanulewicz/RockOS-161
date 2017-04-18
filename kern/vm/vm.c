@@ -110,7 +110,7 @@ void free_kpages(vaddr_t addr){
 		get_corePage(i)->allocated = 0;
 		get_corePage(i)->firstpage = -1;
 		get_corePage(i)->npages = 0;
-		bzero((void*)PADDR_TO_KVADDR(ppn_to_pblock(i)), PAGE_SIZE);
+		//bzero((void*)PADDR_TO_KVADDR(ppn_to_pblock(i)), PAGE_SIZE);
 	}
 	
 	used -= (npages * PAGE_SIZE);
