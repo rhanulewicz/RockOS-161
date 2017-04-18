@@ -552,6 +552,8 @@ cmd_kheapused(int nargs, char **args)
 	(void)args;
 
 	kheap_printused();
+		printLexists();
+
 
 	return 0;
 }

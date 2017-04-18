@@ -398,7 +398,6 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 			lock_release(curproc->fileTable[i]->lock);
 		}
 	}
-	
 	//Copy address space and cwd
 	int res = as_copy(curproc->p_addrspace, &newProc->p_addrspace);
 	//This isn't need to pass, but removing it produces...interesting...results in forkbomb
@@ -538,6 +537,7 @@ pid_t waitpid(pid_t pid, int *status, int options, int32_t *retval){
 }
 
 void sys_exit(int exitcode,bool signaled){
+	// kprintf("exit\n");
 	for(int i = 0; i < 64; ++i){
 		int ret = 0;
 		if(!(curproc->fileTable[i] == NULL)){
@@ -548,7 +548,7 @@ void sys_exit(int exitcode,bool signaled){
 	if(lock_do_i_hold(curproc->proc_lock)){
 		lock_release(curproc->proc_lock);
 	}
-
+	// as_destroy(curproc->p_addrspace);
 	curproc->exitCode = exitcode;
 	curproc->signal = signaled;
 	thread_exit();

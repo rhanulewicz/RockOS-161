@@ -47,10 +47,12 @@ main(void)
 	// 	execv(*buf,  (char**)args);
 	int pid = fork();
 	if(pid == 0){
-		printf("I am child\n");
+		// printf("I am child\n");
 		exit(0);
 	}
-	printf("hi im parent\n");
+	int status;
+	waitpid(pid, &status, 0);
+	// printf("hi im parent\n");
 	return 0;
 	
 }

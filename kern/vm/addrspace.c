@@ -98,16 +98,9 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 
 	}
 
-	//Create new page table
-	LinkedList* newPageTable = LLcreate();
-	struct pte* firstPage = kmalloc(sizeof(struct pte));
-	firstPage->vpn = -1;
-	firstPage->ppn = -1;
-	newPageTable->data = firstPage;
-
 	//For entry in old page table, put entry in new table with matching vpn
 	LinkedList* oldPT = old->pageTable->next;
-	LinkedList* newPT = newPageTable;
+	LinkedList* newPT = newas->pageTable;
 	while(1){
 		struct pte* oldpte = (struct pte*)oldPT->data; 
 		struct pte* newpte = kmalloc(sizeof(struct pte));
@@ -138,7 +131,6 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 	// 	kprintf("vpn: %p, ppn: %p page name: %s\n", (void*)((struct pte*)(newPT->data))->vpn, (void*)((struct pte*)(newPT->data))->ppn, newPT->name);
 	// 	newPT = LLnext(newPT);
 	// }
-	newas->pageTable = newPageTable;
 	*ret = newas;
 	(void) ret;
 	//splx(spl);
@@ -152,7 +144,9 @@ as_destroy(struct addrspace *as)
 	 * Clean up as needed.
 	 * MUST KFREE THE DATA IN SIDE OF LINKED LIST
 	 */
-
+	if(!as){
+		return;
+	}
 	/* Free region list */
 	LinkedList* toFree = as->regions;
 	LinkedList* next = NULL;

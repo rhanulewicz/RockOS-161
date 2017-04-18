@@ -1,13 +1,15 @@
-#include "linkedList.h"
+// #include "linkedList.h"
 #include <types.h>
 #include <lib.h>
+#include <current.h>
+#include <proc.h>
 // #include <stdlib.h>
 // #include <string.h> 
 // #include <stdio.h>
 
-static int lexists = 0;
-//static char* lnamesalive[50];
-//static int index = 0;
+// static int lexists = 0;
+// static char* lnamesalive[50];
+// static int index = 0;
 
 LinkedList* LLcreate(){
 	LinkedList * newList;
@@ -16,9 +18,9 @@ LinkedList* LLcreate(){
 	newList->curr = newList;
 	newList->next = NULL;
 	newList->name = (char * )"First";
-	//lnamesalive[index] = (char * )"First";
-	//index++;
-	lexists++;
+	// lnamesalive[index] = (char * )"First";
+	// index++;
+	// lexists++;
 	return newList;
 }
 
@@ -29,6 +31,9 @@ LinkedList* LLcreateWithName(char * name){
 	newList->curr = newList;
 	newList->next = NULL;
 	newList->name = name;
+	// lnamesalive[index] = name;
+	// index++;
+	// lexists++;
 	return newList;
 }
 
@@ -69,11 +74,11 @@ void LLremoveNode(LinkedList* list){
 
 
 void LLdestroy(LinkedList* boom){
-	lexists--;
+	// lexists--;
 	boom->prev = NULL;
  	boom->curr = NULL;
  	boom->next = NULL;
-
+ 	// kprintf("dead : %s  from: pid : %d\n",boom->name, curproc->pid);
 	kfree(boom);
 	boom = NULL;
 }
@@ -84,7 +89,7 @@ void printLexists(){
 
 	// 	kprintf("%s\n", lnamesalive[i]);
 	// }
-	kprintf("lexists : %d\n", lexists);
+	// kprintf("lexists : %d\n", lexists);
 
 }
 
