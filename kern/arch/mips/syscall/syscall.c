@@ -770,6 +770,8 @@ void* sbrk(intptr_t amount, int32_t *retval){
 			LinkedList* prev = pageSweeper;
 			pageSweeper = LLnext(pageSweeper);
 			if(removePrev){
+				kfree(prev->data);
+				prev->data = NULL;
 				LLremoveNode(prev);
 			}
 		}	
