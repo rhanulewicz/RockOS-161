@@ -54,6 +54,7 @@ int vm_fault(int faulttype, vaddr_t faultaddress);
 
 /* Allocate/free kernel heap pages (called by kmalloc/kfree) */
 vaddr_t alloc_kpages(unsigned npages);
+vaddr_t alloc_upages(unsigned npages);
 vaddr_t alloc_kpages_nozero(unsigned npages);
 void free_kpages(vaddr_t addr);
 
@@ -78,6 +79,7 @@ struct corePage{
 	int allocated;
 	int firstpage;
 	int npages;
+	bool user;
 	//paddr_t block;
 };
 
