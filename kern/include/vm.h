@@ -41,16 +41,16 @@
 
 
 #include <machine/vm.h>
-#include "bitmap.h"
-#include "synch.h"
+#include <bitmap.h>
+#include <synch.h>
 
 /* Fault-type arguments to vm_fault() */
 #define VM_FAULT_READ        0    /* A read was attempted */
 #define VM_FAULT_WRITE       1    /* A write was attempted */
 #define VM_FAULT_READONLY    2    /* A write to a readonly page was attempted*/
 
-extern struct bitmap swapMap;
-extern struct lock swapLock;
+extern struct bitmap* swapMap;
+extern struct lock* swapLock;
 
 paddr_t getFirstPaddr(void);
 /* Initialization function */
@@ -65,7 +65,7 @@ vaddr_t alloc_upages(unsigned npages);
 vaddr_t alloc_kpages_nozero(unsigned npages);
 void free_kpages(vaddr_t addr);
 
-void swapInit();
+void swapInit(void);
 
 /*
  * Return amount of memory (in bytes) used by allocated coremap pages.  If

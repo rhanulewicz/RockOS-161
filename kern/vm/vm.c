@@ -9,19 +9,38 @@
 #include <mips/tlb.h>
 #include <addrspace.h>
 #include <vm.h>
+#include <vnode.h>
+#include <vfs.h>
+#include <stat.h>
 
 static struct spinlock stealmem_lock = SPINLOCK_INITIALIZER;
 
 static unsigned long pagesAlloced = 0;
 static unsigned int used =  0;
 
+struct lock* swapLock;
+struct bitmap* swapMap;
+
 void vm_bootstrap(){
-	swapInit();
 	return;
 }
 
 void swapInit(){
-
+	swapLock = lock_create("swap_lock");
+	struct stat* statBox = kmalloc(sizeof(struct stat));
+	struct vnode* llfile = kmalloc(sizeof(struct vnode));
+	if(llfile == NULL || statBox == NULL){
+		panic("fucked it");
+	}
+	char foo [] = "ldh0raw:";
+	int res = vfs_open(foo, 1, 0, &llfile);
+	if(res > 0){
+		panic("%d\n", res);
+	}
+	VOP_STAT(llfile, statBox);
+	kprintf("%d\n",  (int)statBox->st_size);
+	(void) statBox;
+	(void) llfile;
 }
 
 /*

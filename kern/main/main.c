@@ -135,6 +135,7 @@ boot(void)
 	vfs_setbootfs("emu0");
 
 	kheap_nextgeneration();
+	swapInit();
 
 	/*
 	 * Make sure various things aren't screwed up.
