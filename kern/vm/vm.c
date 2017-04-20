@@ -16,7 +16,12 @@ static unsigned long pagesAlloced = 0;
 static unsigned int used =  0;
 
 void vm_bootstrap(){
+	swapInit();
 	return;
+}
+
+void swapInit(){
+
 }
 
 /*
