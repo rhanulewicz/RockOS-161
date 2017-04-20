@@ -163,6 +163,11 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 		vaddr_t regstart = ((struct region*)(curreg->data))->start;
 		vaddr_t regend = ((struct region*)(curreg->data))->end;
 		if(faultaddress >= regstart && faultaddress < regend){
+			//must check perms of that region to make sure that we are jelly load mode is used becasue the code segement should not be writeable after we load the code segement in the first time and we need a way to know when we are doing that.
+			// if(curthread->t_proc->p_addrspace->loadMode == 0 &&((faulttype == 0 && ((struct region*)(curreg->data))->read == 0) || (faulttype == 1 && ((struct region*)(curreg->data))->write == 0))){
+			// 	kprintf("perms failed %d %d %p\n",((struct region*)(curreg->data))->write, faulttype, (void*) regstart);
+			// 	return EFAULT;
+			// }
 			//Found valid region. Must search page table for vpn.
 			LinkedList* curpte = curthread->t_proc->p_addrspace->pageTable;
 			while(1){

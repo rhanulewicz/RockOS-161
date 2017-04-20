@@ -52,6 +52,9 @@ struct vnode;
 struct region {
     vaddr_t start;
     vaddr_t end;
+    int read;
+    int write;
+    int exec;
 };
 
 struct addrspace {
@@ -69,6 +72,7 @@ struct addrspace {
         vaddr_t stackbound;
         vaddr_t heap_start;
         LinkedList* pageTable;
+        bool loadMode;
 
         /* Put stuff here for your VM system */
 #endif

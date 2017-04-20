@@ -72,6 +72,7 @@ as_create(void)
 	firstPage->vpn = -1;
 	firstPage->ppn = -1;
 	as->pageTable->data = firstPage;
+	as->loadMode = 0;
 
 	/*
 	 * Init stack here
@@ -98,7 +99,9 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 		vaddr_t oldstart = (((struct region*)copyout->data)->start);
 		vaddr_t oldend = (((struct region*)copyout->data)->end);
 		//kprintf("start %p, end %p\n", (void*)oldstart, (void*)oldend);
-		as_define_region(newas, oldstart, (size_t)(oldend - oldstart), 1,1,1);
+		if(as_define_region(newas, oldstart, (size_t)(oldend - oldstart), 1,1,1) > 0){
+			return ENOMEM;
+		}
 		copyout = LLnext(copyout);
 
 	}
@@ -148,6 +151,7 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 	// }
 	newas->stackbound = old->stackbound;
 	newas->heap_start = old->heap_start;
+	newas->loadMode = 0;
 	*ret = newas;
 	(void) ret;
 	//splx(spl);
@@ -253,8 +257,14 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 	}
 	LinkedList* llcur = as->regions;
 	struct region* reg = kmalloc(sizeof(struct region));
+	if(reg == NULL){
+		return ENOMEM;
+	}
 	reg->start = vaddr;
 	reg->end = vaddr + memsize;
+	reg->read = readable;
+	reg->write = writeable;
+	reg->exec = executable;
 	while(LLnext(llcur)){
 		llcur = llcur->next;
 	}
@@ -268,7 +278,7 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 	(void)readable;
 	(void)writeable;
 	(void)executable;
-	//kprintf("Defined region: start: %p, end: %p", (void*)(((struct region*)(llcur->next->data))->start), (void*)(((struct region*)(llcur->next->data))->end));
+	// kprintf("Defined region: start: %p, end: %p and read %d write %d exec %d \n", (void*)(((struct region*)(llcur->next->data))->start), (void*)(((struct region*)(llcur->next->data))->end), readable , writeable , executable);
 		
 	return 0;
 }
@@ -279,6 +289,7 @@ as_prepare_load(struct addrspace *as)
 	/*
 	 * Write this.
 	 */
+as->loadMode = 1;
 
 	(void)as;
 	return 0;
@@ -290,6 +301,7 @@ as_complete_load(struct addrspace *as)
 	/*
 	 * Write this.
 	 */
+		as->loadMode = 0;
 
 	(void)as;
 	return 0;
