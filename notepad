@@ -446,7 +446,7 @@ Eviction
 		The remainder of allocated virtual memory resides on the backing storge (disk)
 
 	The process of moving data between memory and disk is called swapping
-		Moving data f- (Slide got cut off)
+		Moving data from a physical page to disk to make room is called eviction.
 
 Swapping -- Implementation
 	Changes to existing data structures
@@ -478,7 +478,7 @@ Swapping -- Additions
 
 		Now need to track whether a frame is part of a kernel data allocation
 
-		Possibly other information for use in, say, a eviction algorithm or TLB shootdown code
+		Possibly other information for use in, say, an eviction algorithm or TLB shootdown code
 
 	Virtual Page Table Entry (PTE)
 		Now need to track location of data: in memory or on disk
@@ -539,7 +539,6 @@ Swapping Out
 
 Write/expand data structures
 	Add additional fields to page frame struct, PTE struct
-	
 		Design swapdisk data and allocation bitmap
 			Use bitmap to track 4k blocks on swapdisk
 				Note that the bitmap is a shared structure
@@ -559,7 +558,7 @@ Write swapdisk access routines
 
 	Use VOP_STAT to figure out how large the swapdisk is since it's just a file
 
-Write pagin/pageout routines
+Write pagein/pageout routines
 	Expand vm_fault() and getppages() or equivalent
 
 	Use shorter eviction victim selection strategy for now -- random, roundrobin
@@ -576,7 +575,7 @@ Write pagin/pageout routines
 		SUBMIT: Get 40 points now.
 
 Add support for multiple processes
-	Need to sync access to miltiple shared data: PTEs, coremap
+	Need to sync access to multiple shared data: PTEs, coremap
 
 	Lock type and acquisition ordering matters -- prevent dealocks
 
@@ -595,3 +594,9 @@ Add optimizations
 
 	Possible: cleaning service. Copy on write.
 		Need to track page clean/dirty state
+
+
+QUESTIONS:
+	Why do we need to backtrack from corePage to PTE of process?
+	What processes can use alloc_kpages? Just the kernel?
+	
