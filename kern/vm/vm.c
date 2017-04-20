@@ -29,7 +29,7 @@ void coremap_bootstrap(void){
 
 static
 paddr_t
-getppages(unsigned long npages){
+getppages(unsigned long npages, bool user){
 	
 	spinlock_acquire(&stealmem_lock);
 	/*My guess as to what this should do: search through the array (coremap) until we
@@ -45,8 +45,7 @@ getppages(unsigned long npages){
 				get_corePage(j)->allocated = 1;
 				get_corePage(j)->firstpage = startOfCurBlock;
 				get_corePage(j)->npages = npages;
-
-				
+				get_corePage(j)->user = user;
 			}
 			used += PAGE_SIZE * npages;
 			pagesAlloced += npages;
@@ -77,7 +76,24 @@ vaddr_t alloc_kpages(unsigned npages){
 	/*Should call a working getppages routine that checks your coremap 
 	for the status of free pages and returns appropriately*/
 
-	paddr_t startOfNewBlock = getppages(npages);
+	paddr_t startOfNewBlock = getppages(npages,false);
+	
+	if (startOfNewBlock==0) {
+			return 0;
+		}
+
+	// bzero((void*)PADDR_TO_KVADDR(startOfNewBlock), npages * PAGE_SIZE);
+	
+	return PADDR_TO_KVADDR(startOfNewBlock);
+
+}
+
+vaddr_t alloc_upages(unsigned npages){
+
+	/*Should call a working getppages routine that checks your coremap 
+	for the status of free pages and returns appropriately*/
+
+	paddr_t startOfNewBlock = getppages(npages, true);
 	
 	if (startOfNewBlock==0) {
 			return 0;
@@ -90,7 +106,7 @@ vaddr_t alloc_kpages(unsigned npages){
 }
 
 vaddr_t alloc_kpages_nozero(unsigned npages){
-	paddr_t startOfNewBlock = getppages(npages);
+	paddr_t startOfNewBlock = getppages(npages,false);
 	
 	if (startOfNewBlock==0) {
 			return 0;
@@ -147,6 +163,11 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 		vaddr_t regstart = ((struct region*)(curreg->data))->start;
 		vaddr_t regend = ((struct region*)(curreg->data))->end;
 		if(faultaddress >= regstart && faultaddress < regend){
+			//must check perms of that region to make sure that we are jelly load mode is used becasue the code segement should not be writeable after we load the code segement in the first time and we need a way to know when we are doing that.
+			// if(curthread->t_proc->p_addrspace->loadMode == 0 &&((faulttype == 0 && ((struct region*)(curreg->data))->read == 0) || (faulttype == 1 && ((struct region*)(curreg->data))->write == 0))){
+			// 	kprintf("perms failed %d %d %p\n",((struct region*)(curreg->data))->write, faulttype, (void*) regstart);
+			// 	return EFAULT;
+			// }
 			//Found valid region. Must search page table for vpn.
 			LinkedList* curpte = curthread->t_proc->p_addrspace->pageTable;
 			while(1){
@@ -181,7 +202,7 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 			struct pte* newPage = kmalloc(sizeof(*newPage));
 			newPage->vpn = faultaddress;
 			//Change to upages
-			vaddr_t allocAddr = alloc_kpages(1);
+			vaddr_t allocAddr = alloc_upages(1);
 			newPage->ppn = (allocAddr - 0x80000000);
 			newPage->inmem = true;
 
