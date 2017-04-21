@@ -121,7 +121,7 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 		struct pte* newpte = kmalloc(sizeof(struct pte));
 		newpte->vpn = oldpte->vpn;
 		//Alloc a new page for that entry, give the pte the ppn corresponding to that page
-		vaddr_t allocAddr = alloc_upages(1);
+		vaddr_t allocAddr = alloc_upages(1, newpte);
 		if(allocAddr == 0){
 			return ENOMEM;
 		}

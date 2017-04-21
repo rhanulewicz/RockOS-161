@@ -43,6 +43,7 @@
 #include <machine/vm.h>
 #include <bitmap.h>
 #include <synch.h>
+#include <addrspace.h>
 
 /* Fault-type arguments to vm_fault() */
 #define VM_FAULT_READ        0    /* A read was attempted */
@@ -61,7 +62,6 @@ int vm_fault(int faulttype, vaddr_t faultaddress);
 
 /* Allocate/free kernel heap pages (called by kmalloc/kfree) */
 vaddr_t alloc_kpages(unsigned npages);
-vaddr_t alloc_upages(unsigned npages);
 vaddr_t alloc_kpages_nozero(unsigned npages);
 void free_kpages(vaddr_t addr);
 
@@ -87,8 +87,10 @@ struct corePage{
 	int firstpage;
 	int npages;
 	bool user;
+	struct pte* owner_pte; 
 	//paddr_t block;
 };
+vaddr_t alloc_upages(unsigned npages, struct pte* owner);
 
 paddr_t ppn_to_pblock(unsigned long ppn);
 

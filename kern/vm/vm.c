@@ -24,24 +24,27 @@ struct bitmap* swapMap;
 void vm_bootstrap(){
 
 	//So far this is mostly testing code to see if we can open the swapdisk
-	swapLock = lock_create("swap_lock");
-	struct stat* statBox = kmalloc(sizeof(struct stat));
-	struct vnode* llfile = kmalloc(sizeof(struct vnode));
-	if(llfile == NULL || statBox == NULL){
-		panic("fucked it");
-	}
-	char foo [] = "lhd:";
-	int res = vfs_open(foo, 1, 0, &llfile);
-	(void)res;
-	if(res > 0){
-		panic("%d\n", res);
-	}
-	VOP_STAT(llfile, statBox);
-	unsigned long disksize = (unsigned long)statBox->st_size;
-	swapMap = bitmap_create((unsigned)(disksize/PAGE_SIZE));
-	kprintf("%d\n",  (int)statBox->st_size);
-	(void) statBox;
-	(void) llfile;
+	// swapLock = lock_create("swap_lock");
+	// struct stat* statBox = kmalloc(sizeof(struct stat));
+	// struct vnode* llfile = kmalloc(sizeof(struct vnode));
+	// if(llfile == NULL || statBox == NULL){
+	// 	panic("fucked it");
+	// }
+	// char foo [] = "lhd:";
+	// int res = vfs_open(foo, 1, 0, &llfile);
+	// (void)res;
+	// if(res > 0){
+	// 	panic("%d\n", res);
+	// }
+	// VOP_STAT(llfile, statBox);
+
+	// //Initialize the swapdisk bitmap
+	// unsigned long disksize = (unsigned long)statBox->st_size;
+	// swapMap = bitmap_create((unsigned)(disksize/PAGE_SIZE));
+	
+	// kprintf("%d\n",  (int)statBox->st_size);
+	// (void) statBox;
+	// (void) llfile;
 
 	return;
 }
@@ -57,7 +60,7 @@ void coremap_bootstrap(void){
 
 static
 paddr_t
-getppages(unsigned long npages, bool user){
+getppages(unsigned long npages, bool user, struct pte* owner){
 	
 	spinlock_acquire(&stealmem_lock);
 	/*My guess as to what this should do: search through the array (coremap) until we
@@ -74,6 +77,7 @@ getppages(unsigned long npages, bool user){
 				get_corePage(j)->firstpage = startOfCurBlock;
 				get_corePage(j)->npages = npages;
 				get_corePage(j)->user = user;
+				get_corePage(j)->owner_pte = owner;
 			}
 			used += PAGE_SIZE * npages;
 			pagesAlloced += npages;
@@ -104,7 +108,7 @@ vaddr_t alloc_kpages(unsigned npages){
 	/*Should call a working getppages routine that checks your coremap 
 	for the status of free pages and returns appropriately*/
 
-	paddr_t startOfNewBlock = getppages(npages, false);
+	paddr_t startOfNewBlock = getppages(npages, false, NULL);
 	
 	if (startOfNewBlock==0) {
 			return 0;
@@ -116,12 +120,12 @@ vaddr_t alloc_kpages(unsigned npages){
 
 }
 
-vaddr_t alloc_upages(unsigned npages){
+vaddr_t alloc_upages(unsigned npages, struct pte* owner){
 
 	/*Should call a working getppages routine that checks your coremap 
 	for the status of free pages and returns appropriately*/
 
-	paddr_t startOfNewBlock = getppages(npages, true);
+	paddr_t startOfNewBlock = getppages(npages, true, owner);
 	
 	if (startOfNewBlock==0) {
 			return 0;
@@ -134,7 +138,7 @@ vaddr_t alloc_upages(unsigned npages){
 }
 
 vaddr_t alloc_kpages_nozero(unsigned npages){
-	paddr_t startOfNewBlock = getppages(npages, false);
+	paddr_t startOfNewBlock = getppages(npages, false, NULL);
 	
 	if (startOfNewBlock==0) {
 			return 0;
@@ -184,6 +188,7 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 	faultaddress &= PAGE_FRAME;
 	//Check if address is in valid region
 	LinkedList* curreg = curthread->t_proc->p_addrspace->regions->next;
+	
 	if(curreg == NULL){
 		return EFAULT;
 	}
@@ -229,8 +234,8 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 
 			struct pte* newPage = kmalloc(sizeof(*newPage));
 			newPage->vpn = faultaddress;
-			//Change to upages
-			vaddr_t allocAddr = alloc_upages(1);
+			
+			vaddr_t allocAddr = alloc_upages(1, newPage);
 			newPage->ppn = (allocAddr - 0x80000000);
 			newPage->inmem = true;
 
