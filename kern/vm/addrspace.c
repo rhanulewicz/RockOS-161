@@ -51,9 +51,6 @@ as_create(void)
 		return NULL;
 	}
 
-	/*
-	 * Initialize as needed.
-	 */
 	as->regions = LLcreateWithName((char *)"as regions");
 	struct region* startReg = kmalloc(sizeof(struct region));
 	if(as->regions == NULL || startReg == NULL){
@@ -74,16 +71,13 @@ as_create(void)
 	as->pageTable->data = firstPage;
 	as->loadMode = 0;
 
-	/*
-	 * Init stack here
-	 */
 	return as;
 }
 
 int
 as_copy(struct addrspace *old, struct addrspace **ret)
 {
-	//int spl = splhigh();
+
 	struct addrspace *newas;
 
 	newas = as_create();
@@ -105,13 +99,6 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 		copyout = LLnext(copyout);
 
 	}
-
-	//Create new page table
-	// LinkedList* newPageTable = LLcreate();
-	// struct pte* firstPage = kmalloc(sizeof(struct pte));
-	// firstPage->vpn = -1;
-	// firstPage->ppn = -1;
-	// newPageTable->data = firstPage;
 
 	//For entry in old page table, put entry in new table with matching vpn
 	LinkedList* oldPT = old->pageTable->next;
@@ -136,25 +123,12 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 		newPT = LLnext(newPT);
 		oldPT = LLnext(oldPT);
 	}
-	/* TESTING CODE */
-	// oldPT = old->pageTable;
-	// newPT = newPageTable;
-	// 	kprintf("oldPT:\n");
-	// while(oldPT){
-	// 	kprintf("vpn: %p, ppn: %p page name: %s\n", (void*)((struct pte*)(oldPT->data))->vpn, (void*)((struct pte*)(oldPT->data))->ppn, oldPT->name);
-	// 	oldPT = LLnext(oldPT);	
-	// }
-	// 	kprintf("newPT:\n");
-	// while(newPT){
-	// 	kprintf("vpn: %p, ppn: %p page name: %s\n", (void*)((struct pte*)(newPT->data))->vpn, (void*)((struct pte*)(newPT->data))->ppn, newPT->name);
-	// 	newPT = LLnext(newPT);
-	// }
+
 	newas->stackbound = old->stackbound;
 	newas->heap_start = old->heap_start;
 	newas->loadMode = 0;
 	*ret = newas;
 	(void) ret;
-	//splx(spl);
 	return 0;
 }
 
@@ -286,10 +260,8 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 int
 as_prepare_load(struct addrspace *as)
 {
-	/*
-	 * Write this.
-	 */
-as->loadMode = 1;
+	
+	as->loadMode = 1;
 
 	(void)as;
 	return 0;
@@ -298,10 +270,8 @@ as->loadMode = 1;
 int
 as_complete_load(struct addrspace *as)
 {
-	/*
-	 * Write this.
-	 */
-		as->loadMode = 0;
+	
+	as->loadMode = 0;
 
 	(void)as;
 	return 0;
@@ -310,11 +280,6 @@ as_complete_load(struct addrspace *as)
 int
 as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 {
-	/*
-	 * Write this.
-	 */
-	
-	//Should we bzero?
 
 	/* Initial user-level stack pointer */
 

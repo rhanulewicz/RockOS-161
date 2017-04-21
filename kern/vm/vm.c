@@ -63,8 +63,6 @@ paddr_t
 getppages(unsigned long npages, bool user, struct pte* owner){
 	
 	spinlock_acquire(&stealmem_lock);
-	/*My guess as to what this should do: search through the array (coremap) until we
-	find n contiguous free pages. Then return the starting paddr of that chunk.*/
 	paddr_t ramsize = ram_getsize();
 	// PAGE_SIZE defined in arch/mips/include/vm.h
 	int numberOfEntries = (int)ramsize/PAGE_SIZE;
@@ -105,9 +103,6 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 /* Allocate/free kernel heap pages (called by kmalloc/kfree) */
 vaddr_t alloc_kpages(unsigned npages){
 
-	/*Should call a working getppages routine that checks your coremap 
-	for the status of free pages and returns appropriately*/
-
 	paddr_t startOfNewBlock = getppages(npages, false, NULL);
 	
 	if (startOfNewBlock==0) {
@@ -121,9 +116,6 @@ vaddr_t alloc_kpages(unsigned npages){
 }
 
 vaddr_t alloc_upages(unsigned npages, struct pte* owner){
-
-	/*Should call a working getppages routine that checks your coremap 
-	for the status of free pages and returns appropriately*/
 
 	paddr_t startOfNewBlock = getppages(npages, true, owner);
 	
@@ -158,7 +150,7 @@ void free_kpages(vaddr_t addr){
 		get_corePage(i)->allocated = 0;
 		get_corePage(i)->firstpage = -1;
 		get_corePage(i)->npages = 0;
-		//bzero((void*)PADDR_TO_KVADDR(ppn_to_pblock(i)), PAGE_SIZE);
+		
 	}
 	
 	used -= (npages * PAGE_SIZE);
