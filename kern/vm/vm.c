@@ -214,7 +214,7 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 						return 0;
 					}
 					//else page fault:  need swapping but that's for 3.3
-
+					
 				}
 				if(LLnext(curpte) == NULL){
 					break;
