@@ -65,8 +65,6 @@ vaddr_t alloc_upages(unsigned npages);
 vaddr_t alloc_kpages_nozero(unsigned npages);
 void free_kpages(vaddr_t addr);
 
-void swapInit(void);
-
 /*
  * Return amount of memory (in bytes) used by allocated coremap pages.  If
  * there are ongoing allocations, this value could change after it is returned

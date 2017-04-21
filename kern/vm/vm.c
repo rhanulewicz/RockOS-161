@@ -22,10 +22,8 @@ struct lock* swapLock;
 struct bitmap* swapMap;
 
 void vm_bootstrap(){
-	return;
-}
 
-void swapInit(){
+	//So far this is mostly testing code to see if we can open the swapdisk
 	swapLock = lock_create("swap_lock");
 	struct stat* statBox = kmalloc(sizeof(struct stat));
 	struct vnode* llfile = kmalloc(sizeof(struct vnode));
@@ -41,7 +39,10 @@ void swapInit(){
 	kprintf("%d\n",  (int)statBox->st_size);
 	(void) statBox;
 	(void) llfile;
+
+	return;
 }
+
 
 /*
  * Level of indirection not necessary, but allows us to swap between ASST2 and ASST3 
