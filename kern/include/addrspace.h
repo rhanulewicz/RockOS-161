@@ -83,6 +83,8 @@ struct pte {
     unsigned long vpn;
     unsigned long ppn;
     bool inmem;
+    //This is the integer index in the bitmap corresponding to a block on swapdisk
+    int swapIndex;
 };
 
 

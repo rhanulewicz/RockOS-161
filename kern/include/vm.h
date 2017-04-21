@@ -89,7 +89,6 @@ struct corePage{
 	int firstpage;
 	int npages;
 	bool user;
-	int offsetIntoSwap;
 	//paddr_t block;
 };
 
