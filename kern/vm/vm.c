@@ -100,7 +100,7 @@ vaddr_t alloc_kpages(unsigned npages){
 	/*Should call a working getppages routine that checks your coremap 
 	for the status of free pages and returns appropriately*/
 
-	paddr_t startOfNewBlock = getppages(npages,false);
+	paddr_t startOfNewBlock = getppages(npages, false);
 	
 	if (startOfNewBlock==0) {
 			return 0;
@@ -130,7 +130,7 @@ vaddr_t alloc_upages(unsigned npages){
 }
 
 vaddr_t alloc_kpages_nozero(unsigned npages){
-	paddr_t startOfNewBlock = getppages(npages,false);
+	paddr_t startOfNewBlock = getppages(npages, false);
 	
 	if (startOfNewBlock==0) {
 			return 0;
