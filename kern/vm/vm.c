@@ -30,12 +30,15 @@ void vm_bootstrap(){
 	if(llfile == NULL || statBox == NULL){
 		panic("fucked it");
 	}
-	char foo [] = "ldh0raw:";
+	char foo [] = "lhd:";
 	int res = vfs_open(foo, 1, 0, &llfile);
+	(void)res;
 	if(res > 0){
 		panic("%d\n", res);
 	}
 	VOP_STAT(llfile, statBox);
+	unsigned long disksize = (unsigned long)statBox->st_size;
+	swapMap = bitmap_create((unsigned)(disksize/PAGE_SIZE));
 	kprintf("%d\n",  (int)statBox->st_size);
 	(void) statBox;
 	(void) llfile;
