@@ -22,19 +22,20 @@ struct lock* swapLock;
 struct bitmap* swapMap;
 
 void vm_bootstrap(){
-	return;
+	
 	//So far this is mostly testing code to see if we can open the swapdisk
-	swapLock = lock_create("swap_lock");
-	struct stat* statBox = kmalloc(sizeof(struct stat));
 	struct vnode* llfile = kmalloc(sizeof(struct vnode));
-	if(llfile == NULL || statBox == NULL){
-		panic("fucked it");
-	}
 	char foo [] = "lhd0raw:";
 	int res = vfs_open(foo, 1, 0, &llfile);
-	(void)res;
 	if(res > 0){
-		panic("%d\n", res);
+	 	kprintf("Swapdisk not mounted\n");
+	 	kfree(llfile);
+	 	return;
+	}
+	swapLock = lock_create("swap_lock");
+	struct stat* statBox = kmalloc(sizeof(struct stat));
+	if(llfile == NULL || statBox == NULL){
+		panic("fucked it");
 	}
 	VOP_STAT(llfile, statBox);
 
@@ -179,6 +180,8 @@ void vm_tlbshootdown(const struct tlbshootdown * tlbs){
  * Copies a page from disk to memory. (source, destination)
  */
 void blockread(int swapIndex, paddr_t paddr){
+	(void)swapIndex;
+	(void)paddr;
 	return;
 }
 
@@ -186,6 +189,8 @@ void blockread(int swapIndex, paddr_t paddr){
  * Copies a page from memory to disk. (source, destination)
  */
 void blockwrite(paddr_t paddr, int swapIndex){
+	(void)swapIndex;
+	(void)paddr;
 	return;
 }
 
