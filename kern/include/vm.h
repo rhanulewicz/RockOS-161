@@ -1,4 +1,5 @@
 
+
 /*
  * Copyright (c) 2000, 2001, 2002, 2003, 2004, 2005, 2008, 2009
  *	The President and Fellows of Harvard College.
@@ -90,10 +91,21 @@ struct corePage{
 	struct pte* owner_pte; 
 	//paddr_t block;
 };
+
+/*
+ * Copies a page from disk to memory. (source, destination)
+ */
+void blockread(int swapIndex, paddr_t paddr);
+
+/*
+ * Copies a page from memory to disk. (source, destination)
+ */
+void blockwrite(paddr_t paddr, int swapIndex);
+
 vaddr_t alloc_upages(unsigned npages, struct pte* owner);
 
-paddr_t ppn_to_pblock(unsigned long ppn);
+paddr_t index_to_pblock(unsigned long index);
 
-unsigned long paddr_to_ppn(paddr_t paddr);
+unsigned long paddr_to_index(paddr_t paddr);
 
 #endif /* _VM_H_ */

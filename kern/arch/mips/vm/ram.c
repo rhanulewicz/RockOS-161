@@ -47,6 +47,7 @@ static paddr_t coremapStart;	/* The starting address of the coremap */
 paddr_t getFirstPaddr(){
 	return firstpaddr;
 }
+
 void
 ram_bootstrap(void)
 {
@@ -130,17 +131,17 @@ unsigned long needed_pages(int bytes){
 
 /*
  * Returns the starting physical address of a block of memory corresponding to the given
- * physical page number.
+ * index in the coremap.
  */
-paddr_t ppn_to_pblock(unsigned long ppn){
-	return ppn * PAGE_SIZE;
+paddr_t index_to_pblock(unsigned long index){
+	return index * PAGE_SIZE;
 }
 
 /*
- * Returns the physical page number corresponding to the physical block of memory in which 
+ * Returns the index in the coremap corresponding to the physical block of memory in which 
  * the given physical address is located.
  */
-unsigned long paddr_to_ppn(paddr_t paddr){
+unsigned long paddr_to_index(paddr_t paddr){
 	return (unsigned long)(paddr / PAGE_SIZE);
 }
 

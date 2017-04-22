@@ -22,7 +22,7 @@ struct lock* swapLock;
 struct bitmap* swapMap;
 
 void vm_bootstrap(){
-
+	return;
 	//So far this is mostly testing code to see if we can open the swapdisk
 	swapLock = lock_create("swap_lock");
 	struct stat* statBox = kmalloc(sizeof(struct stat));
@@ -81,7 +81,7 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 			}
 			used += PAGE_SIZE * npages;
 			pagesAlloced += npages;
-			paddr_t addr = ppn_to_pblock(startOfCurBlock);
+			paddr_t addr = index_to_pblock(startOfCurBlock);
 			spinlock_release(&stealmem_lock);
 			
 			return addr; 
@@ -111,8 +111,6 @@ vaddr_t alloc_kpages(unsigned npages){
 			return 0;
 		}
 
-	// bzero((void*)PADDR_TO_KVADDR(startOfNewBlock), npages * PAGE_SIZE);
-	
 	return PADDR_TO_KVADDR(startOfNewBlock);
 
 }
@@ -143,7 +141,7 @@ vaddr_t alloc_kpages_nozero(unsigned npages){
 
 void free_kpages(vaddr_t addr){
 	spinlock_acquire(&stealmem_lock);
-	vaddr_t base = PADDR_TO_KVADDR(ppn_to_pblock(0));
+	vaddr_t base = PADDR_TO_KVADDR(index_to_pblock(0));
 	int page = (addr - base) / PAGE_SIZE;
 	int basePage =  get_corePage(page)->firstpage;
 	int npages = get_corePage(basePage)->npages;
@@ -174,6 +172,20 @@ unsigned int coremap_used_bytes(void){
 /* TLB shootdown handling called from interprocessor_interrupt */
 void vm_tlbshootdown(const struct tlbshootdown * tlbs){
 	(void)tlbs;
+	return;
+}
+
+/*
+ * Copies a page from disk to memory. (source, destination)
+ */
+void blockread(int swapIndex, paddr_t paddr){
+	return;
+}
+
+/*
+ * Copies a page from memory to disk. (source, destination)
+ */
+void blockwrite(paddr_t paddr, int swapIndex){
 	return;
 }
 
