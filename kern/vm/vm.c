@@ -24,27 +24,29 @@ struct bitmap* swapMap;
 void vm_bootstrap(){
 
 	//So far this is mostly testing code to see if we can open the swapdisk
-	// swapLock = lock_create("swap_lock");
-	// struct stat* statBox = kmalloc(sizeof(struct stat));
-	// struct vnode* llfile = kmalloc(sizeof(struct vnode));
-	// if(llfile == NULL || statBox == NULL){
-	// 	panic("fucked it");
-	// }
-	// char foo [] = "lhd:";
-	// int res = vfs_open(foo, 1, 0, &llfile);
-	// (void)res;
-	// if(res > 0){
-	// 	panic("%d\n", res);
-	// }
-	// VOP_STAT(llfile, statBox);
+	swapLock = lock_create("swap_lock");
+	struct stat* statBox = kmalloc(sizeof(struct stat));
+	struct vnode* llfile = kmalloc(sizeof(struct vnode));
+	if(llfile == NULL || statBox == NULL){
+		panic("fucked it");
+	}
+	char foo [] = "lhd0raw:";
+	int res = vfs_open(foo, 1, 0, &llfile);
+	(void)res;
+	if(res > 0){
+		panic("%d\n", res);
+	}
+	VOP_STAT(llfile, statBox);
 
-	// //Initialize the swapdisk bitmap
-	// unsigned long disksize = (unsigned long)statBox->st_size;
-	// swapMap = bitmap_create((unsigned)(disksize/PAGE_SIZE));
+	//Initialize the swapdisk bitmap
+	int disksize = statBox->st_size;
+	swapMap = bitmap_create((unsigned)(disksize/PAGE_SIZE));
 	
-	// kprintf("%d\n",  (int)statBox->st_size);
-	// (void) statBox;
-	// (void) llfile;
+	kprintf("Disk size (bytes): %d\n",  (int)statBox->st_size);
+	kprintf("Bitmap size: %d\n",  disksize/PAGE_SIZE);
+
+	(void) statBox;
+	(void) llfile;
 
 	return;
 }
@@ -150,6 +152,8 @@ void free_kpages(vaddr_t addr){
 		get_corePage(i)->allocated = 0;
 		get_corePage(i)->firstpage = -1;
 		get_corePage(i)->npages = 0;
+		get_corePage(i)->user = false;
+		get_corePage(i)->owner_pte = NULL;
 		
 	}
 	

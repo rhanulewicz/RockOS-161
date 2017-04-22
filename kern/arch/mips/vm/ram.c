@@ -101,7 +101,10 @@ void coremap_init(void){
 		newPage->allocated = 0;
 		newPage->firstpage = -1;
 		newPage->npages = 0;
-		//newPage->block = (0x80000000 + (i * 0x1000));
+		newPage->user = false;
+		newPage->owner_pte = NULL;
+
+
 		buildPointer += structSize;	
 
 	}
