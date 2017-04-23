@@ -51,6 +51,7 @@
 #define VM_FAULT_WRITE       1    /* A write was attempted */
 #define VM_FAULT_READONLY    2    /* A write to a readonly page was attempted*/
 
+extern struct vnode* swapDisk;
 extern struct bitmap* swapMap;
 extern struct lock* swapLock;
 

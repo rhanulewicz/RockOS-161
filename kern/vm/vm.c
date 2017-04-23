@@ -18,28 +18,29 @@ static struct spinlock stealmem_lock = SPINLOCK_INITIALIZER;
 static unsigned long pagesAlloced = 0;
 static unsigned int used =  0;
 
+struct vnode* swapDisk;
 struct lock* swapLock;
 struct bitmap* swapMap;
 
 void vm_bootstrap(){
 	
 	//So far this is mostly testing code to see if we can open the swapdisk
-	struct vnode* llfile = kmalloc(sizeof(struct vnode));
-	if(llfile == NULL){
-		panic("llfile null in vm_bootstrap");
+	swapDisk = kmalloc(sizeof(struct vnode));
+	if(swapDisk == NULL){
+		panic("swapDisk null in vm_bootstrap");
 	}
 	char foo [] = "lhd0raw:";
-	int res = vfs_open(foo, 1, 0, &llfile);
+	int res = vfs_open(foo, 1, 0, &swapDisk);
 	if(res > 0){
 	 	kprintf("Swapdisk not mounted\n");
-	 	kfree(llfile);
+	 	kfree(swapDisk);
 	 	return;
 	}
 	struct stat* statBox = kmalloc(sizeof(struct stat));
 	if(statBox == NULL){
 		panic("statBox null in vm_bootstrap");
 	}
-	VOP_STAT(llfile, statBox);
+	VOP_STAT(swapDisk, statBox);
 	int disksize = statBox->st_size;
 	kfree(statBox);
 	
@@ -52,7 +53,7 @@ void vm_bootstrap(){
 	swapLock = lock_create("swap_lock");
 	
 	(void) statBox;
-	(void) llfile;
+	(void) swapDisk;
 
 	return;
 }
@@ -192,10 +193,31 @@ void blockread(int swapIndex, paddr_t paddr){
 
 /*
  * Copies a page from memory to disk. (source, destination)
+ * paddr is an address in the block of memory to be copied
+ * swapIndex is the index in the swapDisk to which the page is to be copied.
  */
 void blockwrite(paddr_t paddr, int swapIndex){
 	(void)swapIndex;
 	(void)paddr;
+
+	paddr &= PAGE_FRAME;	//Aligns paddr to the start of a page
+
+	struct uio thing;
+	struct iovec iov;
+	iov.iov_kbase = (void*)paddr;	//Is kbase correct?
+	iov.iov_len = PAGE_SIZE;		
+	thing.uio_iov = &iov;
+	thing.uio_iovcnt = 1;
+	thing.uio_resid = PAGE_SIZE; 
+	thing.uio_offset = swapIndex * PAGE_SIZE;	//Offset into swapDisk to which to write
+	thing.uio_segflg = UIO_SYSSPACE;	//Is SYSSPACE correct?
+	thing.uio_rw = UIO_WRITE;
+	thing.uio_space = proc_getas();
+
+	VOP_WRITE(swapDisk, &thing);
+
+	//..Is that it?
+
 	return;
 }
 
