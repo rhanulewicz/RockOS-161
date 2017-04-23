@@ -25,6 +25,9 @@ void vm_bootstrap(){
 	
 	//So far this is mostly testing code to see if we can open the swapdisk
 	struct vnode* llfile = kmalloc(sizeof(struct vnode));
+	if(llfile == NULL){
+		panic("llfile null in vm_bootstrap");
+	}
 	char foo [] = "lhd0raw:";
 	int res = vfs_open(foo, 1, 0, &llfile);
 	if(res > 0){
@@ -32,20 +35,22 @@ void vm_bootstrap(){
 	 	kfree(llfile);
 	 	return;
 	}
-	swapLock = lock_create("swap_lock");
 	struct stat* statBox = kmalloc(sizeof(struct stat));
-	if(llfile == NULL || statBox == NULL){
-		panic("fucked it");
+	if(statBox == NULL){
+		panic("statBox null in vm_bootstrap");
 	}
 	VOP_STAT(llfile, statBox);
-
-	//Initialize the swapdisk bitmap
 	int disksize = statBox->st_size;
+	kfree(statBox);
+	
+	//Initialize the swapdisk bitmap
 	swapMap = bitmap_create((unsigned)(disksize/PAGE_SIZE));
 	
-	kprintf("Disk size (bytes): %d\n",  (int)statBox->st_size);
+	kprintf("Disk size (bytes): %d\n",  disksize);
 	kprintf("Bitmap size: %d\n",  disksize/PAGE_SIZE);
 
+	swapLock = lock_create("swap_lock");
+	
 	(void) statBox;
 	(void) llfile;
 
