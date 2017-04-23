@@ -89,7 +89,8 @@
 struct lock* procLock;
 int	highPid;
 struct proc* procTable[2000];
-
+static char buffer[__ARG_MAX];
+struct lock* buffLock;
 ssize_t open(char *filename, int flags, int32_t *retval){
 	if(flags != 22 && flags != 21 && flags != O_RDONLY && flags != O_WRONLY && flags != O_RDWR && flags != O_CREAT && flags != O_EXCL && flags != O_TRUNC && flags != O_APPEND){
 		*retval = (int32_t)0;
@@ -562,7 +563,7 @@ int rounded(int a){
 }
 
 int execv(const char *program, char **args, int32_t *retval){
-	
+	lock_acquire(buffLock);
 	int fakeptr;
 	int err1 = copyin((const_userptr_t)program, &fakeptr, 4);
 	if (err1){
@@ -609,7 +610,6 @@ int execv(const char *program, char **args, int32_t *retval){
 		totalSize += rounded(strlen(*(args + i)) + 1);
 	}
 	
-	void * buffer = kmalloc((4*nargs) + totalSize);
 	memset(buffer, '\0', (4*nargs) + totalSize);
 	
 	for(int i = 0; i < __ARG_MAX/8; i++){
@@ -700,8 +700,8 @@ int execv(const char *program, char **args, int32_t *retval){
 	}
 	nargs--;
 	*(char **)(stackptr + (4*(nargs))) =  NULL;
-	kfree(buffer);
 	kfree(name);
+	lock_release(buffLock);
 
 	/* Warp to user mode. */
 	enter_new_process(nargs/*argc*/, (userptr_t)stackptr/*userspace addr of argv*/,

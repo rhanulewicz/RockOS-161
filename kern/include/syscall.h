@@ -38,6 +38,7 @@
 extern struct proc* procTable[2000];
 extern struct lock* procLock;
 extern int highPid;
+extern struct lock* buffLock;
 
 
 

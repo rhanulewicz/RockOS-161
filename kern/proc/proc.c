@@ -207,6 +207,7 @@ proc_bootstrap(void)
 
 	kproc = proc_create("[kernel]");
 	procLock = lock_create("proclock");
+	buffLock = lock_create("bufferLock");
 	if (kproc == NULL) {
 		panic("proc_create for kproc failed\n");
 	}
