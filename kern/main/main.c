@@ -147,6 +147,7 @@ boot(void)
 	// 	kprintf("%d\n", get_corePage(i)->firstpage);
 	// }
 	// kprintf("%d\n",coremap_used_bytes());
+	
 	COMPILE_ASSERT(sizeof(userptr_t) == sizeof(char *));
 	COMPILE_ASSERT(sizeof(*(userptr_t)0) == sizeof(char));
 }

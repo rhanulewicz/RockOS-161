@@ -104,6 +104,9 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 		contiguousFound++;
 
 	 }
+	 //Contiguous block not found. If swapping is enabled:
+	 //PAGE OUT HERE
+
 
 	spinlock_release(&stealmem_lock);
 	return (paddr_t)0;
@@ -187,15 +190,15 @@ void vm_tlbshootdown(const struct tlbshootdown * tlbs){
 /*
  * Copies a page from disk to memory. (source, destination)
  */
-void blockread(int swapIndex, paddr_t paddr){
+void blockread(int swapIndex, vaddr_t vaddr){
 	(void)swapIndex;
-	(void)paddr;
+	(void)vaddr;
 
-	paddr &= PAGE_FRAME;	//Aligns paddr to the start of a page
+	vaddr &= PAGE_FRAME;	//Aligns paddr to the start of a page
 
 	struct uio thing;
 	struct iovec iov;
-	iov.iov_kbase = (void*)paddr;	//Is kbase correct?
+	iov.iov_kbase = (void*)vaddr;	//Is kbase correct?
 	iov.iov_len = PAGE_SIZE;		
 	thing.uio_iov = &iov;
 	thing.uio_iovcnt = 1;
@@ -203,7 +206,7 @@ void blockread(int swapIndex, paddr_t paddr){
 	thing.uio_offset = swapIndex * PAGE_SIZE;	//Offset into swapDisk to which to write
 	thing.uio_segflg = UIO_SYSSPACE;	//Is SYSSPACE correct?
 	thing.uio_rw = UIO_READ;
-	thing.uio_space = proc_getas();
+	thing.uio_space = NULL;
 
 	VOP_READ(swapDisk, &thing);
 
@@ -215,15 +218,15 @@ void blockread(int swapIndex, paddr_t paddr){
  * paddr is an address in the block of memory to be copied
  * swapIndex is the index in the swapDisk to which the page is to be copied.
  */
-void blockwrite(paddr_t paddr, int swapIndex){
+void blockwrite(vaddr_t vaddr, int swapIndex){
 	(void)swapIndex;
-	(void)paddr;
+	(void)vaddr;
 
-	paddr &= PAGE_FRAME;	//Aligns paddr to the start of a page
+	vaddr &= PAGE_FRAME;	//Aligns paddr to the start of a page
 
 	struct uio thing;
 	struct iovec iov;
-	iov.iov_kbase = (void*)paddr;	//Is kbase correct?
+	iov.iov_kbase = (void*)vaddr;	//Is kbase correct?
 	iov.iov_len = PAGE_SIZE;		
 	thing.uio_iov = &iov;
 	thing.uio_iovcnt = 1;
@@ -231,7 +234,7 @@ void blockwrite(paddr_t paddr, int swapIndex){
 	thing.uio_offset = swapIndex * PAGE_SIZE;	//Offset into swapDisk to which to write
 	thing.uio_segflg = UIO_SYSSPACE;	//Is SYSSPACE correct?
 	thing.uio_rw = UIO_WRITE;
-	thing.uio_space = proc_getas();
+	thing.uio_space = NULL;
 
 	VOP_WRITE(swapDisk, &thing);
 

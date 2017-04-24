@@ -96,12 +96,12 @@ struct corePage{
 /*
  * Copies a page from disk to memory. (source, destination)
  */
-void blockread(int swapIndex, paddr_t paddr);
+void blockread(int swapIndex, vaddr_t vaddr);
 
 /*
  * Copies a page from memory to disk. (source, destination)
  */
-void blockwrite(paddr_t paddr, int swapIndex);
+void blockwrite(vaddr_t vaddr, int swapIndex);
 
 vaddr_t alloc_upages(unsigned npages, struct pte* owner);
 
