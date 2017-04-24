@@ -539,6 +539,8 @@ cmd_kheapstats(int nargs, char **args)
 	(void)nargs;
 	(void)args;
 
+
+
 	kheap_printstats();
 
 	return 0;
@@ -551,7 +553,16 @@ cmd_kheapused(int nargs, char **args)
 	(void)nargs;
 	(void)args;
 
-	kheap_printused();
+	kprintf("%d\n", curproc->pid);
+
+		vaddr_t test = alloc_kpages(1);
+	memset((void *)test, 'h', 4096);
+	blockwrite(test,0);
+	char * buffer = kmalloc(4096);
+	blockread(0,(paddr_t)buffer);
+		kprintf("%d\n", strlen(buffer));
+
+	// kheap_printused();
 
 	return 0;
 }

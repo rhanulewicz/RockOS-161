@@ -54,6 +54,8 @@ void vm_bootstrap(){
 
 	swapLock = lock_create("swap_lock");
 	
+
+
 	(void) statBox;
 	(void) swapDisk;
 
@@ -203,7 +205,7 @@ void blockread(int swapIndex, paddr_t paddr){
 	thing.uio_offset = swapIndex * PAGE_SIZE;	//Offset into swapDisk to which to write
 	thing.uio_segflg = UIO_SYSSPACE;	//Is SYSSPACE correct?
 	thing.uio_rw = UIO_READ;
-	thing.uio_space = proc_getas();
+	thing.uio_space = NULL;
 
 	VOP_READ(swapDisk, &thing);
 
@@ -231,7 +233,7 @@ void blockwrite(paddr_t paddr, int swapIndex){
 	thing.uio_offset = swapIndex * PAGE_SIZE;	//Offset into swapDisk to which to write
 	thing.uio_segflg = UIO_SYSSPACE;	//Is SYSSPACE correct?
 	thing.uio_rw = UIO_WRITE;
-	thing.uio_space = proc_getas();
+	thing.uio_space = NULL;
 
 	VOP_WRITE(swapDisk, &thing);
 
