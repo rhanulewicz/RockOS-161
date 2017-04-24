@@ -51,7 +51,7 @@
 #include <kern/test161.h>
 #include <version.h>
 #include "autoconf.h"  // for pseudoconfig
-
+#include <rand.h>
 
 /*
  * These two pieces of data are maintained by the makefiles and build system.
@@ -146,8 +146,9 @@ boot(void)
 	// 	kprintf("%p\n", (void*)get_corePage(i)->block);
 	// 	kprintf("%d\n", get_corePage(i)->firstpage);
 	// }
-	// kprintf("%d\n",coremap_used_bytes());
+	// kprintf("%d\n",coremap_used_bytes
 	
+
 	COMPILE_ASSERT(sizeof(userptr_t) == sizeof(char *));
 	COMPILE_ASSERT(sizeof(*(userptr_t)0) == sizeof(char));
 }

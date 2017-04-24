@@ -106,7 +106,7 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 	 }
 	 //Contiguous block not found. If swapping is enabled:
 	 //PAGE OUT HERE
-
+	 
 
 	spinlock_release(&stealmem_lock);
 	return (paddr_t)0;
