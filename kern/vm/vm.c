@@ -12,6 +12,8 @@
 #include <vnode.h>
 #include <vfs.h>
 #include <stat.h>
+#include <uio.h>
+
 
 static struct spinlock stealmem_lock = SPINLOCK_INITIALIZER;
 
@@ -188,6 +190,23 @@ void vm_tlbshootdown(const struct tlbshootdown * tlbs){
 void blockread(int swapIndex, paddr_t paddr){
 	(void)swapIndex;
 	(void)paddr;
+
+	paddr &= PAGE_FRAME;	//Aligns paddr to the start of a page
+
+	struct uio thing;
+	struct iovec iov;
+	iov.iov_kbase = (void*)paddr;	//Is kbase correct?
+	iov.iov_len = PAGE_SIZE;		
+	thing.uio_iov = &iov;
+	thing.uio_iovcnt = 1;
+	thing.uio_resid = PAGE_SIZE; 
+	thing.uio_offset = swapIndex * PAGE_SIZE;	//Offset into swapDisk to which to write
+	thing.uio_segflg = UIO_SYSSPACE;	//Is SYSSPACE correct?
+	thing.uio_rw = UIO_READ;
+	thing.uio_space = proc_getas();
+
+	VOP_READ(swapDisk, &thing);
+
 	return;
 }
 
@@ -262,8 +281,22 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 						splx(spl);
 						return 0;
 					}
-					//else page fault:  need swapping but that's for 3.3
-					
+					//Page not in table (Page fault). Must PAGE IN:
+
+					//Allocate new page to swap in to
+					vaddr_t allocAddr = alloc_upages(1, (struct pte*)curpte->data);
+					//Update ppn in pte to the new physical allocation address
+					((struct pte*)curpte->data)->ppn = allocAddr - 0x80000000;
+					//Copy data from swapDisk to the new address
+					blockread(((struct pte*)curpte->data)->swapIndex, ((struct pte*)curpte->data)->ppn);
+					//Clear that index in the swapMap
+					bitmap_unmark(swapMap, ((struct pte*)curpte->data)->swapIndex);
+					//Inform the pte that the page is back in memory
+					((struct pte*)curpte->data)->inmem = true;
+					((struct pte*)curpte->data)->swapIndex = -1;
+
+					return 0;
+
 				}
 				if(LLnext(curpte) == NULL){
 					break;
@@ -276,11 +309,18 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 			newPage->vpn = faultaddress;
 			
 			vaddr_t allocAddr = alloc_upages(1, newPage);
+
 			newPage->ppn = (allocAddr - 0x80000000);
 			newPage->inmem = true;
+			newPage->swapIndex = -1;
 
 			LLaddWithDatum((char*)"weast", newPage, curpte);
-			//Frob TLB
+
+			/*
+			 * Frob TLB 
+			 * This code is not actually necessary as we can let it fault again 
+			 * and use the code above instead.
+			 */
 			spl = splhigh();
 			uint32_t ehi, elo;
 			ehi = faultaddress;
@@ -294,6 +334,7 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 			
 			tlb_random((uint32_t)newPage->vpn, (uint32_t)newPage->ppn | TLBLO_DIRTY | TLBLO_VALID);
 			splx(spl);
+
 			return 0;
 
 		}

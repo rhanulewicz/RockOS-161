@@ -114,6 +114,8 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 		}
 		newpte->ppn = (allocAddr - 0x80000000);
 		newpte->inmem = 1;
+		newpte->swapIndex = -1;
+
 		LLaddWithDatum((char*)"spongebobu", newpte, newPT);
 		//Copy mem from old page to new page
 		memcpy((void*)PADDR_TO_KVADDR(newpte->ppn), (const void*)PADDR_TO_KVADDR((oldpte->ppn)), PAGE_SIZE);
