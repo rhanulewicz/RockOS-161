@@ -13,12 +13,15 @@
 #include <vfs.h>
 #include <stat.h>
 #include <uio.h>
-
+#include <kern/fcntl.h>
+#include <rand.h>
 
 static struct spinlock stealmem_lock = SPINLOCK_INITIALIZER;
 
 static unsigned long pagesAlloced = 0;
 static unsigned int used =  0;
+static int disksize;
+static bool swapping_enabled;
 
 struct vnode* swapDisk;
 struct lock* swapLock;
@@ -32,18 +35,21 @@ void vm_bootstrap(){
 		panic("swapDisk null in vm_bootstrap");
 	}
 	char foo [] = "lhd0raw:";
-	int res = vfs_open(foo, 1, 0, &swapDisk);
+	//If swapdisk stops working put O_RDWR back to 1 lol idk why
+	int res = vfs_open(foo, O_RDWR, 0, &swapDisk);
 	if(res > 0){
+		swapping_enabled = false;
 	 	kprintf("Swapdisk not mounted\n");
 	 	kfree(swapDisk);
 	 	return;
 	}
+	swapping_enabled = true;
 	struct stat* statBox = kmalloc(sizeof(struct stat));
 	if(statBox == NULL){
 		panic("statBox null in vm_bootstrap");
 	}
 	VOP_STAT(swapDisk, statBox);
-	int disksize = statBox->st_size;
+	disksize = statBox->st_size;
 	kfree(statBox);
 	
 	//Initialize the swapdisk bitmap
@@ -103,13 +109,72 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 		}
 		contiguousFound++;
 
-	 }
-	 //Contiguous block not found. If swapping is enabled:
-	 //PAGE OUT HERE
-	 
+	}
 
 	spinlock_release(&stealmem_lock);
-	return (paddr_t)0;
+	 //Contiguous block not found.
+	if(!swapping_enabled){
+	 	return (paddr_t)0;
+	}
+	 
+	//PAGE OUT
+
+	//Random eviction: pick a random user page to evict
+	bool upage_found = false;
+	int victimIndex = -1;
+	while(!upage_found){
+	 	victimIndex = rand((int)numberOfEntries);
+	 	if(get_corePage(victimIndex)->user){
+	 		upage_found = true;
+	 	}
+	}
+
+	 //Find a free index in the swapDisk
+	int destIndex = -1;
+	for(int i = 0; i < disksize; i++){
+	 	if(!bitmap_isset(swapMap, i)){
+	 		destIndex = i;
+	 		break;
+		}
+	}
+
+	 //ERROR if no space in swapmap
+	if(destIndex == -1){
+	 	panic("Swapdisk full in getppages");
+	 	return ENOMEM;
+	}
+
+	 //Write page to swap disk
+	blockwrite(PADDR_TO_KVADDR(index_to_pblock((unsigned int)victimIndex)), destIndex);
+	bitmap_mark(swapMap, (unsigned)destIndex);
+	 
+	 //Inform the owner
+	if(get_corePage(victimIndex)->owner_pte == NULL){
+	 	kprintf("%d\n", get_corePage(victimIndex)->user);
+	 	panic("Fuck\n");
+	}
+	get_corePage(victimIndex)->owner_pte->inmem = false;
+	get_corePage(victimIndex)->owner_pte->swapIndex = destIndex;
+
+	 //Clear entry in TLB if it exists
+	int spl = splhigh();
+	int tlbprobe = tlb_probe(get_corePage(victimIndex)->owner_pte->vpn, 0);
+	if(tlbprobe >= 0){
+		tlb_write(TLBHI_INVALID(tlbprobe), TLBLO_INVALID(), tlbprobe);
+	}
+	splx(spl);
+	 
+	//Finalize new allocation
+	//We can assume allocated is already 1
+	//We can assume firstpage is already victimIndex
+	//We can assume npages is already 1
+	//Update the owner
+	get_corePage(victimIndex)->user = user;
+	get_corePage(victimIndex)->owner_pte = owner;
+	 
+	paddr_t addr = index_to_pblock(victimIndex);
+
+	return addr;
 
 }
 
@@ -238,7 +303,7 @@ void blockwrite(vaddr_t vaddr, int swapIndex){
 
 	VOP_WRITE(swapDisk, &thing);
 
-	//..Is that it?
+	//..Is that it? It absolutely is.
 
 	return;
 }
@@ -291,7 +356,7 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 					//Update ppn in pte to the new physical allocation address
 					((struct pte*)curpte->data)->ppn = allocAddr - 0x80000000;
 					//Copy data from swapDisk to the new address
-					blockread(((struct pte*)curpte->data)->swapIndex, ((struct pte*)curpte->data)->ppn);
+					blockread(((struct pte*)curpte->data)->swapIndex, PADDR_TO_KVADDR(((struct pte*)curpte->data)->ppn));
 					//Clear that index in the swapMap
 					bitmap_unmark(swapMap, ((struct pte*)curpte->data)->swapIndex);
 					//Inform the pte that the page is back in memory

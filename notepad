@@ -594,8 +594,3 @@ Add optimizations
 
 	Possible: cleaning service. Copy on write.
 		Need to track page clean/dirty state
-
-
-QUESTIONS:
-	Why do we need to backtrack from corePage to PTE of process?
-	What processes can use alloc_kpages? Just the kernel?

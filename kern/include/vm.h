@@ -90,7 +90,6 @@ struct corePage{
 	int npages;
 	bool user;
 	struct pte* owner_pte; 
-	//paddr_t block;
 };
 
 /*
