@@ -141,7 +141,7 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 	 //ERROR if no space in swapmap
 	if(destIndex == -1){
 	 	panic("Swapdisk full in getppages");
-	 	return ENOMEM;
+	 	return 0;
 	}
 
 	 //Write page to swap disk
