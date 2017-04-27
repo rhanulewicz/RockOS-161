@@ -34,6 +34,7 @@
 #include <vm.h>
 #include <proc.h>
 #include <current.h>
+#include <synch.h>
 
 /*
  * Note! If OPT_DUMBVM is set, as is the case until you start the VM
@@ -112,8 +113,10 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 		newpte->vpn = oldpte->vpn;
 
 		if(disksize > 0){
+
 			newpte->inmem = 0;
 		 //Find a free index in the swapDisk
+			lock_acquire(swapLock);
 			int destIndex = -1;
 			for(int i = 0; i < disksize; i++){
 				if(!bitmap_isset(swapMap, i)){
@@ -134,7 +137,7 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 				blockread(oldpte->swapIndex,(paddr_t)buffer);
 				blockwrite((paddr_t)buffer,newpte->swapIndex);
 			}
-			
+			lock_release(swapLock);
 		}else{
 			vaddr_t allocAddr = alloc_kpages(1);
 			if(allocAddr == 0){
@@ -142,12 +145,12 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 			}
 			newpte->ppn = (allocAddr - 0x80000000);
 			newpte->inmem = 1;
-			LLaddWithDatum((char*)"spongebobu", newpte, newPT);
 		//Copy mem from old page to new page
 			memcpy((void*)PADDR_TO_KVADDR(newpte->ppn), (const void*)PADDR_TO_KVADDR((oldpte->ppn)), PAGE_SIZE);
 			
 		}
 
+			LLaddWithDatum((char*)"spongebobu", newpte, newPT);
 		if(LLnext(oldPT) == NULL){
 			break;
 		}
@@ -196,7 +199,9 @@ as_destroy(struct addrspace *as)
 		next = toFree->next;
 		struct pte* dpte = (struct pte*)toFree->data; 
 		if(!dpte->inmem){
+			lock_acquire(swapLock);
 			bitmap_unmark(swapMap, (unsigned)dpte->swapIndex);
+			lock_release(swapLock);
 		}else{
 
 		free_kpages(PADDR_TO_KVADDR(((struct pte*)(toFree->data))->ppn));

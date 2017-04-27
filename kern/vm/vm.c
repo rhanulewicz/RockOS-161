@@ -120,6 +120,7 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 	//PAGE OUT
 
 	//Random eviction: pick a random user page to evict
+	lock_acquire(swapLock);
 	bool upage_found = false;
 	int victimIndex = -1;
 	while(!upage_found){
@@ -155,7 +156,7 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 	}
 	get_corePage(victimIndex)->owner_pte->inmem = false;
 	get_corePage(victimIndex)->owner_pte->swapIndex = destIndex;
-
+	lock_release(swapLock);
 	 //Clear entry in TLB if it exists
 	int spl = splhigh();
 	int tlbprobe = tlb_probe(get_corePage(victimIndex)->owner_pte->vpn, 0);
@@ -355,10 +356,12 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 					vaddr_t allocAddr = alloc_upages(1, (struct pte*)curpte->data);
 					//Update ppn in pte to the new physical allocation address
 					((struct pte*)curpte->data)->ppn = allocAddr - 0x80000000;
+					lock_acquire(swapLock);
 					//Copy data from swapDisk to the new address question from david why dont we just use the pte vpn?
 					blockread(((struct pte*)curpte->data)->swapIndex, PADDR_TO_KVADDR(((struct pte*)curpte->data)->ppn));
 					//Clear that index in the swapMap
 					bitmap_unmark(swapMap, ((struct pte*)curpte->data)->swapIndex);
+					lock_release(swapLock);
 					//Inform the pte that the page is back in memory
 					((struct pte*)curpte->data)->inmem = true;
 					((struct pte*)curpte->data)->swapIndex = -1;
