@@ -22,13 +22,12 @@ static unsigned long pagesAlloced = 0;
 static unsigned int used =  0;
 static bool swapping_enabled;
 
-int disksize;
+int disksize = 0;
 struct vnode* swapDisk;
 struct lock* swapLock;
 struct bitmap* swapMap;
 
 void vm_bootstrap(){
-	
 	//So far this is mostly testing code to see if we can open the swapdisk
 	swapDisk = kmalloc(sizeof(struct vnode));
 	if(swapDisk == NULL){
@@ -39,6 +38,7 @@ void vm_bootstrap(){
 	int res = vfs_open(foo, O_RDWR, 0, &swapDisk);
 	if(res > 0){
 		swapping_enabled = false;
+		disksize = 0;
 	 	kprintf("Swapdisk not mounted\n");
 	 	kfree(swapDisk);
 	 	return;
