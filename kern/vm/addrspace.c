@@ -41,6 +41,9 @@
  * used. The cheesy hack versions in dumbvm.c are used instead.
  */
 
+static char pageBuff[4096];
+
+
 struct addrspace *
 as_create(void)
 {
