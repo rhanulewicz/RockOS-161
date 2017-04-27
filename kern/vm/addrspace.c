@@ -111,7 +111,6 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 		struct pte* newpte = kmalloc(sizeof(struct pte));
 		newpte->vpn = oldpte->vpn;
 
-
 		if(disksize > 0){
 			newpte->inmem = 0;
 		 //Find a free index in the swapDisk
@@ -129,6 +128,12 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 			}
 			newpte->swapIndex = destIndex;
 			bitmap_mark(swapMap, (unsigned)destIndex);
+			if(oldpte->inmem ){
+				blockwrite(PADDR_TO_KVADDR(((struct pte*)oldpte)->ppn),newpte->swapIndex);
+			}else{
+				blockread(oldpte->swapIndex,(paddr_t)buffer);
+				blockwrite((paddr_t)buffer,newpte->swapIndex);
+			}
 			
 		}else{
 			vaddr_t allocAddr = alloc_kpages(1);
@@ -137,22 +142,19 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 			}
 			newpte->ppn = (allocAddr - 0x80000000);
 			newpte->inmem = 1;
+			LLaddWithDatum((char*)"spongebobu", newpte, newPT);
+		//Copy mem from old page to new page
+			memcpy((void*)PADDR_TO_KVADDR(newpte->ppn), (const void*)PADDR_TO_KVADDR((oldpte->ppn)), PAGE_SIZE);
 			
 		}
 
-		LLaddWithDatum((char*)"spongebobu", newpte, newPT);
-		if(oldpte->inmem){
-			blockwrite(PADDR_TO_KVADDR(((struct pte*)oldpte)->ppn),newpte->swapIndex);
-		}else{
-			blockread(oldpte->swapIndex,(paddr_t)buffer);
-			blockwrite((paddr_t)buffer,newpte->swapIndex);
-		}
 		if(LLnext(oldPT) == NULL){
 			break;
 		}
 		newPT = LLnext(newPT);
 		oldPT = LLnext(oldPT);
 	}
+	kfree(buffer);
 
 	newas->stackbound = old->stackbound;
 	newas->heap_start = old->heap_start;
