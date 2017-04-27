@@ -20,9 +20,9 @@ static struct spinlock stealmem_lock = SPINLOCK_INITIALIZER;
 
 static unsigned long pagesAlloced = 0;
 static unsigned int used =  0;
-static int disksize;
 static bool swapping_enabled;
 
+int disksize;
 struct vnode* swapDisk;
 struct lock* swapLock;
 struct bitmap* swapMap;
@@ -355,7 +355,7 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 					vaddr_t allocAddr = alloc_upages(1, (struct pte*)curpte->data);
 					//Update ppn in pte to the new physical allocation address
 					((struct pte*)curpte->data)->ppn = allocAddr - 0x80000000;
-					//Copy data from swapDisk to the new address
+					//Copy data from swapDisk to the new address question from david why dont we just use the pte vpn?
 					blockread(((struct pte*)curpte->data)->swapIndex, PADDR_TO_KVADDR(((struct pte*)curpte->data)->ppn));
 					//Clear that index in the swapMap
 					bitmap_unmark(swapMap, ((struct pte*)curpte->data)->swapIndex);

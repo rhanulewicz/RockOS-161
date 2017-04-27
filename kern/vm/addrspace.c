@@ -108,17 +108,36 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 		struct pte* newpte = kmalloc(sizeof(struct pte));
 		newpte->vpn = oldpte->vpn;
 		//Alloc a new page for that entry, give the pte the ppn corresponding to that page
-		vaddr_t allocAddr = alloc_upages(1, newpte);
-		if(allocAddr == 0){
-			return ENOMEM;
+		// vaddr_t allocAddr = alloc_upages(1, newpte);
+		// if(allocAddr == 0){
+		// 	return ENOMEM;
+		// }
+		newpte->ppn = 0;
+		newpte->inmem = 0;
+		 //Find a free index in the swapDisk
+		int destIndex = -1;
+		for(int i = 0; i < disksize; i++){
+			if(!bitmap_isset(swapMap, i)){
+				destIndex = i;
+				break;
+			}
 		}
-		newpte->ppn = (allocAddr - 0x80000000);
-		newpte->inmem = 1;
-		newpte->swapIndex = -1;
+			 //ERROR if no space in swapmap
+	if(destIndex == -1){
+	 	panic("Swapdisk full in as copy");
+	 	return 0;
+	}
+		newpte->swapIndex = destIndex;
+		bitmap_mark(swapMap, (unsigned)destIndex);
 
 		LLaddWithDatum((char*)"spongebobu", newpte, newPT);
 		//Copy mem from old page to new page
-		memcpy((void*)PADDR_TO_KVADDR(newpte->ppn), (const void*)PADDR_TO_KVADDR((oldpte->ppn)), PAGE_SIZE);
+	//	memcpy((void*)PADDR_TO_KVADDR(newpte->ppn), (const void*)PADDR_TO_KVADDR((oldpte->ppn)), PAGE_SIZE);
+		if(oldpte->inmem){
+			blockwrite(PADDR_TO_KVADDR(((struct pte*)oldpte)->ppn),newpte->swapIndex);
+		}else{
+
+		}
 		if(LLnext(oldPT) == NULL){
 			break;
 		}

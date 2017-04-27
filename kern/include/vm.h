@@ -54,6 +54,7 @@
 extern struct vnode* swapDisk;
 extern struct bitmap* swapMap;
 extern struct lock* swapLock;
+extern int disksize;
 
 paddr_t getFirstPaddr(void);
 /* Initialization function */
