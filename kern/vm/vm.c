@@ -1,3 +1,4 @@
+
 #include <types.h>
 #include <kern/errno.h>
 #include <lib.h>
@@ -116,6 +117,7 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 	if(!swapping_enabled){
 	 	return (paddr_t)0;
 	}
+
 	 
 	//PAGE OUT
 
@@ -129,6 +131,16 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 	 		upage_found = true;
 	 	}
 	}
+
+	//Lock down PTE
+
+	int spl = splhigh();
+	int tlbprobe = tlb_probe(get_corePage(victimIndex)->owner_pte->vpn, 0);
+	if(tlbprobe >= 0){
+		tlb_write(TLBHI_INVALID(tlbprobe), TLBLO_INVALID(), tlbprobe);
+	}
+	splx(spl);
+
 
 	 //Find a free index in the swapDisk
 	int destIndex = -1;
@@ -158,12 +170,6 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 	get_corePage(victimIndex)->owner_pte->swapIndex = destIndex;
 	lock_release(swapLock);
 	 //Clear entry in TLB if it exists
-	int spl = splhigh();
-	int tlbprobe = tlb_probe(get_corePage(victimIndex)->owner_pte->vpn, 0);
-	if(tlbprobe >= 0){
-		tlb_write(TLBHI_INVALID(tlbprobe), TLBLO_INVALID(), tlbprobe);
-	}
-	splx(spl);
 	 
 	//Finalize new allocation
 	//We can assume allocated is already 1
@@ -320,6 +326,7 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 	if(curreg == NULL){
 		return EFAULT;
 	}
+
 	while(1){
 		vaddr_t regstart = ((struct region*)(curreg->data))->start;
 		vaddr_t regend = ((struct region*)(curreg->data))->end;
@@ -351,6 +358,8 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 						return 0;
 					}
 					//Page not in table (Page fault). Must PAGE IN:
+
+					//Lock down PTE
 
 					//Allocate new page to swap in to
 					vaddr_t allocAddr = alloc_upages(1, (struct pte*)curpte->data);
@@ -384,6 +393,7 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 			newPage->ppn = (allocAddr - 0x80000000);
 			newPage->inmem = true;
 			newPage->swapIndex = -1;
+			newPage->pte_lock = lock_create("insert spongebob meme here");
 
 			LLaddWithDatum((char*)"weast", newPage, curpte);
 

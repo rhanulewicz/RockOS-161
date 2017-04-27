@@ -71,6 +71,7 @@ as_create(void)
 	}
 	firstPage->vpn = -1;
 	firstPage->ppn = -1;
+	firstPage->pte_lock = NULL;
 	as->pageTable->data = firstPage;
 	as->loadMode = 0;
 
@@ -111,11 +112,10 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 		struct pte* oldpte = (struct pte*)oldPT->data; 
 		struct pte* newpte = kmalloc(sizeof(struct pte));
 		newpte->vpn = oldpte->vpn;
-
 		if(disksize > 0){
-
 			newpte->inmem = 0;
-		 //Find a free index in the swapDisk
+			newpte->pte_lock = lock_create("kulaks deserved it");
+		 	//Find a free index in the swapDisk
 			lock_acquire(swapLock);
 			int destIndex = -1;
 			for(int i = 0; i < disksize; i++){
@@ -127,42 +127,48 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 			 //ERROR if no space in swapmap
 			if(destIndex == -1){
 				panic("Swapdisk full in as copy");
-				return 0;
+				return ENOMEM;
 			}
 			newpte->swapIndex = destIndex;
 			bitmap_mark(swapMap, (unsigned)destIndex);
-			if(oldpte->inmem ){
+			if(oldpte->inmem){
 				blockwrite(PADDR_TO_KVADDR(((struct pte*)oldpte)->ppn),newpte->swapIndex);
 			}else{
-				blockread(oldpte->swapIndex,(paddr_t)buffer);
-				blockwrite((paddr_t)buffer,newpte->swapIndex);
+				blockread(oldpte->swapIndex,(vaddr_t)buffer);
+				blockwrite((vaddr_t)buffer,newpte->swapIndex);
 			}
+
 			lock_release(swapLock);
 		}else{
+
 			vaddr_t allocAddr = alloc_kpages(1);
 			if(allocAddr == 0){
 				return ENOMEM;
 			}
 			newpte->ppn = (allocAddr - 0x80000000);
 			newpte->inmem = 1;
-		//Copy mem from old page to new page
+			newpte->pte_lock = lock_create("neohoyminoy");
+			//Copy mem from old page to new page
 			memcpy((void*)PADDR_TO_KVADDR(newpte->ppn), (const void*)PADDR_TO_KVADDR((oldpte->ppn)), PAGE_SIZE);
 			
 		}
 
-			LLaddWithDatum((char*)"spongebobu", newpte, newPT);
+		LLaddWithDatum((char*)"spongebobu", newpte, newPT);
 		if(LLnext(oldPT) == NULL){
 			break;
 		}
 		newPT = LLnext(newPT);
 		oldPT = LLnext(oldPT);
 	}
-	kfree(buffer);
+
+	kfree(buffer);	
+	
 
 	newas->stackbound = old->stackbound;
 	newas->heap_start = old->heap_start;
 	newas->loadMode = 0;
 	*ret = newas;
+
 	(void) ret;
 	return 0;
 }
@@ -206,7 +212,7 @@ as_destroy(struct addrspace *as)
 
 		free_kpages(PADDR_TO_KVADDR(((struct pte*)(toFree->data))->ppn));
 		}
-
+		lock_destroy(((struct pte*)(toFree->data))->pte_lock);
 		kfree((struct pte*)toFree->data);
 		LLdestroy(toFree);
 		toFree = next;

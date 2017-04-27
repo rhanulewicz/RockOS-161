@@ -503,18 +503,18 @@ Swapping In
 
 Swapping Out
 	Need to swap out whenever we try to allocate a page and the coremap is full
-
+	
 	Select a victim page to evict from the coremap
 		Several eviction strategies to use -- complexity/performace tradeoff
-
+		
 		Good page frames not to evict: those holding kernel structures, or frames already in eviction
-
+		
 	Update the state of both the victim page frame and victim PTE
 		The page frame has a new owner, the state of the victim PTE is now on_disk
 		
 		Both the coremap and PTE are shared data. Can need to hold *both* locks at the same time.
 			Lock type and acquisition order matters (deadlock issues)
-
+			
 			The state of data may change if a lock is dropped and reacquired (sometimes necessary)
 	
 	The kernel can swap out user processes and user processes can swap out each other
