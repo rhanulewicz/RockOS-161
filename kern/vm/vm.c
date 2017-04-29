@@ -113,7 +113,7 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 	}
 
 	spinlock_release(&stealmem_lock);
-	
+
 	//Contiguous block not found.
 	if(!swapping_enabled){
 	 	return (paddr_t)0;
@@ -351,27 +351,29 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 						splx(spl);
 						return 0;
 					}
-					//Page not in table (Page fault). Must PAGE IN:
-					if(swapping_enabled){
-	 					//Lock down PTE
-
-						//Allocate new page to swap in to
-						vaddr_t allocAddr = alloc_upages(1, (struct pte*)curpte->data);
-						//Update ppn in pte to the new physical allocation address
-						((struct pte*)curpte->data)->ppn = allocAddr - 0x80000000;
-						lock_acquire(swapLock);
-						//Copy data from swapDisk to the new address question from david why dont we just use the pte vpn?
-						blockread(((struct pte*)curpte->data)->swapIndex, PADDR_TO_KVADDR(((struct pte*)curpte->data)->ppn));
-						//Clear that index in the swapMap
-						bitmap_unmark(swapMap, ((struct pte*)curpte->data)->swapIndex);
-						lock_release(swapLock);
-						//Inform the pte that the page is back in memory
-						((struct pte*)curpte->data)->inmem = true;
-						((struct pte*)curpte->data)->swapIndex = -1;
-
-						return 0;
+					//Page not in memory (Page fault). Must PAGE IN:
+					if(!swapping_enabled){
+						panic("This should never be true here (vm_vault)\n");
 					}
-					
+
+ 					//Lock down PTE
+
+					//Allocate new page to swap in to
+					vaddr_t allocAddr = alloc_upages(1, (struct pte*)curpte->data);
+					//Update ppn in pte to the new physical allocation address
+					((struct pte*)curpte->data)->ppn = allocAddr - 0x80000000;
+					lock_acquire(swapLock);
+					//Copy data from swapDisk to the new address question from david why dont we just use the pte vpn?
+					blockread(((struct pte*)curpte->data)->swapIndex, PADDR_TO_KVADDR(((struct pte*)curpte->data)->ppn));
+					//Clear that index in the swapMap
+					bitmap_unmark(swapMap, ((struct pte*)curpte->data)->swapIndex);
+					lock_release(swapLock);
+					//Inform the pte that the page is back in memory
+					((struct pte*)curpte->data)->inmem = true;
+					((struct pte*)curpte->data)->swapIndex = -1;
+
+					return 0;
+				
 
 				}
 				if(LLnext(curpte) == NULL){
