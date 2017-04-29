@@ -112,9 +112,9 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 		struct pte* oldpte = (struct pte*)oldPT->data; 
 		struct pte* newpte = kmalloc(sizeof(struct pte));
 		newpte->vpn = oldpte->vpn;
-		if(disksize > 0){
+		if(swapping_enabled){
 			newpte->inmem = 0;
-			newpte->pte_lock = lock_create("kulaks deserved it");
+			newpte->pte_lock = lock_create("3.3 fucking blows");
 		 	//Find a free index in the swapDisk
 			lock_acquire(swapLock);
 			int destIndex = -1;

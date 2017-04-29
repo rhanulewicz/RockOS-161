@@ -21,8 +21,8 @@ static struct spinlock stealmem_lock = SPINLOCK_INITIALIZER;
 
 static unsigned long pagesAlloced = 0;
 static unsigned int used =  0;
-static bool swapping_enabled;
 
+bool swapping_enabled;
 int disksize = 0;
 struct vnode* swapDisk;
 struct lock* swapLock;
