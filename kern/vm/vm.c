@@ -60,7 +60,7 @@ void vm_bootstrap(){
 	kprintf("Bitmap size: %d\n",  disksize/PAGE_SIZE);
 
 	swapLock = lock_create("swap_lock");
-	
+	copyBuffer_init();
 	(void) statBox;
 	(void) swapDisk;
 
@@ -113,16 +113,17 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 	}
 
 	spinlock_release(&stealmem_lock);
-	 //Contiguous block not found.
+	
+	//Contiguous block not found.
 	if(!swapping_enabled){
 	 	return (paddr_t)0;
 	}
-
 	 
 	//PAGE OUT
-
+	
 	//Random eviction: pick a random user page to evict
 	lock_acquire(swapLock);
+
 	bool upage_found = false;
 	int victimIndex = -1;
 	while(!upage_found){
@@ -134,6 +135,7 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 
 	//Lock down PTE
 
+	//Clear entry in TLB if it exists
 	int spl = splhigh();
 	int tlbprobe = tlb_probe(get_corePage(victimIndex)->owner_pte->vpn, 0);
 	if(tlbprobe >= 0){
@@ -141,27 +143,20 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 	}
 	splx(spl);
 
+	//Find and mark a free index in the swapDisk
+	unsigned destIndex;
+	int err = bitmap_alloc(swapMap, &destIndex);
 
-	 //Find a free index in the swapDisk
-	int destIndex = -1;
-	for(int i = 0; i < disksize; i++){
-	 	if(!bitmap_isset(swapMap, i)){
-	 		destIndex = i;
-	 		break;
-		}
-	}
-
-	 //ERROR if no space in swapmap
-	if(destIndex == -1){
+	//ERROR if no space in swapmap
+	if(err){
 	 	panic("Swapdisk full in getppages");
 	 	return 0;
 	}
 
-	 //Write page to swap disk
+	//Write page to swap disk
 	blockwrite(PADDR_TO_KVADDR(index_to_pblock((unsigned int)victimIndex)), destIndex);
-	bitmap_mark(swapMap, (unsigned)destIndex);
-	 
-	 //Inform the owner
+	
+	//Inform the owner
 	if(get_corePage(victimIndex)->owner_pte == NULL){
 	 	kprintf("%d\n", get_corePage(victimIndex)->user);
 	 	panic("Fuck\n");
@@ -169,7 +164,6 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 	get_corePage(victimIndex)->owner_pte->inmem = false;
 	get_corePage(victimIndex)->owner_pte->swapIndex = destIndex;
 	lock_release(swapLock);
-	 //Clear entry in TLB if it exists
 	 
 	//Finalize new allocation
 	//We can assume allocated is already 1
@@ -343,7 +337,7 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 					//Page is in table. Now check if it's in memory.
 					if(((struct pte*)curpte->data)->inmem){
 						//Verified page in memory. Now we need to load the TLB
-						//I made large and irresponsible assumptions at this line. Debug here when broke.
+						
 						spl = splhigh();
 						uint32_t ehi, elo;
 						ehi = faultaddress;
@@ -358,24 +352,26 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 						return 0;
 					}
 					//Page not in table (Page fault). Must PAGE IN:
+					if(swapping_enabled){
+	 					//Lock down PTE
 
-					//Lock down PTE
+						//Allocate new page to swap in to
+						vaddr_t allocAddr = alloc_upages(1, (struct pte*)curpte->data);
+						//Update ppn in pte to the new physical allocation address
+						((struct pte*)curpte->data)->ppn = allocAddr - 0x80000000;
+						lock_acquire(swapLock);
+						//Copy data from swapDisk to the new address question from david why dont we just use the pte vpn?
+						blockread(((struct pte*)curpte->data)->swapIndex, PADDR_TO_KVADDR(((struct pte*)curpte->data)->ppn));
+						//Clear that index in the swapMap
+						bitmap_unmark(swapMap, ((struct pte*)curpte->data)->swapIndex);
+						lock_release(swapLock);
+						//Inform the pte that the page is back in memory
+						((struct pte*)curpte->data)->inmem = true;
+						((struct pte*)curpte->data)->swapIndex = -1;
 
-					//Allocate new page to swap in to
-					vaddr_t allocAddr = alloc_upages(1, (struct pte*)curpte->data);
-					//Update ppn in pte to the new physical allocation address
-					((struct pte*)curpte->data)->ppn = allocAddr - 0x80000000;
-					lock_acquire(swapLock);
-					//Copy data from swapDisk to the new address question from david why dont we just use the pte vpn?
-					blockread(((struct pte*)curpte->data)->swapIndex, PADDR_TO_KVADDR(((struct pte*)curpte->data)->ppn));
-					//Clear that index in the swapMap
-					bitmap_unmark(swapMap, ((struct pte*)curpte->data)->swapIndex);
-					lock_release(swapLock);
-					//Inform the pte that the page is back in memory
-					((struct pte*)curpte->data)->inmem = true;
-					((struct pte*)curpte->data)->swapIndex = -1;
-
-					return 0;
+						return 0;
+					}
+					
 
 				}
 				if(LLnext(curpte) == NULL){

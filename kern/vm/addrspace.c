@@ -42,7 +42,14 @@
  * used. The cheesy hack versions in dumbvm.c are used instead.
  */
 
+char* copyBuffer;
+struct lock* copyBuffer_lock;
 
+void copyBuffer_init(){
+	copyBuffer = kmalloc(4096);
+	copyBuffer_lock = lock_create("bring it arrouund town");
+	return;
+}
 
 struct addrspace *
 as_create(void)
@@ -107,7 +114,7 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 	//For entry in old page table, put entry in new table with matching vpn
 	LinkedList* oldPT = old->pageTable->next;
 	LinkedList* newPT = newas->pageTable;
-	char * buffer = kmalloc(4096);
+	
 	while(1){
 		struct pte* oldpte = (struct pte*)oldPT->data; 
 		struct pte* newpte = kmalloc(sizeof(struct pte));
@@ -115,27 +122,29 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 		if(swapping_enabled){
 			newpte->inmem = 0;
 			newpte->pte_lock = lock_create("3.3 fucking blows");
-		 	//Find a free index in the swapDisk
+			
 			lock_acquire(swapLock);
-			int destIndex = -1;
-			for(int i = 0; i < disksize; i++){
-				if(!bitmap_isset(swapMap, i)){
-					destIndex = i;
-					break;
-				}
-			}
+
+		 	//Find and mark a free index in the swapDisk
+			unsigned destIndex;
+			int err = bitmap_alloc(swapMap, &destIndex);
+
 			 //ERROR if no space in swapmap
-			if(destIndex == -1){
-				panic("Swapdisk full in as copy");
-				return ENOMEM;
+			if(err){
+	 			panic("Swapdisk full in getppages");
+	 			return 0;
 			}
+
 			newpte->swapIndex = destIndex;
-			bitmap_mark(swapMap, (unsigned)destIndex);
 			if(oldpte->inmem){
-				blockwrite(PADDR_TO_KVADDR(((struct pte*)oldpte)->ppn),newpte->swapIndex);
+				blockwrite(PADDR_TO_KVADDR(((struct pte*)oldpte)->ppn), newpte->swapIndex);
 			}else{
-				blockread(oldpte->swapIndex,(vaddr_t)buffer);
-				blockwrite((vaddr_t)buffer,newpte->swapIndex);
+				lock_acquire(copyBuffer_lock);
+				
+				blockread(oldpte->swapIndex,(vaddr_t)copyBuffer);
+				blockwrite((vaddr_t)copyBuffer,newpte->swapIndex);
+				
+				lock_release(copyBuffer_lock);
 			}
 
 			lock_release(swapLock);
@@ -159,11 +168,8 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 		}
 		newPT = LLnext(newPT);
 		oldPT = LLnext(oldPT);
-	}
-
-	kfree(buffer);	
+	}	
 	
-
 	newas->stackbound = old->stackbound;
 	newas->heap_start = old->heap_start;
 	newas->loadMode = 0;
