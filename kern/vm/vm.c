@@ -120,10 +120,13 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 	}
 	 
 	//PAGE OUT
+	bool gotLockEarlier = false;
+	if(!lock_do_i_hold(swapLock)){
+		gotLockEarlier = true;
+		lock_acquire(swapLock);
+	}
 	
 	//Random eviction: pick a random user page to evict
-	lock_acquire(swapLock);
-
 	bool upage_found = false;
 	int victimIndex = -1;
 	while(!upage_found){
@@ -137,10 +140,12 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 	struct corePage* victimPage = get_corePage(victimIndex);
 	//Clear entry in TLB if it exists
 	int spl = splhigh();
+	
 	int tlbprobe = tlb_probe(victimPage ->owner_pte->vpn, 0);
 	if(tlbprobe >= 0){
 		tlb_write(TLBHI_INVALID(tlbprobe), TLBLO_INVALID(), tlbprobe);
 	}
+	
 	splx(spl);
 
 	//Find and mark a free index in the swapDisk
@@ -163,7 +168,6 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 	}
 	victimPage->owner_pte->inmem = false;
 	victimPage->owner_pte->swapIndex = destIndex;
-	lock_release(swapLock);
 	 
 	//Finalize new allocation
 	//We can assume allocated is already 1
@@ -172,7 +176,11 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 	//Update the owner
 	victimPage->user = user;
 	victimPage->owner_pte = owner;
-	 
+	
+	if(gotLockEarlier){
+		lock_release(swapLock);
+	}
+
 	paddr_t addr = index_to_pblock(victimIndex);
 
 	return addr;
@@ -182,13 +190,12 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 
 /* Allocate/free kernel heap pages (called by kmalloc/kfree) */
 vaddr_t alloc_kpages(unsigned npages){
-
+	
 	paddr_t startOfNewBlock = getppages(npages, false, NULL);
 	
 	if (startOfNewBlock==0) {
 			return 0;
 		}
-
 	return PADDR_TO_KVADDR(startOfNewBlock);
 
 }
@@ -199,25 +206,32 @@ vaddr_t alloc_upages(unsigned npages, struct pte* owner){
 	
 	if (startOfNewBlock==0) {
 			return 0;
-		}
+	}
 
 	bzero((void*)PADDR_TO_KVADDR(startOfNewBlock), npages * PAGE_SIZE);
-	
 	return PADDR_TO_KVADDR(startOfNewBlock);
 
 }
 
 vaddr_t alloc_kpages_nozero(unsigned npages){
+	
 	paddr_t startOfNewBlock = getppages(npages, false, NULL);
 	
 	if (startOfNewBlock==0) {
 			return 0;
-		}
+	}
 
 	return PADDR_TO_KVADDR(startOfNewBlock);
 }
 
 void free_kpages(vaddr_t addr){
+
+	bool gotLockEarlier = false;
+	if(swapLock != NULL && !lock_do_i_hold(swapLock)){
+		gotLockEarlier = true;
+		lock_acquire(swapLock);
+	}
+
 	spinlock_acquire(&stealmem_lock);
 	vaddr_t base = PADDR_TO_KVADDR(index_to_pblock(0));
 	int page = (addr - base) / PAGE_SIZE;
@@ -235,6 +249,11 @@ void free_kpages(vaddr_t addr){
 	
 	used -= (npages * PAGE_SIZE);
 	spinlock_release(&stealmem_lock);
+
+	if(swapLock != NULL && lock_do_i_hold(swapLock) && gotLockEarlier){
+		lock_release(swapLock);
+	}
+
 	return;
 }
 
@@ -324,6 +343,7 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 		return EFAULT;
 	}
 
+	lock_acquire(swapLock);
 	while(1){
 		vaddr_t regstart = ((struct region*)(curreg->data))->start;
 		vaddr_t regend = ((struct region*)(curreg->data))->end;
@@ -347,11 +367,14 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 						if(tlb_probe(ehi, elo) >= 0){
 							tlb_write(ehi, elo | TLBLO_DIRTY | TLBLO_VALID, tlb_probe(ehi, elo | TLBLO_DIRTY | TLBLO_VALID));
 							splx(spl);
+							
+							lock_release(swapLock);
 							return 0;
 						}
 						tlb_random(ehi, elo | TLBLO_DIRTY | TLBLO_VALID);
 
 						splx(spl);
+						lock_release(swapLock);
 						return 0;
 					}
 					//Page not in memory (Page fault). Must PAGE IN:
@@ -362,19 +385,21 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
  					//Lock down PTE
 
 					//Allocate new page to swap in to
+					
+					
 					vaddr_t allocAddr = alloc_upages(1, (struct pte*)curpte->data);
+					
 					//Update ppn in pte to the new physical allocation address
 					((struct pte*)curpte->data)->ppn = allocAddr - 0x80000000;
-					lock_acquire(swapLock);
 					//Copy data from swapDisk to the new address question from david why dont we just use the pte vpn?
 					blockread(((struct pte*)curpte->data)->swapIndex, PADDR_TO_KVADDR(((struct pte*)curpte->data)->ppn));
 					//Clear that index in the swapMap
 					bitmap_unmark(swapMap, ((struct pte*)curpte->data)->swapIndex);
-					lock_release(swapLock);
 					//Inform the pte that the page is back in memory
 					((struct pte*)curpte->data)->inmem = true;
 					((struct pte*)curpte->data)->swapIndex = -1;
-
+					
+					lock_release(swapLock);
 					return 0;
 				
 
@@ -407,11 +432,13 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 			if(tlb_probe(ehi, elo) >= 0){
 				tlb_write(ehi, elo | TLBLO_DIRTY | TLBLO_VALID, tlb_probe(ehi, elo | TLBLO_DIRTY | TLBLO_VALID));
 				splx(spl);
+				lock_release(swapLock);
 				return 0;
 			}
 			tlb_random((uint32_t)newPage->vpn, (uint32_t)newPage->ppn | TLBLO_DIRTY | TLBLO_VALID);
 			
 			splx(spl);
+			lock_release(swapLock);
 			return 0;
 
 		}
@@ -425,6 +452,6 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 	//Seg fault
 	(void)faulttype;
 	(void)faultaddress;
+	lock_release(swapLock);
 	return EFAULT;
 }
-

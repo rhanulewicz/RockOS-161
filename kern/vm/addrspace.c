@@ -116,6 +116,7 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 	LinkedList* newPT = newas->pageTable;
 	
 	while(1){
+
 		struct pte* oldpte = (struct pte*)oldPT->data; 
 		struct pte* newpte = kmalloc(sizeof(struct pte));
 		newpte->vpn = oldpte->vpn;
@@ -176,6 +177,7 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 	*ret = newas;
 
 	(void) ret;
+
 	return 0;
 }
 
@@ -186,6 +188,7 @@ as_destroy(struct addrspace *as)
 	 * Clean up as needed.
 	 * MUST KFREE THE DATA IN SIDE OF LINKED LIST
 	 */
+
 	if(!as){
 		return;
 	}
@@ -226,6 +229,7 @@ as_destroy(struct addrspace *as)
 	
 	kfree(as);
 	as = NULL;
+
 }
 
 void
