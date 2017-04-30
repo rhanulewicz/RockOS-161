@@ -131,7 +131,7 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 
 			 //ERROR if no space in swapmap
 			if(err){
-	 			panic("Swapdisk full in getppages");
+	 			panic("Swapdisk full in as_copy");
 	 			return 0;
 			}
 

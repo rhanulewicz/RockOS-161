@@ -134,10 +134,10 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 	}
 
 	//Lock down PTE
-
+	struct corePage* victimPage = get_corePage(victimIndex);
 	//Clear entry in TLB if it exists
 	int spl = splhigh();
-	int tlbprobe = tlb_probe(get_corePage(victimIndex)->owner_pte->vpn, 0);
+	int tlbprobe = tlb_probe(victimPage ->owner_pte->vpn, 0);
 	if(tlbprobe >= 0){
 		tlb_write(TLBHI_INVALID(tlbprobe), TLBLO_INVALID(), tlbprobe);
 	}
@@ -157,12 +157,12 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 	blockwrite(PADDR_TO_KVADDR(index_to_pblock((unsigned int)victimIndex)), destIndex);
 	
 	//Inform the owner
-	if(get_corePage(victimIndex)->owner_pte == NULL){
-	 	kprintf("%d\n", get_corePage(victimIndex)->user);
+	if(victimPage->owner_pte == NULL){
+	 	kprintf("%d\n", victimPage ->user);
 	 	panic("Fuck\n");
 	}
-	get_corePage(victimIndex)->owner_pte->inmem = false;
-	get_corePage(victimIndex)->owner_pte->swapIndex = destIndex;
+	victimPage->owner_pte->inmem = false;
+	victimPage->owner_pte->swapIndex = destIndex;
 	lock_release(swapLock);
 	 
 	//Finalize new allocation
@@ -170,8 +170,8 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 	//We can assume firstpage is already victimIndex
 	//We can assume npages is already 1
 	//Update the owner
-	get_corePage(victimIndex)->user = user;
-	get_corePage(victimIndex)->owner_pte = owner;
+	victimPage->user = user;
+	victimPage->owner_pte = owner;
 	 
 	paddr_t addr = index_to_pblock(victimIndex);
 
@@ -313,7 +313,10 @@ void blockwrite(vaddr_t vaddr, int swapIndex){
 int vm_fault(int faulttype, vaddr_t faultaddress){
 
 	int spl;
+	uint32_t ehi, elo;
+
 	faultaddress &= PAGE_FRAME;
+	ehi = faultaddress;
 	//Check if address is in valid region
 	LinkedList* curreg = curthread->t_proc->p_addrspace->regions->next;
 	
@@ -339,8 +342,7 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 						//Verified page in memory. Now we need to load the TLB
 						
 						spl = splhigh();
-						uint32_t ehi, elo;
-						ehi = faultaddress;
+						
 						elo = (uint32_t)(((struct pte*)curpte->data)->ppn);
 						if(tlb_probe(ehi, elo) >= 0){
 							tlb_write(ehi, elo | TLBLO_DIRTY | TLBLO_VALID, tlb_probe(ehi, elo | TLBLO_DIRTY | TLBLO_VALID));
@@ -348,6 +350,7 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 							return 0;
 						}
 						tlb_random(ehi, elo | TLBLO_DIRTY | TLBLO_VALID);
+
 						splx(spl);
 						return 0;
 					}
@@ -382,12 +385,10 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 				curpte = LLnext(curpte);
 			}
 			//Failed to find page in table. Must allocate new one.
-
 			struct pte* newPage = kmalloc(sizeof(*newPage));
-			newPage->vpn = faultaddress;
-			
 			vaddr_t allocAddr = alloc_upages(1, newPage);
 
+			newPage->vpn = faultaddress;
 			newPage->ppn = (allocAddr - 0x80000000);
 			newPage->inmem = true;
 			newPage->swapIndex = -1;
@@ -401,19 +402,16 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 			 * and use the code above instead.
 			 */
 			spl = splhigh();
-			uint32_t ehi, elo;
-			ehi = faultaddress;
+			
 			elo = newPage->ppn;
-
 			if(tlb_probe(ehi, elo) >= 0){
 				tlb_write(ehi, elo | TLBLO_DIRTY | TLBLO_VALID, tlb_probe(ehi, elo | TLBLO_DIRTY | TLBLO_VALID));
 				splx(spl);
 				return 0;
 			}
-			
 			tlb_random((uint32_t)newPage->vpn, (uint32_t)newPage->ppn | TLBLO_DIRTY | TLBLO_VALID);
+			
 			splx(spl);
-
 			return 0;
 
 		}
