@@ -121,7 +121,8 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 	 
 	//PAGE OUT
 	bool gotLockEarlier = false;
-	if(!lock_do_i_hold(swapLock)){
+
+	if(swapping_enabled && !lock_do_i_hold(swapLock)){
 		gotLockEarlier = true;
 		lock_acquire(swapLock);
 	}
@@ -177,7 +178,7 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 	victimPage->user = user;
 	victimPage->owner_pte = owner;
 	
-	if(gotLockEarlier){
+	if(swapping_enabled && gotLockEarlier){
 		lock_release(swapLock);
 	}
 
@@ -203,7 +204,6 @@ vaddr_t alloc_kpages(unsigned npages){
 vaddr_t alloc_upages(unsigned npages, struct pte* owner){
 
 	paddr_t startOfNewBlock = getppages(npages, true, owner);
-	
 	if (startOfNewBlock==0) {
 			return 0;
 	}
@@ -268,6 +268,7 @@ unsigned int coremap_used_bytes(void){
 
 /* TLB shootdown handling called from interprocessor_interrupt */
 void vm_tlbshootdown(const struct tlbshootdown * tlbs){
+	kprintf("HHHHHHHH\n");
 	(void)tlbs;
 	return;
 }
@@ -342,8 +343,10 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 	if(curreg == NULL){
 		return EFAULT;
 	}
-
-	lock_acquire(swapLock);
+	if(swapping_enabled){
+		lock_acquire(swapLock);
+		
+	}
 	while(1){
 		vaddr_t regstart = ((struct region*)(curreg->data))->start;
 		vaddr_t regend = ((struct region*)(curreg->data))->end;
@@ -360,6 +363,9 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 					//Page is in table. Now check if it's in memory.
 					if(((struct pte*)curpte->data)->inmem){
 						//Verified page in memory. Now we need to load the TLB
+						if(swapping_enabled){
+							lock_release(swapLock);
+						}
 						
 						spl = splhigh();
 						
@@ -368,13 +374,12 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 							tlb_write(ehi, elo | TLBLO_DIRTY | TLBLO_VALID, tlb_probe(ehi, elo | TLBLO_DIRTY | TLBLO_VALID));
 							splx(spl);
 							
-							lock_release(swapLock);
+						//	lock_release(swapLock);
 							return 0;
 						}
 						tlb_random(ehi, elo | TLBLO_DIRTY | TLBLO_VALID);
 
 						splx(spl);
-						lock_release(swapLock);
 						return 0;
 					}
 					//Page not in memory (Page fault). Must PAGE IN:
@@ -420,7 +425,10 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 			newPage->pte_lock = lock_create("insert spongebob meme here");
 
 			LLaddWithDatum((char*)"weast", newPage, curpte);
-
+			if(swapping_enabled){
+				lock_release(swapLock);
+				
+			}
 			/*
 			 * Frob TLB 
 			 * This code is not actually necessary as we can let it fault again 
@@ -432,13 +440,12 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 			if(tlb_probe(ehi, elo) >= 0){
 				tlb_write(ehi, elo | TLBLO_DIRTY | TLBLO_VALID, tlb_probe(ehi, elo | TLBLO_DIRTY | TLBLO_VALID));
 				splx(spl);
-				lock_release(swapLock);
+			//	lock_release(swapLock);
 				return 0;
 			}
 			tlb_random((uint32_t)newPage->vpn, (uint32_t)newPage->ppn | TLBLO_DIRTY | TLBLO_VALID);
 			
 			splx(spl);
-			lock_release(swapLock);
 			return 0;
 
 		}
@@ -452,6 +459,9 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 	//Seg fault
 	(void)faulttype;
 	(void)faultaddress;
-	lock_release(swapLock);
+	if(swapping_enabled){
+		lock_release(swapLock);
+		
+	}
 	return EFAULT;
 }
