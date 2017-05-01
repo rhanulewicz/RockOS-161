@@ -119,6 +119,9 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 
 		struct pte* oldpte = (struct pte*)oldPT->data; 
 		struct pte* newpte = kmalloc(sizeof(struct pte));
+		if(newpte == NULL){
+			return ENOMEM;
+		}
 		newpte->vpn = oldpte->vpn;
 		if(swapping_enabled){
 			newpte->inmem = 0;
