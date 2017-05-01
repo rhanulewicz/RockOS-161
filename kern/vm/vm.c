@@ -140,6 +140,9 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 	//Lock down PTE
 	struct corePage* victimPage = get_corePage(victimIndex);
 	//Clear entry in TLB if it exists
+
+	int fuck = 69;
+	ipi_broadcast_shootdown((const struct tlbshootdown*)&fuck);
 	int spl = splhigh();
 	
 	int tlbprobe = tlb_probe(victimPage ->owner_pte->vpn, 0);
@@ -268,8 +271,15 @@ unsigned int coremap_used_bytes(void){
 
 /* TLB shootdown handling called from interprocessor_interrupt */
 void vm_tlbshootdown(const struct tlbshootdown * tlbs){
-	kprintf("HHHHHHHH\n");
+	//kprintf("HHHHHHHH\n");
 	(void)tlbs;
+	int spl = splhigh();
+
+	for (int i=0; i<NUM_TLB; i++) {
+		tlb_write(TLBHI_INVALID(i), TLBLO_INVALID(), i);
+	}
+
+	splx(spl);
 	return;
 }
 
@@ -344,7 +354,7 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 		return EFAULT;
 	}
 	if(swapping_enabled) lock_acquire(swapLock);
-	
+
 	while(1){
 		vaddr_t regstart = ((struct region*)(curreg->data))->start;
 		vaddr_t regend = ((struct region*)(curreg->data))->end;

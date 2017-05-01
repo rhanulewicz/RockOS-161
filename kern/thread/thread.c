@@ -1166,6 +1166,17 @@ ipi_broadcast(int code)
 	}
 }
 
+void ipi_broadcast_shootdown(const struct tlbshootdown* mapping){
+	unsigned i;
+	struct cpu *c;
+
+	for (i=0; i < cpuarray_num(&allcpus); i++) {
+		c = cpuarray_get(&allcpus, i);
+		if (c != curcpu->c_self) {
+			ipi_tlbshootdown(c, mapping);
+		}
+	}
+}
 /*
  * Send a TLB shootdown IPI to the specified CPU.
  */
