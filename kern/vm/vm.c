@@ -139,10 +139,11 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 
 	//Lock down PTE
 	struct corePage* victimPage = get_corePage(victimIndex);
-	//Clear entry in TLB if it exists
 
+	//Clear entry in TLB if it exists
 	int fuck = 69;
 	ipi_broadcast_shootdown((const struct tlbshootdown*)&fuck);
+	
 	int spl = splhigh();
 	
 	int tlbprobe = tlb_probe(victimPage ->owner_pte->vpn, 0);

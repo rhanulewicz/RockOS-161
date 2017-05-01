@@ -91,14 +91,16 @@ int	highPid;
 struct proc* procTable[2000];
 static char buffer[__ARG_MAX];
 struct lock* buffLock;
+
 ssize_t open(char *filename, int flags, int32_t *retval){
 	if(flags != 22 && flags != 21 && flags != O_RDONLY && flags != O_WRONLY && flags != O_RDWR && flags != O_CREAT && flags != O_EXCL && flags != O_TRUNC && flags != O_APPEND){
 		*retval = (int32_t)0;
 		return EINVAL;
 	}
 
-	char* ptr;
-	int err = copyin((const_userptr_t)filename, &ptr, 4);
+	char* ptr = kmalloc(64);
+	int shit = 4;
+	int err = copyinstr((const_userptr_t)filename, ptr, 64, (size_t*)&shit);
 	if(err){
 		*retval = (int32_t)0;
 		return EFAULT;
@@ -114,10 +116,10 @@ ssize_t open(char *filename, int flags, int32_t *retval){
 	*file->refCount = 1;
 	file->permflag = flags;
 	file->offset = 0;
-	
-	char* filestar = filename;
+
 	//Generate our vnode
-	err = vfs_open(filestar, flags, 0, &file->llfile);
+	err = vfs_open(ptr, flags, 0, &file->llfile);
+	kfree(ptr);
 	if(err){
 		fileContainerDestroy(file);
 		*retval = 0;
