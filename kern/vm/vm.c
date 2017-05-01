@@ -29,7 +29,7 @@ struct lock* swapLock;
 struct bitmap* swapMap;
 
 void vm_bootstrap(){
-	//So far this is mostly testing code to see if we can open the swapdisk
+	
 	swapDisk = kmalloc(sizeof(struct vnode));
 	if(swapDisk == NULL){
 		panic("swapDisk null in vm_bootstrap");
@@ -343,10 +343,8 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 	if(curreg == NULL){
 		return EFAULT;
 	}
-	if(swapping_enabled){
-		lock_acquire(swapLock);
-		
-	}
+	if(swapping_enabled) lock_acquire(swapLock);
+	
 	while(1){
 		vaddr_t regstart = ((struct region*)(curreg->data))->start;
 		vaddr_t regend = ((struct region*)(curreg->data))->end;
@@ -363,23 +361,23 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 					//Page is in table. Now check if it's in memory.
 					if(((struct pte*)curpte->data)->inmem){
 						//Verified page in memory. Now we need to load the TLB
-						if(swapping_enabled){
-							lock_release(swapLock);
-						}
 						
 						spl = splhigh();
 						
 						elo = (uint32_t)(((struct pte*)curpte->data)->ppn);
 						if(tlb_probe(ehi, elo) >= 0){
 							tlb_write(ehi, elo | TLBLO_DIRTY | TLBLO_VALID, tlb_probe(ehi, elo | TLBLO_DIRTY | TLBLO_VALID));
+							
 							splx(spl);
 							
-						//	lock_release(swapLock);
+							if(swapping_enabled) lock_release(swapLock);
 							return 0;
 						}
 						tlb_random(ehi, elo | TLBLO_DIRTY | TLBLO_VALID);
 
 						splx(spl);
+
+						if(swapping_enabled) lock_release(swapLock);
 						return 0;
 					}
 					//Page not in memory (Page fault). Must PAGE IN:
@@ -425,10 +423,7 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 			newPage->pte_lock = lock_create("insert spongebob meme here");
 
 			LLaddWithDatum((char*)"weast", newPage, curpte);
-			if(swapping_enabled){
-				lock_release(swapLock);
-				
-			}
+			
 			/*
 			 * Frob TLB 
 			 * This code is not actually necessary as we can let it fault again 
@@ -440,12 +435,14 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 			if(tlb_probe(ehi, elo) >= 0){
 				tlb_write(ehi, elo | TLBLO_DIRTY | TLBLO_VALID, tlb_probe(ehi, elo | TLBLO_DIRTY | TLBLO_VALID));
 				splx(spl);
-			//	lock_release(swapLock);
+				if(swapping_enabled) lock_release(swapLock);
 				return 0;
 			}
 			tlb_random((uint32_t)newPage->vpn, (uint32_t)newPage->ppn | TLBLO_DIRTY | TLBLO_VALID);
 			
 			splx(spl);
+
+			if(swapping_enabled) lock_release(swapLock);
 			return 0;
 
 		}
@@ -459,9 +456,6 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 	//Seg fault
 	(void)faulttype;
 	(void)faultaddress;
-	if(swapping_enabled){
-		lock_release(swapLock);
-		
-	}
+	if(swapping_enabled) lock_release(swapLock);
 	return EFAULT;
 }
