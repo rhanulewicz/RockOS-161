@@ -21,6 +21,7 @@ static struct spinlock stealmem_lock = SPINLOCK_INITIALIZER;
 
 static unsigned long pagesAlloced = 0;
 static unsigned int used =  0;
+static int robinPointer;
 
 bool swapping_enabled;
 int disksize = 0;
@@ -29,7 +30,7 @@ struct lock* swapLock;
 struct bitmap* swapMap;
 
 void vm_bootstrap(){
-	
+	robinPointer = paddr_to_index(getFirstPaddr());
 	swapDisk = kmalloc(sizeof(struct vnode));
 	if(swapDisk == NULL){
 		panic("swapDisk null in vm_bootstrap");
@@ -131,22 +132,30 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 	bool upage_found = false;
 	int victimIndex = -1;
 	while(!upage_found){
-	 	victimIndex = rand((int)numberOfEntries);
-	 	if(get_corePage(victimIndex)->user){
+	 	//victimIndex = rand((int)numberOfEntries);
+	 	if(get_corePage(robinPointer)->user){
 	 		upage_found = true;
+	 		victimIndex = robinPointer;
 	 	}
+	 	robinPointer++;
+	 	if(robinPointer >= numberOfEntries){
+	 		robinPointer = paddr_to_index(getFirstPaddr());
+	 	}
+	 	
 	}
 
 	//Lock down PTE
 	struct corePage* victimPage = get_corePage(victimIndex);
 
 	//Clear entry in TLB if it exists
-	int fuck = 69;
-	ipi_broadcast_shootdown((const struct tlbshootdown*)&fuck);
-	
+
+	struct tlbshootdown* shooter = kmalloc(sizeof(*shooter));
+	shooter->ts_placeholder = (int)victimPage->owner_pte->vpn;
+	ipi_broadcast_shootdown((const struct tlbshootdown*)shooter);
+	kfree(shooter);
 	int spl = splhigh();
 	
-	int tlbprobe = tlb_probe(victimPage ->owner_pte->vpn, 0);
+	int tlbprobe = tlb_probe(victimPage->owner_pte->vpn, 0);
 	if(tlbprobe >= 0){
 		tlb_write(TLBHI_INVALID(tlbprobe), TLBLO_INVALID(), tlbprobe);
 	}
@@ -275,12 +284,14 @@ void vm_tlbshootdown(const struct tlbshootdown * tlbs){
 	//kprintf("HHHHHHHH\n");
 	(void)tlbs;
 	int spl = splhigh();
-
-	for (int i=0; i<NUM_TLB; i++) {
-		tlb_write(TLBHI_INVALID(i), TLBLO_INVALID(), i);
+	//kprintf("%p\n", (void*)tlbs->ts_placeholder);
+	int tlbprobe = tlb_probe((vaddr_t)tlbs->ts_placeholder, 0);
+	if(tlbprobe >= 0){
+		tlb_write(TLBHI_INVALID(tlbprobe), TLBLO_INVALID(), tlbprobe);
 	}
-
+	
 	splx(spl);
+
 	return;
 }
 
@@ -345,6 +356,7 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 
 	int spl;
 	uint32_t ehi, elo;
+
 
 	faultaddress &= PAGE_FRAME;
 	ehi = faultaddress;
