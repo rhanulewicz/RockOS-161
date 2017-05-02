@@ -87,6 +87,7 @@ void LLremoveNode(LinkedList* list){
 }
 
 
+
 void LLdestroy(LinkedList* boom){
 	lexists--;
 	boom->prev = NULL;

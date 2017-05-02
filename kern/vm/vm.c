@@ -126,26 +126,28 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 	//PAGE OUT
 
 	//Clock eviction
-	bool upage_found = false;
-	int victimIndex = -1;
-	while(!upage_found){
-		//kprintf("fuck %d\n", robinPointer);
-	 	if(get_corePage(robinPointer)->user){
-	 		if(get_corePage(robinPointer)->clockbit){
-	 			get_corePage(robinPointer)->clockbit = false;
-	 		}
-	 		else{
-	 			get_corePage(robinPointer)->clockbit = true;
-		 		upage_found = true;
-		 		victimIndex = robinPointer;
-	 		}
-	 	}
-	 	robinPointer++;
-	 	if(robinPointer >= numberOfEntries){
-	 		robinPointer = paddr_to_index(getFirstPaddr());
-	 	}
+	// bool upage_found = false;
+	int victimIndex = paddr_to_index(((struct pte*)(userPages->next))->ppn);
+	kprintf("%p\n",(void*)((struct pte*)(userPages->next))->ppn);
+	LLremoveNode(userPages->next);
+	// while(!upage_found){
+	// 	//kprintf("fuck %d\n", robinPointer);
+	//  	if(get_corePage(robinPointer)->user){
+	//  		if(get_corePage(robinPointer)->clockbit){
+	//  			get_corePage(robinPointer)->clockbit = false;
+	//  		}
+	//  		else{
+	//  			get_corePage(robinPointer)->clockbit = true;
+	// 	 		upage_found = true;
+	// 	 		victimIndex = robinPointer;
+	//  		}
+	//  	}
+	//  	robinPointer++;
+	//  	if(robinPointer >= numberOfEntries){
+	//  		robinPointer = paddr_to_index(getFirstPaddr());
+	//  	}
 	 	
-	}
+	// }
 	//kprintf("fadsadasFDS\n");
 	bool gotLockEarlier = false;
 
