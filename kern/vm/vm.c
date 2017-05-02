@@ -95,6 +95,7 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 				get_corePage(j)->npages = npages;
 				get_corePage(j)->user = user;
 				get_corePage(j)->owner_pte = owner;
+				get_corePage(j)->clockbit = true;
 			}
 			used += PAGE_SIZE * npages;
 			pagesAlloced += npages;
@@ -134,8 +135,14 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 	while(!upage_found){
 	 	//victimIndex = rand((int)numberOfEntries);
 	 	if(get_corePage(robinPointer)->user){
-	 		upage_found = true;
-	 		victimIndex = robinPointer;
+	 		if(get_corePage(robinPointer)->clockbit){
+	 			get_corePage(robinPointer)->clockbit = false;
+	 		}
+	 		else{
+	 			get_corePage(robinPointer)->clockbit = true;
+		 		upage_found = true;
+		 		victimIndex = robinPointer;
+	 		}
 	 	}
 	 	robinPointer++;
 	 	if(robinPointer >= numberOfEntries){
@@ -148,11 +155,11 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 	struct corePage* victimPage = get_corePage(victimIndex);
 
 	//Clear entry in TLB if it exists
+	// struct tlbshootdown* shooter = kmalloc(sizeof(*shooter));
+	// shooter->ts_placeholder = (int)victimPage->owner_pte->vpn;
+	// ipi_broadcast_shootdown((const struct tlbshootdown*)shooter);
+	// kfree(shooter);
 
-	struct tlbshootdown* shooter = kmalloc(sizeof(*shooter));
-	shooter->ts_placeholder = (int)victimPage->owner_pte->vpn;
-	ipi_broadcast_shootdown((const struct tlbshootdown*)shooter);
-	kfree(shooter);
 	int spl = splhigh();
 	
 	int tlbprobe = tlb_probe(victimPage->owner_pte->vpn, 0);
@@ -177,7 +184,7 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 	
 	//Inform the owner
 	if(victimPage->owner_pte == NULL){
-	 	kprintf("%d\n", victimPage ->user);
+	 	kprintf("%d\n", victimPage->user);
 	 	panic("Fuck\n");
 	}
 	victimPage->owner_pte->inmem = false;
@@ -281,7 +288,7 @@ unsigned int coremap_used_bytes(void){
 
 /* TLB shootdown handling called from interprocessor_interrupt */
 void vm_tlbshootdown(const struct tlbshootdown * tlbs){
-	//kprintf("HHHHHHHH\n");
+	
 	(void)tlbs;
 	int spl = splhigh();
 	//kprintf("%p\n", (void*)tlbs->ts_placeholder);
@@ -388,6 +395,7 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 						spl = splhigh();
 						
 						elo = (uint32_t)(((struct pte*)curpte->data)->ppn);
+						get_corePage(paddr_to_index((paddr_t)elo))->clockbit = true;
 						if(tlb_probe(ehi, elo) >= 0){
 							tlb_write(ehi, elo | TLBLO_DIRTY | TLBLO_VALID, tlb_probe(ehi, elo | TLBLO_DIRTY | TLBLO_VALID));
 							
@@ -455,6 +463,7 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 			spl = splhigh();
 			
 			elo = newPage->ppn;
+			get_corePage(paddr_to_index((paddr_t)elo))->clockbit = true;
 			if(tlb_probe(ehi, elo) >= 0){
 				tlb_write(ehi, elo | TLBLO_DIRTY | TLBLO_VALID, tlb_probe(ehi, elo | TLBLO_DIRTY | TLBLO_VALID));
 				splx(spl);

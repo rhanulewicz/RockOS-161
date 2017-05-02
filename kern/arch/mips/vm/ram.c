@@ -96,7 +96,7 @@ void coremap_init(void){
 	void* buildPointer = (void*)coremapStart;
 
 	ram_stealmem(pagesForCoremap);
-	for(unsigned int i = 0; i < (unsigned int )numberOfEntries; i++){
+	for(unsigned int i = 0; i < (unsigned int)numberOfEntries; i++){
 		
 		struct corePage* newPage = PADDR_TO_KVADDR(buildPointer);
 
@@ -105,7 +105,7 @@ void coremap_init(void){
 		newPage->npages = 0;
 		newPage->user = false;
 		newPage->owner_pte = NULL;
-
+		newPage->clockbit = true;
 
 		buildPointer += structSize;	
 
