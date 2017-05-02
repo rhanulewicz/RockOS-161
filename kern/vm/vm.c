@@ -95,7 +95,7 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 				get_corePage(j)->npages = npages;
 				get_corePage(j)->user = user;
 				get_corePage(j)->owner_pte = owner;
-				//get_corePage(j)->clockbit = true;
+				get_corePage(j)->clockbit = true;
 			}
 			used += PAGE_SIZE * npages;
 			pagesAlloced += npages;
@@ -122,18 +122,12 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 	}
 	 
 	//PAGE OUT
-	bool gotLockEarlier = false;
 
-	if(swapping_enabled && !lock_do_i_hold(swapLock)){
-		gotLockEarlier = true;
-		lock_acquire(swapLock);
-	}
-	
 	//Clock eviction
 	bool upage_found = false;
 	int victimIndex = -1;
 	while(!upage_found){
-	 	//victimIndex = rand((int)numberOfEntries);
+		//kprintf("fuck %d\n", robinPointer);
 	 	if(get_corePage(robinPointer)->user){
 	 		if(get_corePage(robinPointer)->clockbit){
 	 			get_corePage(robinPointer)->clockbit = false;
@@ -150,24 +144,35 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 	 	}
 	 	
 	}
+	//kprintf("fadsadasFDS\n");
+	bool gotLockEarlier = false;
+
+	if(swapping_enabled && !lock_do_i_hold(swapLock)){
+		gotLockEarlier = true;
+		lock_acquire(swapLock);
+	}
 
 	//Lock down PTE
 	struct corePage* victimPage = get_corePage(victimIndex);
 
 	//Clear entry in TLB if it exists
-	struct tlbshootdown* shooter = kmalloc(sizeof(*shooter));
-	shooter->ts_placeholder = (int)victimPage->owner_pte->vpn;
-	ipi_broadcast_shootdown((const struct tlbshootdown*)shooter);
-	kfree(shooter);
+	
+	if(victimPage->owner_thread->t_state == S_RUN){
+		struct tlbshootdown* shooter = kmalloc(sizeof(*shooter));
+		shooter->ts_placeholder = (int)victimPage->owner_pte->vpn;
+		ipi_tlbshootdown(victimPage->owner_thread->t_cpu, shooter);
+		kfree(shooter);
 
-	int spl = splhigh();
-	
-	int tlbprobe = tlb_probe(victimPage->owner_pte->vpn, 0);
-	if(tlbprobe >= 0){
-		tlb_write(TLBHI_INVALID(tlbprobe), TLBLO_INVALID(), tlbprobe);
 	}
+
+	// int spl = splhigh();
 	
-	splx(spl);
+	// int tlbprobe = tlb_probe(victimPage->owner_pte->vpn, 0);
+	// if(tlbprobe >= 0){
+	// 	tlb_write(TLBHI_INVALID(tlbprobe), TLBLO_INVALID(), tlbprobe);
+	// }
+	
+	// splx(spl);
 
 	//Find and mark a free index in the swapDisk
 	unsigned destIndex;
@@ -227,7 +232,7 @@ vaddr_t alloc_upages(unsigned npages, struct pte* owner){
 	if (startOfNewBlock==0) {
 			return 0;
 	}
-
+	get_corePage(paddr_to_index(startOfNewBlock))->owner_thread = curthread;
 	bzero((void*)PADDR_TO_KVADDR(startOfNewBlock), npages * PAGE_SIZE);
 	return PADDR_TO_KVADDR(startOfNewBlock);
 
@@ -246,11 +251,11 @@ vaddr_t alloc_kpages_nozero(unsigned npages){
 
 void free_kpages(vaddr_t addr){
 
-	bool gotLockEarlier = false;
-	if(swapLock != NULL && !lock_do_i_hold(swapLock)){
-		gotLockEarlier = true;
-		lock_acquire(swapLock);
-	}
+	// bool gotLockEarlier = false;
+	// if(swapLock != NULL && !lock_do_i_hold(swapLock)){
+	// 	gotLockEarlier = true;
+	// 	lock_acquire(swapLock);
+	// }
 
 	spinlock_acquire(&stealmem_lock);
 	vaddr_t base = PADDR_TO_KVADDR(index_to_pblock(0));
@@ -264,15 +269,16 @@ void free_kpages(vaddr_t addr){
 		get_corePage(i)->npages = 0;
 		get_corePage(i)->user = false;
 		get_corePage(i)->owner_pte = NULL;
+		get_corePage(i)->owner_thread = NULL;
 		
 	}
 	
 	used -= (npages * PAGE_SIZE);
 	spinlock_release(&stealmem_lock);
 
-	if(swapLock != NULL && lock_do_i_hold(swapLock) && gotLockEarlier){
-		lock_release(swapLock);
-	}
+	// if(swapLock != NULL && lock_do_i_hold(swapLock) && gotLockEarlier){
+	// 	lock_release(swapLock);
+	// }
 
 	return;
 }
@@ -288,7 +294,6 @@ unsigned int coremap_used_bytes(void){
 
 /* TLB shootdown handling called from interprocessor_interrupt */
 void vm_tlbshootdown(const struct tlbshootdown * tlbs){
-	
 	(void)tlbs;
 	int spl = splhigh();
 	//kprintf("%p\n", (void*)tlbs->ts_placeholder);

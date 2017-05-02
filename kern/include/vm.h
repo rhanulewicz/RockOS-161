@@ -92,6 +92,7 @@ struct corePage{
 	int npages;
 	bool user;
 	struct pte* owner_pte; 
+	struct thread* owner_thread;
 	bool clockbit;
 };
 
