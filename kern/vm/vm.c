@@ -28,8 +28,10 @@ int disksize = 0;
 struct vnode* swapDisk;
 struct lock* swapLock;
 struct bitmap* swapMap;
+LinkedList* userPages;
 
 void vm_bootstrap(){
+	userPages = LLcreate();
 	robinPointer = paddr_to_index(getFirstPaddr());
 	swapDisk = kmalloc(sizeof(struct vnode));
 	if(swapDisk == NULL){

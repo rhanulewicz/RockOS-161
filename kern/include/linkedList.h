@@ -3,6 +3,7 @@ typedef struct LinkedList {
  	struct LinkedList* prev;
  	struct LinkedList* curr;
  	struct LinkedList* next;
+ 	struct LinkedList* end;
 
  	// alloced;
 
@@ -25,3 +26,4 @@ LinkedList* LLcreateWithName(char * name);
 
 void LLdestroy(LinkedList* boom);
 void printLexists(void);
+void LLappend(LinkedList* nodeOfHostList,LinkedList* listToBeAppended);

@@ -19,6 +19,7 @@ LinkedList* LLcreate(){
 	newList->curr = newList;
 	newList->next = NULL;
 	newList->name = (char * )"First";
+	newList->end = newList;
 	//lnamesalive[index] = (char * )"First";
 	//index++;
 	lexists++;
@@ -35,6 +36,7 @@ LinkedList* LLcreateWithName(char * name){
 	newList->curr = newList;
 	newList->next = NULL;
 	newList->name = name;
+	newList->end = NULL;
 	return newList;
 }
 
@@ -58,6 +60,7 @@ void LLaddWithDatum(char * name, void * dataum, LinkedList* list){
 	list->next->name = name;
 	list->next->prev = list;
 	list->next->data = dataum;
+	list->next->end = list->end;
 }
 void LLadd(char * name, LinkedList* list){
 	list->next = LLcreateWithName(name);
@@ -66,6 +69,7 @@ void LLadd(char * name, LinkedList* list){
 	}
 	list->next->name = name;
 	list->next->prev = list;
+	list->next->end = list->end;
 }	
 
 void LLremoveNode(LinkedList* list){
@@ -85,9 +89,14 @@ void LLdestroy(LinkedList* boom){
 	boom->prev = NULL;
  	boom->curr = NULL;
  	boom->next = NULL;
+ 	boom->end = NULL;
 
 	kfree(boom);
 	boom = NULL;
+}
+void LLappend(LinkedList* nodeOfHostList, LinkedList* listToBeAppended){
+	nodeOfHostList->end->next = listToBeAppended;
+	*nodeOfHostList->end = *listToBeAppended;
 }
 
 void printLexists(){
