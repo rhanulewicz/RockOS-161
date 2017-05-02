@@ -73,6 +73,9 @@ void LLadd(char * name, LinkedList* list){
 }	
 
 void LLremoveNode(LinkedList* list){
+	if(list->prev != NULL && list->end == list){
+		*list->prev->end = *list->prev;
+	}
 	if(list->prev){
 	list->prev->next = list->next;
 	}
