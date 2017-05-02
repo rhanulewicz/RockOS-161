@@ -155,10 +155,10 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 	struct corePage* victimPage = get_corePage(victimIndex);
 
 	//Clear entry in TLB if it exists
-	// struct tlbshootdown* shooter = kmalloc(sizeof(*shooter));
-	// shooter->ts_placeholder = (int)victimPage->owner_pte->vpn;
-	// ipi_broadcast_shootdown((const struct tlbshootdown*)shooter);
-	// kfree(shooter);
+	struct tlbshootdown* shooter = kmalloc(sizeof(*shooter));
+	shooter->ts_placeholder = (int)victimPage->owner_pte->vpn;
+	ipi_broadcast_shootdown((const struct tlbshootdown*)shooter);
+	kfree(shooter);
 
 	int spl = splhigh();
 	
