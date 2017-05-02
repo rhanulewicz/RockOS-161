@@ -440,7 +440,7 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 					//Inform the pte that the page is back in memory
 					((struct pte*)curpte->data)->inmem = true;
 					((struct pte*)curpte->data)->swapIndex = -1;
-					
+					LLappend(userPages,curpte);
 					lock_release(swapLock);
 					return 0;
 				
@@ -462,6 +462,7 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 			newPage->pte_lock = lock_create("insert spongebob meme here");
 
 			LLaddWithDatum((char*)"weast", newPage, curpte);
+			LLappend(userPages, curpte->next);
 			
 			/*
 			 * Frob TLB 

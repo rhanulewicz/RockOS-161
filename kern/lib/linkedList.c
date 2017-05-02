@@ -36,7 +36,7 @@ LinkedList* LLcreateWithName(char * name){
 	newList->curr = newList;
 	newList->next = NULL;
 	newList->name = name;
-	newList->end = NULL;
+	newList->end = newList;
 	return newList;
 }
 

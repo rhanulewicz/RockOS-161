@@ -143,6 +143,7 @@ ssize_t open(char *filename, int flags, int32_t *retval){
 	}
 	lock_release(file->lock);
 
+
 	return (ssize_t)0;
 }
 
