@@ -4,5 +4,4 @@ WELCOME TO THE CHALLEN CHALLENGE
 A FEW MOMENTS LATER ....
 Richards faith is restored.
 
-
-put the execv buffer into the static region and then move it into the userland heap.
+THE CHALLEN CHALLENGE IS OVER VENIMUS VIDIMUS VICIMUS.
