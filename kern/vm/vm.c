@@ -122,6 +122,12 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 	}
 	 
 	//PAGE OUT
+	bool gotLockEarlier = false;
+
+	if(swapping_enabled && !lock_do_i_hold(swapLock)){
+		gotLockEarlier = true;
+		lock_acquire(swapLock);
+	}
 
 	//Clock eviction
 	bool upage_found = false;
@@ -142,37 +148,35 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 	 	if(robinPointer >= numberOfEntries){
 	 		robinPointer = paddr_to_index(getFirstPaddr());
 	 	}
-	 	
 	}
 	//kprintf("fadsadasFDS\n");
-	bool gotLockEarlier = false;
-
-	if(swapping_enabled && !lock_do_i_hold(swapLock)){
-		gotLockEarlier = true;
-		lock_acquire(swapLock);
-	}
 
 	//Lock down PTE
 	struct corePage* victimPage = get_corePage(victimIndex);
-
+	struct lock* ptelock = victimPage->owner_pte->pte_lock;
+	lock_acquire(ptelock);
 	//Clear entry in TLB if it exists
 	
 	if(victimPage->owner_thread->t_state == S_RUN){
-		struct tlbshootdown* shooter = kmalloc(sizeof(*shooter));
-		shooter->ts_placeholder = (int)victimPage->owner_pte->vpn;
-		ipi_tlbshootdown(victimPage->owner_thread->t_cpu, shooter);
-		kfree(shooter);
+		if(victimPage->owner_thread->t_cpu == curcpu){
+			int spl = splhigh();
+	
+			int tlbprobe = tlb_probe(victimPage->owner_pte->vpn, 0);
+			if(tlbprobe >= 0){
+			tlb_write(TLBHI_INVALID(tlbprobe), TLBLO_INVALID(), tlbprobe);
+			}
+			splx(spl);
+	
+		}
+		else{
+			struct tlbshootdown* shooter = kmalloc(sizeof(*shooter));
+			shooter->ts_placeholder = (int)victimPage->owner_pte->vpn;
+			ipi_tlbshootdown(victimPage->owner_thread->t_cpu, shooter);
+			kfree(shooter);
+			
+		}
 
 	}
-
-	// int spl = splhigh();
-	
-	// int tlbprobe = tlb_probe(victimPage->owner_pte->vpn, 0);
-	// if(tlbprobe >= 0){
-	// 	tlb_write(TLBHI_INVALID(tlbprobe), TLBLO_INVALID(), tlbprobe);
-	// }
-	
-	// splx(spl);
 
 	//Find and mark a free index in the swapDisk
 	unsigned destIndex;
@@ -202,7 +206,7 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 	//Update the owner
 	victimPage->user = user;
 	victimPage->owner_pte = owner;
-	
+	lock_release(ptelock);
 	if(swapping_enabled && gotLockEarlier){
 		lock_release(swapLock);
 	}
@@ -276,7 +280,7 @@ void free_kpages(vaddr_t addr){
 	used -= (npages * PAGE_SIZE);
 	spinlock_release(&stealmem_lock);
 
-	// if(swapLock != NULL && lock_do_i_hold(swapLock) && gotLockEarlier){
+	// if(swapLock != NULL && gotLockEarlier){
 	// 	lock_release(swapLock);
 	// }
 
@@ -378,7 +382,6 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 	if(curreg == NULL){
 		return EFAULT;
 	}
-	if(swapping_enabled) lock_acquire(swapLock);
 
 	while(1){
 		vaddr_t regstart = ((struct region*)(curreg->data))->start;
@@ -392,7 +395,10 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 			//Found valid region. Must search page table for vpn.
 			LinkedList* curpte = curthread->t_proc->p_addrspace->pageTable;
 			while(1){
+				struct lock* ptelock = ((struct pte*)curpte->data)->pte_lock;
 				if((faultaddress) == ((struct pte*)curpte->data)->vpn){
+					
+					if(swapping_enabled) lock_acquire(ptelock);
 					//Page is in table. Now check if it's in memory.
 					if(((struct pte*)curpte->data)->inmem){
 						//Verified page in memory. Now we need to load the TLB
@@ -400,21 +406,20 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 						elo = (uint32_t)(((struct pte*)curpte->data)->ppn);
 						get_corePage(paddr_to_index((paddr_t)elo))->clockbit = true;
 						
-						if(swapping_enabled) lock_release(swapLock);
 						spl = splhigh();
 						
 						if(tlb_probe(ehi, elo) >= 0){
 							tlb_write(ehi, elo | TLBLO_DIRTY | TLBLO_VALID, tlb_probe(ehi, elo | TLBLO_DIRTY | TLBLO_VALID));
 							
 							splx(spl);
-							
+							if(swapping_enabled && ptelock != NULL) lock_release(ptelock);							
 							return 0;
 						}
 						tlb_random(ehi, elo | TLBLO_DIRTY | TLBLO_VALID);
 
 						splx(spl);
 
-						//if(swapping_enabled) lock_release(swapLock);
+						if(swapping_enabled && ptelock != NULL) lock_release(ptelock);
 						return 0;
 					}
 					//Page not in memory (Page fault). Must PAGE IN:
@@ -425,7 +430,11 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
  					//Lock down PTE
 
 					//Allocate new page to swap in to
-					
+					if(swapping_enabled && ptelock != NULL){
+						lock_acquire(swapLock);
+						//lock_acquire(ptelock);
+					} 
+						
 					
 					vaddr_t allocAddr = alloc_upages(1, (struct pte*)curpte->data);
 					
@@ -439,7 +448,11 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 					((struct pte*)curpte->data)->inmem = true;
 					((struct pte*)curpte->data)->swapIndex = -1;
 					
-					lock_release(swapLock);
+					//if(ptelock != NULL)lock_release(ptelock);
+					if(swapping_enabled && ptelock != NULL){
+						lock_release(ptelock);
+						lock_release(swapLock);
+					} 
 					return 0;
 				
 
@@ -450,6 +463,7 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 				curpte = LLnext(curpte);
 			}
 			//Failed to find page in table. Must allocate new one.
+
 			struct pte* newPage = kmalloc(sizeof(*newPage));
 			vaddr_t allocAddr = alloc_upages(1, newPage);
 
@@ -458,7 +472,7 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 			newPage->inmem = true;
 			newPage->swapIndex = -1;
 			newPage->pte_lock = lock_create("insert spongebob meme here");
-
+			lock_acquire(newPage->pte_lock);
 			LLaddWithDatum((char*)"weast", newPage, curpte);
 			
 			/*
@@ -469,7 +483,6 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 			elo = newPage->ppn;
 			get_corePage(paddr_to_index((paddr_t)elo))->clockbit = true;
 			
-			if(swapping_enabled) lock_release(swapLock);
 			spl = splhigh();
 			
 			if(tlb_probe(ehi, elo) >= 0){
@@ -480,8 +493,8 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 			tlb_random(ehi, elo | TLBLO_DIRTY | TLBLO_VALID);
 			
 			splx(spl);
-
-			//if(swapping_enabled) lock_release(swapLock);
+			lock_release(newPage->pte_lock);
+			//if(swapping_enabled && ptelock != NULL) lock_release(ptelock);
 			return 0;
 
 		}
@@ -495,6 +508,6 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 	//Seg fault
 	(void)faulttype;
 	(void)faultaddress;
-	if(swapping_enabled) lock_release(swapLock);
+	//if(swapping_enabled) lock_release(swapLock);
 	return EFAULT;
 }

@@ -78,7 +78,8 @@ as_create(void)
 	}
 	firstPage->vpn = -1;
 	firstPage->ppn = -1;
-	firstPage->pte_lock = NULL;
+	// struct lock* fucklock = lock_create("fucklock");
+	// firstPage->pte_lock = fucklock;
 	as->pageTable->data = firstPage;
 	as->loadMode = 0;
 
@@ -128,6 +129,7 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 			newpte->pte_lock = lock_create("3.3 fucking blows");
 			
 			lock_acquire(swapLock);
+			lock_acquire(oldpte->pte_lock);
 
 		 	//Find and mark a free index in the swapDisk
 			unsigned destIndex;
@@ -150,7 +152,7 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 				
 				lock_release(copyBuffer_lock);
 			}
-
+			lock_release(oldpte->pte_lock);
 			lock_release(swapLock);
 		}else{
 
