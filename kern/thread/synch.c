@@ -39,7 +39,7 @@
 #include <thread.h>
 #include <current.h>
 #include <synch.h>
-
+#include <spl.h>
 ////////////////////////////////////////////////////////////
 //
 // Semaphore.
@@ -191,6 +191,7 @@ lock_acquire(struct lock *lock)
 
 
 	//Make sure the current thread exists
+	
 	KASSERT(curthread != NULL);
 	//Make sure that the lock exists
 	KASSERT(lock != NULL);

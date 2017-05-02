@@ -105,7 +105,7 @@ void coremap_init(void){
 		newPage->npages = 0;
 		newPage->user = false;
 		newPage->owner_pte = NULL;
-		newPage->clockbit = true;
+		newPage->clockbit = false;
 
 		buildPointer += structSize;	
 

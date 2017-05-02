@@ -95,7 +95,7 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 				get_corePage(j)->npages = npages;
 				get_corePage(j)->user = user;
 				get_corePage(j)->owner_pte = owner;
-				get_corePage(j)->clockbit = true;
+				//get_corePage(j)->clockbit = true;
 			}
 			used += PAGE_SIZE * npages;
 			pagesAlloced += npages;
@@ -129,7 +129,7 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 		lock_acquire(swapLock);
 	}
 	
-	//Random eviction: pick a random user page to evict
+	//Clock eviction
 	bool upage_found = false;
 	int victimIndex = -1;
 	while(!upage_found){
@@ -392,23 +392,24 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 					if(((struct pte*)curpte->data)->inmem){
 						//Verified page in memory. Now we need to load the TLB
 						
-						spl = splhigh();
-						
 						elo = (uint32_t)(((struct pte*)curpte->data)->ppn);
 						get_corePage(paddr_to_index((paddr_t)elo))->clockbit = true;
+						
+						if(swapping_enabled) lock_release(swapLock);
+						spl = splhigh();
+						
 						if(tlb_probe(ehi, elo) >= 0){
 							tlb_write(ehi, elo | TLBLO_DIRTY | TLBLO_VALID, tlb_probe(ehi, elo | TLBLO_DIRTY | TLBLO_VALID));
 							
 							splx(spl);
 							
-							if(swapping_enabled) lock_release(swapLock);
 							return 0;
 						}
 						tlb_random(ehi, elo | TLBLO_DIRTY | TLBLO_VALID);
 
 						splx(spl);
 
-						if(swapping_enabled) lock_release(swapLock);
+						//if(swapping_enabled) lock_release(swapLock);
 						return 0;
 					}
 					//Page not in memory (Page fault). Must PAGE IN:
@@ -460,21 +461,22 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 			 * This code is not actually necessary as we can let it fault again 
 			 * and use the code above instead.
 			 */
-			spl = splhigh();
-			
 			elo = newPage->ppn;
 			get_corePage(paddr_to_index((paddr_t)elo))->clockbit = true;
+			
+			if(swapping_enabled) lock_release(swapLock);
+			spl = splhigh();
+			
 			if(tlb_probe(ehi, elo) >= 0){
 				tlb_write(ehi, elo | TLBLO_DIRTY | TLBLO_VALID, tlb_probe(ehi, elo | TLBLO_DIRTY | TLBLO_VALID));
 				splx(spl);
-				if(swapping_enabled) lock_release(swapLock);
 				return 0;
 			}
-			tlb_random((uint32_t)newPage->vpn, (uint32_t)newPage->ppn | TLBLO_DIRTY | TLBLO_VALID);
+			tlb_random(ehi, elo | TLBLO_DIRTY | TLBLO_VALID);
 			
 			splx(spl);
 
-			if(swapping_enabled) lock_release(swapLock);
+			//if(swapping_enabled) lock_release(swapLock);
 			return 0;
 
 		}
