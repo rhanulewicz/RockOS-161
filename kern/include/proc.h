@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2013
  *	The President and Fellows of Harvard College.
@@ -37,6 +38,8 @@
  */
 
 #include <spinlock.h>
+#include <vm.h>
+#include <addrspace.h>
 //#include <uio.h>
 
 struct addrspace;
@@ -67,7 +70,7 @@ struct proc {
 	unsigned p_numthreads;		/* Number of threads in this process */
 
 	/* VM */
-	struct addrspace *p_addrspace;	/* virtual address space */
+	struct addrspace* p_addrspace;	/* virtual address space */
 
 	/* VFS */
 	struct vnode *p_cwd;		/* current working directory */
@@ -80,7 +83,7 @@ struct proc {
 	bool signal;
 	struct lock* proc_lock;
 
-	
+		
 	/* add more material here as needed */
 };
 

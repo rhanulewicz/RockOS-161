@@ -102,6 +102,9 @@ proc_create(const char *name)
 	for(int i = 0; i < 64; ++i){
 		proc->fileTable[i] = NULL;
 	}
+	
+	proc->p_addrspace = as_create();
+	
 
 	return proc;
 }
@@ -176,7 +179,6 @@ proc_destroy(struct proc *proc)
 		 * random other process while it's still running...
 		 */
 		struct addrspace *as;
-
 		if (proc == curproc) {
 			as = proc_setas(NULL);
 			as_deactivate();
@@ -205,6 +207,7 @@ proc_bootstrap(void)
 
 	kproc = proc_create("[kernel]");
 	procLock = lock_create("proclock");
+	buffLock = lock_create("bufferLock");
 	if (kproc == NULL) {
 		panic("proc_create for kproc failed\n");
 	}
@@ -237,6 +240,7 @@ proc_create_runprogram(const char *name)
 
 	/* VM fields */
 
+	as_destroy(newproc->p_addrspace);
 	newproc->p_addrspace = NULL;
 
 	/* VFS fields */

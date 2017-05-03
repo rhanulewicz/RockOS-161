@@ -110,7 +110,7 @@ kill_curthread(vaddr_t epc, unsigned code, vaddr_t vaddr)
 	/*
 	 * You will probably want to change this.
 	 */
-
+	//panic("spongebobu\n");
 	kprintf("Fatal user mode trap %u sig %d (%s, epc 0x%x, vaddr 0x%x)\n",
 		code, sig, trapcodenames[code], epc, vaddr);
 	sig_exit(sig);
@@ -141,7 +141,6 @@ mips_trap(struct trapframe *tf)
 	iskern = (tf->tf_status & CST_KUp) == 0;
 
 	KASSERT(code < NTRAPCODES);
-
 	/* Make sure we haven't run off our stack */
 	if (curthread != NULL && curthread->t_stack != NULL) {
 		KASSERT((vaddr_t)tf > (vaddr_t)curthread->t_stack);

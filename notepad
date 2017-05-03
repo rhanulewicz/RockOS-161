@@ -302,7 +302,7 @@ Statically Sized Segments
 	Text(code), Data(initialized local variables), and BSS (uninitialized static variables)
 		These are set up at load time in os161, in load_elf() -> as_define_region()
 
-	Stack -- set up in as_define_stack()
+	Stack -- set up in as_define_stack() (Thanks carl)
 
 	These segements never change in size once set up
 		Not the same as allocating underlying physical pages
@@ -310,16 +310,16 @@ Statically Sized Segments
 	Additionally, DumbVM also *allocates* physical memory statically: as_prepare_load()
 		Need to change this approach to dynamic allocation
 
-Heap
-	No support for this in os161 out of the box
+	Heap
+		No support for this in os161 out of the box
 
-	This can change in size while the program is runnning
+		This can change in size while the program is runnning
 
-	Additionally, memory in the segment can be both dynamically allocated and reclaimed
+		Additionally, memory in the segment can be both dynamically allocated and reclaimed
 
 Virtual memory Decision Tree
 	Is the vaddr in an existing TLB translation entry?
-		If yes, no failt (handled in hardware transparently)
+		If yes, no fault (handled in hardware transparently)
 
 	If not, is the vaddr in a segment (region)?
 		If not, segmentation fault
@@ -381,7 +381,7 @@ GETTING STARTED
 	
 		Reuse: as_activate()
 	
-	Add support for fork() and memory reclamation 00 pass forktest
+	Add support for fork() and memory reclamation -- pass forktest
 		Need: as_copy(), as_destroy()
 	
 		Clean up ALL memory leaks, tested by khu in test161
@@ -391,3 +391,206 @@ GETTING STARTED
 	
 	Need to support dynamic memory allocation
 		as_prepare_load() and as_complete_load() are used in DumbVM but may not be needed at all -- used for static allocation
+
+Does the process page table abstract out the contiguousness of the coremap?
+Clock LRU? 
+	Brijesh used this. Took him to the finish line.
+Speed of linkedlist
+	Brijesh highly recommends the 4LPT
+Will user processes be starting other user processes?
+	That's what fork does you dummy
+Do we need to worry about orphans now?
+
+Do we decide where the static regions start and end? 
+	as_define_region
+Do we decide where the heap starts and ends? 
+	as_define_region
+Does everything need to be page aligned? 
+	this is kindof implicitly taken care of
+Static stack. No dynamic stack. Brijesh won't tell us how large it needs to be becuase he wants us to suffer
+
+Dont need to deal with offset at all. Just chop it off. VPN is all you need.
+
+If we do 4LPT
+
+PTE[]       : stores PTE
+PTE[][]     : stores PTE[]
+PTE[][][]   : stores PTE[][]
+PTE[][][][] : stores PTE[][][]
+
+0xFFFFFFFF gets chopped down to 0xFFFFF, which is the same as 
+
+11111 11111 11111 11111 in base 2
+
+Each 5-bit chunk of that number is an index in each successive PT.
+
+==EXPERIMENTAL BULLSHIT BELOW. POSSIBLY WRONG==
+I think we might have to write something like this for allocing inside addrspace:
+
+	curVaddr //Where the allocation is starting in the address space. How to get this?
+	pages = needed_pages(alloc_size);
+	blockStart = alloc_kpages(pages);
+	for(int i = 0; i < pages; i++){
+		struct pte curpte;
+		curpte->vpn = (top 20 bits of curVaddr) + i;
+		curpte->ppn = paddr_to_ppn((blockStart - 0x80000000) + (PAGE_SIZE * i));
+
+[ASST3.3 RECITATION 1: ASST3.3 BOOTSTRAP]
+
+Expand vm_fault to do the swapping-in algorithm
+
+Eviction
+	Use the virtual memory system to give the user process the illusion that it has more physical memory than it does
+		The amount of allocated virtual memory in the addres space can be greater than the amount of allocated physical memory
+
+		The remainder of allocated virtual memory resides on the backing storge (disk)
+
+	The process of moving data between memory and disk is called swapping
+		Moving data from a physical page to disk to make room is called eviction.
+
+Swapping -- Implementation
+	Changes to existing data structures
+		Additional state info for physical page frames
+		
+		Additional state information for virtual pages
+	
+	Additional data structures
+		Swapdisk, allocation bitmap
+
+	Changes to existing routines
+		Add support for page-in to fault handler -- vm_fault or equivalent
+		
+		Add support for page-out eviction to physical page allocator -- getppages() or equivalent
+
+	Additional new routines
+		Swapdisk blockread(), blockwrite()
+
+		"A block refers to a 4096 block that resides on disk"
+
+	Optimizations as needed
+		ASST3.3 has time and space performance requirements -- logical correctness is not enough
+
+	"Should never have to deal with the problem of swapdisk running out of space"
+
+Swapping -- Additions
+	Physical Page Frames (in coremap)
+		Need some way of backtracking to the PTE of the process that currently owns this frame
+
+		Now need to track whether a frame is part of a kernel data allocation
+
+		Possibly other information for use in, say, an eviction algorithm or TLB shootdown code
+
+	Virtual Page Table Entry (PTE)
+		Now need to track location of data: in memory or on disk
+
+		Need sychnronization information (lock etc.)
+
+"Coremap size doesn't matter anymore, don't worry about it. Just add what you need."
+
+Swapping In
+	Need to swap in whenever we try to access a page whose data is on disk
+		This happens in vm_fault and as_copy
+
+	Allocate a physical page in memory as usual
+		Underneath, however, this may trigger swapping "out" (evicting another virtual page to free up a physical page for use) if the coremap is full
+
+	Copy the page data from disk to memory: blockread()
+
+	Change the state of the page table entry (PTE) to indicate that the data of the virtual page is now in_memory
+		The PTE is shared data in ASST3.3 -- yet another process may be trying to evict *this* page and change its state back to on_disk
+
+"One design thing: We recommend, once you start doing something, let it go to completion. Once you begin the eviction process, let it run through to completion before you have to undo something"
+
+Swapping Out
+	Need to swap out whenever we try to allocate a page and the coremap is full
+	
+	Select a victim page to evict from the coremap
+		Several eviction strategies to use -- complexity/performace tradeoff
+		
+		Good page frames not to evict: those holding kernel structures, or frames already in eviction
+		
+	Update the state of both the victim page frame and victim PTE
+		The page frame has a new owner, the state of the victim PTE is now on_disk
+		
+		Both the coremap and PTE are shared data. Can need to hold *both* locks at the same time.
+			Lock type and acquisition order matters (deadlock issues)
+			
+			The state of data may change if a lock is dropped and reacquired (sometimes necessary)
+	
+	The kernel can swap out user processes and user processes can swap out each other
+		USER PROCESSES CANNOT SWAP OUT KERNEL STUFF	
+
+	"Go for a clock or a LRU algorithm"
+
+	"Eviction is not a ton of code -- about 300 lines to getppages. It's just very tricky."
+
+	May need to remove the translation entry corresponding to the victim virtual page from another CPU's TLB
+		Code to send a message to anohter CPU in tlb_shootdown()
+
+		Only necessary if the victim thread state is currently RUN
+
+	"Whenever you evict a page, flush the CPU/TLB. Inefficient but will work."
+
+	Copy the page data from memory to disk: blockwrite()
+		(optional) If maintaining page clean/dirty state, only necessary if state is dirty.
+
+
+[GETTING STARTED]
+
+Write/expand data structures
+	Add additional fields to page frame struct, PTE struct
+		Design swapdisk data and allocation bitmap
+			Use bitmap to track 4k blocks on swapdisk
+				Note that the bitmap is a shared structure
+
+Write swapdisk access routines
+	Initialization -- set up in vm_bootstrap()
+		If device is absent, disable swapping (will be tested)
+
+	Can us the initialization and access routines in bitmap.h
+
+	Write read block and write block routines
+		VOP_READ/WRITE diretly to/from kernel space
+
+	Test swapdisk -- need to write your own
+
+	"lhd0raw:" -- device name (recall "con:")
+
+	Use VOP_STAT to figure out how large the swapdisk is since it's just a file
+
+Write pagein/pageout routines
+	Expand vm_fault() and getppages() or equivalent
+
+	Use shorter eviction victim selection strategy for now -- random, roundrobin
+		Likely not good enough to pass tests later -- use clock or LRU strategy
+
+	Modify as_copy() and as_destroy() to support virtual page state, data can now be on disk
+		Source data from copy may be on disk => pagein
+
+		Target data for destroy may be on disk => deallocate
+
+	Test: get the single-process tests passing (sort, matmult) before continuing
+		Launch from kernel menu to avoid shell shit
+
+		SUBMIT: Get 40 points now.
+
+Add support for multiple processes
+	Need to sync access to multiple shared data: PTEs, coremap
+
+	Lock type and acquisition ordering matters -- prevent dealocks
+
+	Test: get multiprocess tests passing with 1 CPU
+
+Add support for multiple CPUs
+	Add TLB shootdown
+		Simplest approach to start: clear TLB
+
+	Test: get multiprocess tests passing with multiple CPUs from kernel shell
+
+Add optimizations
+	Definitely: better page eviction strategy
+
+	Likely: Better TLB shootdown method (only need if victim process state is RUN)
+
+	Possible: cleaning service. Copy on write.
+		Need to track page clean/dirty state

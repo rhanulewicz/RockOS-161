@@ -4,7 +4,7 @@
 #include <stdio.h>
 
 
-LinkedList* LLcreate(){
+LinkedList* LLcreate(void){
 	LinkedList * newList;
 	newList = malloc(sizeof(LinkedList));
 	newList->prev = NULL;

@@ -1,3 +1,5 @@
+
+
 /*
  * Copyright (c) 2000, 2001, 2002, 2003, 2004, 2005, 2008, 2009
  *	The President and Fellows of Harvard College.
@@ -33,18 +35,29 @@
 /*
  * VM system-related definitions.
  *
- * You'll probably want to add stuff here.
+ * You'll probably want to add stuff here.t* newPT = newas->pageTable;
  */
 
 
+
+
 #include <machine/vm.h>
+#include <bitmap.h>
+#include <synch.h>
+#include <addrspace.h>
 
 /* Fault-type arguments to vm_fault() */
 #define VM_FAULT_READ        0    /* A read was attempted */
 #define VM_FAULT_WRITE       1    /* A write was attempted */
 #define VM_FAULT_READONLY    2    /* A write to a readonly page was attempted*/
 
+extern struct vnode* swapDisk;
+extern struct bitmap* swapMap;
+extern struct lock* swapLock;
+extern int disksize;
+extern bool swapping_enabled;
 
+paddr_t getFirstPaddr(void);
 /* Initialization function */
 void vm_bootstrap(void);
 
@@ -53,6 +66,7 @@ int vm_fault(int faulttype, vaddr_t faultaddress);
 
 /* Allocate/free kernel heap pages (called by kmalloc/kfree) */
 vaddr_t alloc_kpages(unsigned npages);
+vaddr_t alloc_kpages_nozero(unsigned npages);
 void free_kpages(vaddr_t addr);
 
 /*
@@ -65,21 +79,37 @@ unsigned int coremap_used_bytes(void);
 /* TLB shootdown handling called from interprocessor_interrupt */
 void vm_tlbshootdown(const struct tlbshootdown *);
 
-void coremap_init(void);
 void coremap_bootstrap(void);
+void coremap_init(void);
 
 unsigned long needed_pages(int bytes);
 
 struct corePage* get_corePage(int index);
 
-//int get_Sizes(void);
-
 struct corePage{
 	int allocated;
 	int firstpage;
 	int npages;
-	paddr_t block;
+	bool user;
+	struct pte* owner_pte; 
+	struct thread* owner_thread;
+	bool clockbit;
 };
 
+/*
+ * Copies a page from disk to memory. (source, destination)
+ */
+void blockread(int swapIndex, vaddr_t vaddr);
+
+/*
+ * Copies a page from memory to disk. (source, destination)
+ */
+void blockwrite(vaddr_t vaddr, int swapIndex);
+
+vaddr_t alloc_upages(unsigned npages, struct pte* owner);
+
+paddr_t index_to_pblock(unsigned long index);
+
+unsigned long paddr_to_index(paddr_t paddr);
 
 #endif /* _VM_H_ */

@@ -38,11 +38,17 @@ vaddr_t firstfree;   /* first free virtual address; set by start.S */
 static paddr_t firstpaddr;  	/* address of first free physical page */
 static paddr_t lastpaddr;   	/* one past end of last free physical page */
 static paddr_t coremapStart;	/* The starting address of the coremap */
+
 //static int sizes = 0;
 /*
  * Called very early in system boot to figure out how much physical
  * RAM is available.
  */
+
+paddr_t getFirstPaddr(){
+	return firstpaddr;
+}
+
 void
 ram_bootstrap(void)
 {
@@ -82,7 +88,7 @@ void coremap_init(void){
 	int structSize = sizeof(struct corePage);
 	int coremapSize = numberOfEntries * structSize;
 	int pagesForKernel = needed_pages(firstpaddr);
-	coremapStart = pagesForKernel * 4096;
+	coremapStart = pagesForKernel * PAGE_SIZE;
 	int pagesForCoremap = needed_pages(coremapSize);
 	
 	//sizes  = (pagesForKernel * 4096) + (pagesForCoremap * 4096);
@@ -90,20 +96,23 @@ void coremap_init(void){
 	void* buildPointer = (void*)coremapStart;
 
 	ram_stealmem(pagesForCoremap);
-	for(unsigned int i = 0; i < (unsigned int )numberOfEntries; i++){
+	for(unsigned int i = 0; i < (unsigned int)numberOfEntries; i++){
 		
 		struct corePage* newPage = PADDR_TO_KVADDR(buildPointer);
 
 		newPage->allocated = 0;
 		newPage->firstpage = -1;
 		newPage->npages = 0;
-		newPage->block = (0x80000000 + (i * 0x1000));
+		newPage->user = false;
+		newPage->owner_pte = NULL;
+		newPage->clockbit = false;
+		newPage->owner_thread = NULL;
+
 		buildPointer += structSize;	
 
 	}
-
-	alloc_kpages(pagesForKernel);
-	alloc_kpages(pagesForCoremap);
+	alloc_kpages_nozero(pagesForKernel);
+	alloc_kpages_nozero(pagesForCoremap);
 }
 
 
@@ -120,6 +129,22 @@ struct corePage* get_corePage(int index){
 unsigned long needed_pages(int bytes){
 	KASSERT(bytes > 0);
 	return 1 + ((bytes - 1) / PAGE_SIZE);
+}
+
+/*
+ * Returns the starting physical address of a block of memory corresponding to the given
+ * index in the coremap.
+ */
+paddr_t index_to_pblock(unsigned long index){
+	return index * PAGE_SIZE;
+}
+
+/*
+ * Returns the index in the coremap corresponding to the physical block of memory in which 
+ * the given physical address is located.
+ */
+unsigned long paddr_to_index(paddr_t paddr){
+	return (unsigned long)(paddr / PAGE_SIZE);
 }
 
 /*

@@ -34,12 +34,14 @@
  * Address space structure and operations.
  */
 
-
+#include <spl.h>
+#include <mips/tlb.h>
 #include <vm.h>
 #include "opt-dumbvm.h"
+#include <linkedList.h>
+
 
 struct vnode;
-
 
 /*
  * Address space - data structure associated with the virtual memory
@@ -47,6 +49,14 @@ struct vnode;
  *
  * You write this.
  */
+
+struct region {
+    vaddr_t start;
+    vaddr_t end;
+    int read;
+    int write;
+    int exec;
+};
 
 struct addrspace {
 #if OPT_DUMBVM
@@ -58,9 +68,26 @@ struct addrspace {
         size_t as_npages2;
         paddr_t as_stackpbase;
 #else
+        
+        LinkedList* regions;
+        vaddr_t stackbound;
+        vaddr_t heap_start;
+        LinkedList* pageTable;
+        bool loadMode;
+
         /* Put stuff here for your VM system */
 #endif
 };
+
+
+struct pte {
+    unsigned long vpn;
+    unsigned long ppn;
+    bool inmem;
+    int swapIndex; //The integer index in the bitmap corresponding to a block on swapdisk
+    struct lock* pte_lock;
+};
+
 
 /*
  * Functions in addrspace.c:
@@ -117,7 +144,7 @@ int               as_define_region(struct addrspace *as,
 int               as_prepare_load(struct addrspace *as);
 int               as_complete_load(struct addrspace *as);
 int               as_define_stack(struct addrspace *as, vaddr_t *initstackptr);
-
+void copyBuffer_init(void);
 
 /*
  * Functions in loadelf.c

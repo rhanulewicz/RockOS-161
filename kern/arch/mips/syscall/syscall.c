@@ -89,6 +89,8 @@
 struct lock* procLock;
 int	highPid;
 struct proc* procTable[2000];
+static char buffer[__ARG_MAX];
+struct lock* buffLock;
 
 ssize_t open(char *filename, int flags, int32_t *retval){
 	if(flags != 22 && flags != 21 && flags != O_RDONLY && flags != O_WRONLY && flags != O_RDWR && flags != O_CREAT && flags != O_EXCL && flags != O_TRUNC && flags != O_APPEND){
@@ -96,8 +98,9 @@ ssize_t open(char *filename, int flags, int32_t *retval){
 		return EINVAL;
 	}
 
-	char* ptr;
-	int err = copyin((const_userptr_t)filename, &ptr, 4);
+	char* ptr = kmalloc(64);
+	int shit = 4;
+	int err = copyinstr((const_userptr_t)filename, ptr, 64, (size_t*)&shit);
 	if(err){
 		*retval = (int32_t)0;
 		return EFAULT;
@@ -113,10 +116,10 @@ ssize_t open(char *filename, int flags, int32_t *retval){
 	*file->refCount = 1;
 	file->permflag = flags;
 	file->offset = 0;
-	
-	char* filestar = filename;
+
 	//Generate our vnode
-	err = vfs_open(filestar, flags, 0, &file->llfile);
+	err = vfs_open(ptr, flags, 0, &file->llfile);
+	kfree(ptr);
 	if(err){
 		fileContainerDestroy(file);
 		*retval = 0;
@@ -448,6 +451,7 @@ pid_t fork(struct trapframe *tf, int32_t *retval){
 
 void copytf(void *tf, unsigned long ts){
 	(void)ts;
+	
 	//Activitates new address space
 	as_activate();
 	lock_acquire(curproc->proc_lock);
@@ -462,6 +466,7 @@ void copytf(void *tf, unsigned long ts){
 	ctf.tf_epc += 4;
 	//Ship the child trapframe to usermode. Wave goodbye.
 	curproc->exitCode = -1;
+
 	mips_usermode(&ctf);
 }
 
@@ -560,7 +565,7 @@ int rounded(int a){
 }
 
 int execv(const char *program, char **args, int32_t *retval){
-	
+	lock_acquire(buffLock);
 	int fakeptr;
 	int err1 = copyin((const_userptr_t)program, &fakeptr, 4);
 	if (err1){
@@ -607,7 +612,6 @@ int execv(const char *program, char **args, int32_t *retval){
 		totalSize += rounded(strlen(*(args + i)) + 1);
 	}
 	
-	void * buffer = kmalloc((4*nargs) + totalSize);
 	memset(buffer, '\0', (4*nargs) + totalSize);
 	
 	for(int i = 0; i < __ARG_MAX/8; i++){
@@ -698,8 +702,8 @@ int execv(const char *program, char **args, int32_t *retval){
 	}
 	nargs--;
 	*(char **)(stackptr + (4*(nargs))) =  NULL;
-	kfree(buffer);
 	kfree(name);
+	lock_release(buffLock);
 
 	/* Warp to user mode. */
 	enter_new_process(nargs/*argc*/, (userptr_t)stackptr/*userspace addr of argv*/,
@@ -709,6 +713,73 @@ int execv(const char *program, char **args, int32_t *retval){
 	/* enter_new_process does not return. */
 	panic("enter_new_process returned\n");
 	return EINVAL;
+}
+
+
+void* sbrk(intptr_t amount, int32_t *retval){
+	(void)amount;
+	(void)retval;
+	struct addrspace* curas = curproc->p_addrspace;
+	struct LinkedList* heap = curas->regions; 
+	//Seek to the heap region
+	while(((struct region*)heap->data)->start != curas->heap_start){
+		heap = LLnext(heap); 
+	}
+
+	//ERROR if provisional value is not page-aligned
+	if(((((struct region*)heap->data)->end + amount) % PAGE_SIZE) != 0){
+		*retval = -1;
+		return (void*)EINVAL;
+	}
+	*retval = ((struct region*)heap->data)->end;
+
+	/* Heap manipulation */
+
+	//If amount is positive...
+	if(amount >= 0){
+		//ERROR if operation would run the heap into the stack
+		if((((struct region*)heap->data)->end + amount) >= curas->stackbound){
+			*retval = -1;
+			return (void*)ENOMEM;
+		}
+		//Increase the end of the region.
+		((struct region*)heap->data)->end += amount;
+	}
+	//If it's negative...
+	else{
+		//ERROR if operation would make the heapsize negative
+		if(((long)((struct region*)heap->data)->end + amount) < (long)curas->heap_start){
+			*retval = -1;
+			return (void*)EINVAL;
+		}
+		//Decrease the end of the region and de-allocate those pages.
+		vaddr_t oldend = ((struct region*)heap->data)->end;
+		((struct region*)heap->data)->end += amount;
+		LinkedList* pageSweeper = curas->pageTable;
+		while(pageSweeper){
+			bool removePrev = false;
+			if(((struct pte*)pageSweeper->data)->vpn >= ((struct region*)heap->data)->end && ((struct pte*)pageSweeper->data)->vpn < oldend){
+				free_kpages(PADDR_TO_KVADDR(((struct pte*)pageSweeper->data)->ppn));
+				int spl = splhigh();
+				int tlbprobe = tlb_probe(((struct pte*)pageSweeper->data)->vpn, 0);
+				if(tlbprobe >= 0){
+					tlb_write(TLBHI_INVALID(tlbprobe), TLBLO_INVALID(), tlbprobe);
+				}
+				splx(spl);
+
+				removePrev = true;
+			}
+			LinkedList* prev = pageSweeper;
+			pageSweeper = LLnext(pageSweeper);
+			if(removePrev){
+				lock_destroy(((struct pte*)prev->data)->pte_lock);
+				kfree(prev->data);
+				prev->data = NULL;
+				LLremoveNode(prev);
+			}
+		}	
+	}
+	return 0;
 }
 
 void
@@ -791,6 +862,10 @@ syscall(struct trapframe *tf)
 		case SYS_execv:
 		err = execv((const char*)tf->tf_a0, (char**)tf->tf_a1, &retval);
 		break;
+
+		case SYS_sbrk:
+			err = (int32_t)sbrk((intptr_t)tf->tf_a0, &retval);
+			break;
 		
 		case SYS__exit:
 		err = 0;

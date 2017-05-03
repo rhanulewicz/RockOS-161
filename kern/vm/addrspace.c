@@ -33,12 +33,23 @@
 #include <addrspace.h>
 #include <vm.h>
 #include <proc.h>
+#include <current.h>
+#include <synch.h>
 
 /*
  * Note! If OPT_DUMBVM is set, as is the case until you start the VM
  * assignment, this file is not compiled or linked or in any way
  * used. The cheesy hack versions in dumbvm.c are used instead.
  */
+
+char* copyBuffer;
+struct lock* copyBuffer_lock;
+
+void copyBuffer_init(){
+	copyBuffer = kmalloc(4096);
+	copyBuffer_lock = lock_create("bring it arrouund town");
+	return;
+}
 
 struct addrspace *
 as_create(void)
@@ -50,9 +61,27 @@ as_create(void)
 		return NULL;
 	}
 
-	/*
-	 * Initialize as needed.
-	 */
+	as->regions = LLcreateWithName((char *)"as regions");
+	struct region* startReg = kmalloc(sizeof(struct region));
+	if(as->regions == NULL || startReg == NULL){
+		return NULL;
+	}
+	startReg->start = -1;
+	startReg->end = -1;
+	as->regions->data = startReg;
+	as->stackbound = 0;
+	
+	as->pageTable = LLcreateWithName((char *)"as page table");
+	struct pte* firstPage = kmalloc(sizeof(struct pte));
+		if(as->pageTable == NULL || firstPage == NULL){
+		return NULL;
+	}
+	firstPage->vpn = -1;
+	firstPage->ppn = -1;
+	// struct lock* fucklock = lock_create("fucklock");
+	// firstPage->pte_lock = fucklock;
+	as->pageTable->data = firstPage;
+	as->loadMode = 0;
 
 	return as;
 }
@@ -60,6 +89,7 @@ as_create(void)
 int
 as_copy(struct addrspace *old, struct addrspace **ret)
 {
+
 	struct addrspace *newas;
 
 	newas = as_create();
@@ -67,13 +97,92 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 		return ENOMEM;
 	}
 
-	/*
-	 * Write this.
-	 */
+	LinkedList* copyout = old->regions->next;
 
-	(void)old;
+	// hey deal with the read write execute;
+	//Copy region definitions
+	while(copyout){
+		vaddr_t oldstart = (((struct region*)copyout->data)->start);
+		vaddr_t oldend = (((struct region*)copyout->data)->end);
+		//kprintf("start %p, end %p\n", (void*)oldstart, (void*)oldend);
+		if(as_define_region(newas, oldstart, (size_t)(oldend - oldstart), 1,1,1) > 0){
+			return ENOMEM;
+		}
+		copyout = LLnext(copyout);
 
+	}
+
+	//For entry in old page table, put entry in new table with matching vpn
+	LinkedList* oldPT = old->pageTable->next;
+	LinkedList* newPT = newas->pageTable;
+	
+	while(1){
+
+		struct pte* oldpte = (struct pte*)oldPT->data; 
+		struct pte* newpte = kmalloc(sizeof(struct pte));
+		if(newpte == NULL){
+			return ENOMEM;
+		}
+		newpte->vpn = oldpte->vpn;
+		if(swapping_enabled){
+			newpte->inmem = 0;
+			newpte->pte_lock = lock_create("3.3 fucking blows");
+			
+			lock_acquire(swapLock);
+			lock_acquire(oldpte->pte_lock);
+
+		 	//Find and mark a free index in the swapDisk
+			unsigned destIndex;
+			int err = bitmap_alloc(swapMap, &destIndex);
+
+			 //ERROR if no space in swapmap
+			if(err){
+	 			panic("Swapdisk full in as_copy");
+	 			return 0;
+			}
+
+			newpte->swapIndex = destIndex;
+			if(oldpte->inmem){
+				blockwrite(PADDR_TO_KVADDR(((struct pte*)oldpte)->ppn), newpte->swapIndex);
+			}else{
+				lock_acquire(copyBuffer_lock);
+				
+				blockread(oldpte->swapIndex,(vaddr_t)copyBuffer);
+				blockwrite((vaddr_t)copyBuffer,newpte->swapIndex);
+				
+				lock_release(copyBuffer_lock);
+			}
+			lock_release(oldpte->pte_lock);
+			lock_release(swapLock);
+		}else{
+
+			vaddr_t allocAddr = alloc_kpages(1);
+			if(allocAddr == 0){
+				return ENOMEM;
+			}
+			newpte->ppn = (allocAddr - 0x80000000);
+			newpte->inmem = 1;
+			newpte->pte_lock = lock_create("neohoyminoy");
+			//Copy mem from old page to new page
+			memcpy((void*)PADDR_TO_KVADDR(newpte->ppn), (const void*)PADDR_TO_KVADDR((oldpte->ppn)), PAGE_SIZE);
+			
+		}
+
+		LLaddWithDatum((char*)"spongebobu", newpte, newPT);
+		if(LLnext(oldPT) == NULL){
+			break;
+		}
+		newPT = LLnext(newPT);
+		oldPT = LLnext(oldPT);
+	}	
+	
+	newas->stackbound = old->stackbound;
+	newas->heap_start = old->heap_start;
+	newas->loadMode = 0;
 	*ret = newas;
+
+	(void) ret;
+
 	return 0;
 }
 
@@ -82,28 +191,71 @@ as_destroy(struct addrspace *as)
 {
 	/*
 	 * Clean up as needed.
+	 * MUST KFREE THE DATA IN SIDE OF LINKED LIST
 	 */
 
+	if(!as){
+		return;
+	}
+	/* Free region list */
+	LinkedList* toFree = as->regions;
+	LinkedList* next = NULL;
+	
+	while(toFree){
+		next = toFree->next;
+		kfree((struct region*)toFree->data);
+		LLdestroy(toFree);
+		toFree = next;
+	}
+
+	/* Free page table */
+
+	toFree = as->pageTable;
+
+	toFree = as->pageTable->next;
+	kfree(as->pageTable->data);
+	LLdestroy(as->pageTable);
+	while(toFree){
+		next = toFree->next;
+		struct pte* dpte = (struct pte*)toFree->data; 
+		if(!dpte->inmem){
+			lock_acquire(swapLock);
+			bitmap_unmark(swapMap, (unsigned)dpte->swapIndex);
+			lock_release(swapLock);
+		}else{
+
+		free_kpages(PADDR_TO_KVADDR(((struct pte*)(toFree->data))->ppn));
+		}
+		lock_destroy(((struct pte*)(toFree->data))->pte_lock);
+		kfree((struct pte*)toFree->data);
+		LLdestroy(toFree);
+		toFree = next;
+	}
+	
 	kfree(as);
+	as = NULL;
+
 }
 
 void
 as_activate(void)
 {
+	int i, spl;
 	struct addrspace *as;
 
 	as = proc_getas();
 	if (as == NULL) {
-		/*
-		 * Kernel thread without an address space; leave the
-		 * prior address space in place.
-		 */
 		return;
 	}
 
-	/*
-	 * Write this.
-	 */
+	 //Disable interrupts on this CPU while frobbing the TLB. 
+	spl = splhigh();
+
+	for (i=0; i<NUM_TLB; i++) {
+		tlb_write(TLBHI_INVALID(i), TLBLO_INVALID(), i);
+	}
+
+	splx(spl);
 }
 
 void
@@ -130,25 +282,50 @@ int
 as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 		 int readable, int writeable, int executable)
 {
-	/*
-	 * Write this.
-	 */
+	/* Align the region. First, the base... */
+	memsize += vaddr & ~(vaddr_t)PAGE_FRAME;
+	vaddr &= PAGE_FRAME;
 
+	/* ...and now the length. */
+	memsize = (memsize + PAGE_SIZE - 1) & PAGE_FRAME;
+
+	if(vaddr + memsize != 0x80000000){
+		as->heap_start = vaddr + memsize;
+		//kprintf("new heapstart %p for addrspace %p\n", (void*)as->heap_start, as);
+	}
+	LinkedList* llcur = as->regions;
+	struct region* reg = kmalloc(sizeof(struct region));
+	if(reg == NULL){
+		return ENOMEM;
+	}
+	reg->start = vaddr;
+	reg->end = vaddr + memsize;
+	reg->read = readable;
+	reg->write = writeable;
+	reg->exec = executable;
+	while(LLnext(llcur)){
+		llcur = llcur->next;
+	}
+
+	LLaddWithDatum((char*)"wumbo", reg, llcur);
+
+	//Should we bzero?
 	(void)as;
 	(void)vaddr;
 	(void)memsize;
 	(void)readable;
 	(void)writeable;
 	(void)executable;
-	return ENOSYS;
+	// kprintf("Defined region: start: %p, end: %p and read %d write %d exec %d \n", (void*)(((struct region*)(llcur->next->data))->start), (void*)(((struct region*)(llcur->next->data))->end), readable , writeable , executable);
+		
+	return 0;
 }
 
 int
 as_prepare_load(struct addrspace *as)
 {
-	/*
-	 * Write this.
-	 */
+	
+	as->loadMode = 1;
 
 	(void)as;
 	return 0;
@@ -157,9 +334,8 @@ as_prepare_load(struct addrspace *as)
 int
 as_complete_load(struct addrspace *as)
 {
-	/*
-	 * Write this.
-	 */
+	
+	as->loadMode = 0;
 
 	(void)as;
 	return 0;
@@ -168,15 +344,14 @@ as_complete_load(struct addrspace *as)
 int
 as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 {
-	/*
-	 * Write this.
-	 */
-
-	(void)as;
 
 	/* Initial user-level stack pointer */
-	*stackptr = USERSTACK;
 
+	*stackptr = USERSTACK;
+	as->stackbound = *stackptr - 0x400000;
+	as_define_region(as, as->stackbound, 0x400000, 1, 1, 0);
+	as_define_region(as, as->heap_start, 0, 1, 1, 0);
+	(void)as;
 	return 0;
 }
 
