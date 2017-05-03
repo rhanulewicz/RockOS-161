@@ -36,7 +36,6 @@ void vm_bootstrap(){
 		panic("swapDisk null in vm_bootstrap");
 	}
 	char foo [] = "lhd0raw:";
-	//If swapdisk stops working put O_RDWR back to 1 lol idk why
 	int res = vfs_open(foo, O_RDWR, 0, &swapDisk);
 	if(res > 0){
 		swapping_enabled = false;
@@ -133,7 +132,6 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 	bool upage_found = false;
 	int victimIndex = -1;
 	while(!upage_found){
-		//kprintf("fuck %d\n", robinPointer);
 	 	if(get_corePage(robinPointer)->user){
 	 		if(get_corePage(robinPointer)->clockbit){
 	 			get_corePage(robinPointer)->clockbit = false;
@@ -149,7 +147,6 @@ getppages(unsigned long npages, bool user, struct pte* owner){
 	 		robinPointer = paddr_to_index(getFirstPaddr());
 	 	}
 	}
-	//kprintf("fadsadasFDS\n");
 
 	//Lock down PTE
 	struct corePage* victimPage = get_corePage(victimIndex);
@@ -255,12 +252,6 @@ vaddr_t alloc_kpages_nozero(unsigned npages){
 
 void free_kpages(vaddr_t addr){
 
-	// bool gotLockEarlier = false;
-	// if(swapLock != NULL && !lock_do_i_hold(swapLock)){
-	// 	gotLockEarlier = true;
-	// 	lock_acquire(swapLock);
-	// }
-
 	spinlock_acquire(&stealmem_lock);
 	vaddr_t base = PADDR_TO_KVADDR(index_to_pblock(0));
 	int page = (addr - base) / PAGE_SIZE;
@@ -280,10 +271,6 @@ void free_kpages(vaddr_t addr){
 	used -= (npages * PAGE_SIZE);
 	spinlock_release(&stealmem_lock);
 
-	// if(swapLock != NULL && gotLockEarlier){
-	// 	lock_release(swapLock);
-	// }
-
 	return;
 }
 
@@ -298,9 +285,9 @@ unsigned int coremap_used_bytes(void){
 
 /* TLB shootdown handling called from interprocessor_interrupt */
 void vm_tlbshootdown(const struct tlbshootdown * tlbs){
-	(void)tlbs;
+	
 	int spl = splhigh();
-	//kprintf("%p\n", (void*)tlbs->ts_placeholder);
+	
 	int tlbprobe = tlb_probe((vaddr_t)tlbs->ts_placeholder, 0);
 	if(tlbprobe >= 0){
 		tlb_write(TLBHI_INVALID(tlbprobe), TLBLO_INVALID(), tlbprobe);
@@ -322,13 +309,13 @@ void blockread(int swapIndex, vaddr_t vaddr){
 
 	struct uio thing;
 	struct iovec iov;
-	iov.iov_kbase = (void*)vaddr;	//Is kbase correct?
+	iov.iov_kbase = (void*)vaddr;
 	iov.iov_len = PAGE_SIZE;		
 	thing.uio_iov = &iov;
 	thing.uio_iovcnt = 1;
 	thing.uio_resid = PAGE_SIZE; 
 	thing.uio_offset = swapIndex * PAGE_SIZE;	//Offset into swapDisk to which to write
-	thing.uio_segflg = UIO_SYSSPACE;	//Is SYSSPACE correct?
+	thing.uio_segflg = UIO_SYSSPACE;
 	thing.uio_rw = UIO_READ;
 	thing.uio_space = NULL;
 
@@ -350,19 +337,17 @@ void blockwrite(vaddr_t vaddr, int swapIndex){
 
 	struct uio thing;
 	struct iovec iov;
-	iov.iov_kbase = (void*)vaddr;	//Is kbase correct?
+	iov.iov_kbase = (void*)vaddr;	
 	iov.iov_len = PAGE_SIZE;		
 	thing.uio_iov = &iov;
 	thing.uio_iovcnt = 1;
 	thing.uio_resid = PAGE_SIZE; 
 	thing.uio_offset = swapIndex * PAGE_SIZE;	//Offset into swapDisk to which to write
-	thing.uio_segflg = UIO_SYSSPACE;	//Is SYSSPACE correct?
+	thing.uio_segflg = UIO_SYSSPACE;
 	thing.uio_rw = UIO_WRITE;
 	thing.uio_space = NULL;
 
 	VOP_WRITE(swapDisk, &thing);
-
-	//..Is that it? It absolutely is.
 
 	return;
 }
@@ -387,11 +372,6 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 		vaddr_t regstart = ((struct region*)(curreg->data))->start;
 		vaddr_t regend = ((struct region*)(curreg->data))->end;
 		if(faultaddress >= regstart && faultaddress < regend){
-			//must check perms of that region to make sure that we are jelly load mode is used becasue the code segement should not be writeable after we load the code segement in the first time and we need a way to know when we are doing that.
-			// if(curthread->t_proc->p_addrspace->loadMode == 0 &&((faulttype == 0 && ((struct region*)(curreg->data))->read == 0) || (faulttype == 1 && ((struct region*)(curreg->data))->write == 0))){
-			// 	kprintf("perms failed %d %d %p\n",((struct region*)(curreg->data))->write, faulttype, (void*) regstart);
-			// 	return EFAULT;
-			// }
 			//Found valid region. Must search page table for vpn.
 			LinkedList* curpte = curthread->t_proc->p_addrspace->pageTable;
 			while(1){
@@ -432,7 +412,6 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 					//Allocate new page to swap in to
 					if(swapping_enabled && ptelock != NULL){
 						lock_acquire(swapLock);
-						//lock_acquire(ptelock);
 					} 
 						
 					
@@ -440,7 +419,7 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 					
 					//Update ppn in pte to the new physical allocation address
 					((struct pte*)curpte->data)->ppn = allocAddr - 0x80000000;
-					//Copy data from swapDisk to the new address question from david why dont we just use the pte vpn?
+					//Copy data from swapDisk to the new address
 					blockread(((struct pte*)curpte->data)->swapIndex, PADDR_TO_KVADDR(((struct pte*)curpte->data)->ppn));
 					//Clear that index in the swapMap
 					bitmap_unmark(swapMap, ((struct pte*)curpte->data)->swapIndex);
@@ -448,7 +427,6 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 					((struct pte*)curpte->data)->inmem = true;
 					((struct pte*)curpte->data)->swapIndex = -1;
 					
-					//if(ptelock != NULL)lock_release(ptelock);
 					if(swapping_enabled && ptelock != NULL){
 						lock_release(ptelock);
 						lock_release(swapLock);
@@ -494,7 +472,6 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 			
 			splx(spl);
 			lock_release(newPage->pte_lock);
-			//if(swapping_enabled && ptelock != NULL) lock_release(ptelock);
 			return 0;
 
 		}
@@ -508,6 +485,5 @@ int vm_fault(int faulttype, vaddr_t faultaddress){
 	//Seg fault
 	(void)faulttype;
 	(void)faultaddress;
-	//if(swapping_enabled) lock_release(swapLock);
 	return EFAULT;
 }
