@@ -1,7 +1,5 @@
-WELCOME TO THE CHALLEN CHALLENGE
+For setup, see: https://ops-class.org/asst/setup/
 
-3/7/17 Dave shit in the river. The most colossal shit mankind has ever seen.
-A FEW MOMENTS LATER ....
-Richards faith is restored.
+For testing, see: https://github.com/ops-class/test161
 
-THE CHALLEN CHALLENGE IS OVER VENIMUS VIDIMUS VICIMUS.
+For more information about Harvard's OS/161: http://os161.org/
