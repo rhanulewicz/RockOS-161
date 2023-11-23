@@ -1,7 +1,14 @@
-An instructional operating system based on Harvard's OS/161. 
-Implements synchronization, a system call interface, user process support, and fully-featured leakless virtual memory with TLB management and LRU swapping. 
+An instructional operating system based on Harvard's OS/161 with our own custom from-scratch implementations of:
+  * Synchronization (locks, condition variables, reader-writer locks)
+  * File system call interface (open, close, read, write, getpid, dup2)
+  * User process support (fork, execv, sbrk)
+  * Fully-featured virtual memory subsystem with TLB management and LRU swapping.
+
+------
 
 Passes all test161 test suites with a perfect score. Unfortunately the leaderboards are no longer online.
+
+------
 
 For setup, see: https://ops-class.org/asst/setup/
 
